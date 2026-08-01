@@ -12,7 +12,18 @@ Built by a Beirut Arab University student team, 12 weeks.
 | `web/` | Dispatcher & supervisor dashboard | Web |
 | `docs/decisions/` | Written decision records | All |
 | `docs/api/` | OpenAPI specification | Backend + squad leads |
-| `docs/manuals/` | Arabic user manuals | Design & docs |
+| `docs/design/` | Mockup source files | All |
+| `docs/manuals/` | Arabic user manuals | All |
+
+## Design
+
+Figma mockups — [officer app](https://www.figma.com/design/eVZW8wpfWk3oxAmKCKlULw/Untitled?node-id=0-1) · [web dashboard](https://www.figma.com/design/eVZW8wpfWk3oxAmKCKlULw/Untitled?node-id=6-3043)
+
+Both are in Arabic (RTL) and English. Source HTML files are in `docs/design/`.
+
+Follows Section 8 of the requirements: municipal blue `#1F3864`, accent `#2E5496`,
+status colours green `#2E7D32` / amber `#F9A825` / red `#C62828`.
+Cairo for Arabic, Inter for English. Minimum 48dp touch targets on mobile.
 
 ## Working agreement
 
@@ -35,3 +46,11 @@ Built by a Beirut Arab University student team, 12 weeks.
     git push -u origin feature/my-task
 
 Then open a pull request on GitHub and tell your squad lead.
+
+## Setup
+
+Each folder has its own README with setup instructions for that component.
+
+## Team
+
+See `docs/decisions/000-team-structure.md` for squad assignments and ownership.
