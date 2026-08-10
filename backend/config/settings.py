@@ -47,10 +47,21 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'corsheaders',
-
-    'core',
+  'core',
     'users',
     'authentication',
+    'shifts',
+    'missions',
+    'panic',
+    'reports',
+    'notifications',
+]
+AUTH_USER_MODEL = "users.User"
+
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
 ]
 
 MIDDLEWARE = [
@@ -163,3 +174,5 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
