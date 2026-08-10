@@ -116,18 +116,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "municipal_police",
-        "USER": "municipal_police_user",
-        "PASSWORD": "AyahLog@1978",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": config("DB_NAME"),
+        "USER": config("DB_USER"),
+        "PASSWORD": config("DB_PASSWORD"),
+        "HOST": config("DB_HOST"),
+        "PORT": config("DB_PORT"),
     }
 }
-
-PASSWORD_HASHERS = [
-    'django.contrib.auth.hashers',
-    ''
-]
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
