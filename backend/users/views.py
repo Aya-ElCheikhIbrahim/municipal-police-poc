@@ -34,13 +34,13 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserUpdateSerializer
         return UserSerializer
 
-    def get_permission (self):
+    def get_permissions (self):
 
         if self.action == "me":
             return [IsAuthenticated()]
         return super().get_permissions()
 
-    def get_queryset(Self):
+    def get_queryset(self):
 
         qs = super().get.queryset()
         role = self.request.query_params.get("role")
@@ -48,7 +48,7 @@ class UserViewSet(viewsets.ModelViewSet):
             qs = qs.filter(role=role)
         active = self.request.query_params.get("is_active")
         if active is not None:
-            qs = qs.filter(is_Acytive= active.lower() == "true")
+            qs = qs.filter(is_active= active.lower() == "true")
         return qs 
 
     def perform_create (self, serializer):
@@ -75,8 +75,8 @@ class UserViewSet(viewsets.ModelViewSet):
                 {"detail": "You cannot deactivate your own account."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        user.is_active = self.finalize_response
-        user.save(update_fields=["is_active", "updated_At"])
+        user.is_active = False
+        user.save(update_fields=["is_active", "updated_at"])
         return Response (UserSerializer(user).data)
 
     @action(detail=True, methods=["post"])
