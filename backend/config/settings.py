@@ -13,6 +13,7 @@ from datetime import timedelta
 from pathlib import Path
 from decouple import config
 from decouple import config
+from datetime import timedelta
 
 SECRET_KEY = config("SECRET_KEY")
 DEBUG = config("DEBUG", default=False, cast=bool)
@@ -78,10 +79,22 @@ REST_FRAMEWORK={
     'DEFAULT_AUTHENTICATION_CLASSES':(
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES':(
-        'rest_framework.permission.IsAuthenticated',
+    "DEFAULT_PERMISSION_CLASSES": (
+    "rest_framework.permissions.IsAuthenticated",
     ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "PAGE_SIZE":25,
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Municipal Police Field Operations API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 SIMPLE_JWT={
     'ACCESS_TOKEN_LIFETIME':timedelta(hours=1),
