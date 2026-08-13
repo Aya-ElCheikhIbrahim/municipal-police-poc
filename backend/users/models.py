@@ -92,6 +92,7 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ["full_name", "badge_number"]
 
     class Meta:
+        db_table = "accounts_user"
         indexes = [models.Index(fields=["role", "is_active"])]
         ordering = ["full_name"]
 
@@ -112,8 +113,6 @@ class User(AbstractUser):
 
 
 class DeviceToken(models.Model):
-    """FCM registration tokens. Posted by the client on every login."""
-
     class Platform(models.TextChoices):
         ANDROID = "android", "Android"
         WEB = "web", "Web"
@@ -130,6 +129,7 @@ class DeviceToken(models.Model):
     last_seen_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = "accounts_devicetoken"
         indexes = [models.Index(fields=["user", "is_active"])]
 
     def __str__(self):
@@ -141,6 +141,7 @@ class PasswordResetCode(models.Model):
     SMS is out of scope, so a Supervisor generates a code and reads it to the
     officer. Only the hash is stored.
     """
+
 
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="reset_codes"
@@ -158,6 +159,7 @@ class PasswordResetCode(models.Model):
     used_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        db_table = "accounts_passwordresetcode"
         indexes = [models.Index(fields=["user", "used_at"])]
         ordering = ["-created_at"]
 
