@@ -42,7 +42,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
 
-        qs = super().get.queryset()
+        qs = super().get_queryset()
         role = self.request.query_params.get("role")
         if role:
             qs = qs.filter(role=role)
