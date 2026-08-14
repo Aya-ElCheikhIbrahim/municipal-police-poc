@@ -15,7 +15,7 @@ from users.views import UserViewSet, DeviceTokenViewSet
 router = DefaultRouter()
 
 router.register ("users", UserViewSet, basename="user")
-router.register ("device_tokens", DeviceTokenViewSet, basename= "device_token")
+router.register ("device-tokens", DeviceTokenViewSet, basename= "device-token")
 
 app_name = "users"
 

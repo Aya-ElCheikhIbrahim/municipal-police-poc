@@ -27,7 +27,7 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSupervisor]
     http_method_names = ["get", "post", "patch", "head" , "options"]
 
-    def get_serializer_class(Self):
+    def get_serializer_class(self):
         if self.action == "create":
             return UserCreateSerializer
         if self.action == "partial_update":
