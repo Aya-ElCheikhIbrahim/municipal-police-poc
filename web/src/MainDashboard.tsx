@@ -26,7 +26,14 @@ interface SystemUser {
   phone: string;
   status: UserStatus;
 }
-
+interface AuthUser {
+  id: number;
+  username: string;
+  full_name: string;
+  badge_number: string;
+  role: 'officer' | 'sidpatcher' | 'supervisor';
+  preferred_language: string;
+}
 interface Officer {
   id: string;
   name: string;
@@ -91,7 +98,18 @@ export default function MainDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [loginError, setLoginError] = useState<string>('');
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
+  useEffect(() => {
+  const stored = localStorage.getItem('user');
+  const token = localStorage.getItem('access');
+  if (stored && token) {
+    setCurrentUser(JSON.parse(stored));
+    setIsAuthenticated(true);
+  }
+}, []);
   // Navigation & Sub-view State
   const [activeTab, setActiveTab] = useState<TabType>('Missions');
   const [reportSubTab, setReportSubTab] = useState<ReportSubTab>('Daily activity');
@@ -496,18 +514,53 @@ export default function MainDashboard() {
     setNewUserPassword('');
   };
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (username && password) {
-      setIsAuthenticated(true);
+  const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoginError('');
+  setIsLoggingIn(true);
+
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!res.ok) {
+      setLoginError('Invalid username or password');
+      return;
     }
-  };
+
+    const data = await res.json();
+
+    // Officers are mobile-only (requirements §3)
+    if (data.user.role === 'officer') {
+      setLoginError('Officers must use the mobile app.');
+      return;
+    }
+
+    localStorage.setItem('access', data.access);
+    localStorage.setItem('refresh', data.refresh);
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    setCurrentUser(data.user);
+    setIsAuthenticated(true);
+  } catch {
+    setLoginError('Cannot reach the server. Is the backend running?');
+  } finally {
+    setIsLoggingIn(false);
+  }
+};
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setUsername('');
-    setPassword('');
-  };
+  localStorage.removeItem('access');
+  localStorage.removeItem('refresh');
+  localStorage.removeItem('user');
+  setIsAuthenticated(false);
+  setCurrentUser(null);
+  setUsername('');
+  setPassword('');
+};
 
   const selectedMission = missions.find((m) => m.id === selectedMissionId);
   const selectedOfficer = officers.find((o) => o.id === selectedOfficerId);
@@ -558,7 +611,11 @@ export default function MainDashboard() {
                   required
                 />
               </div>
-
+              {loginError && (
+                <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+                  {loginError}
+                </div>
+              )}
               <button
                 type="submit"
                 className="w-full bg-[#1F3864] hover:bg-[#182c50] text-white font-medium py-2 rounded text-sm transition-colors mt-2 cursor-pointer"
@@ -651,7 +708,11 @@ export default function MainDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-slate-300 font-medium">Rania Saab · Dispatcher</span>
+            <span className="text-slate-300 font-medium">
+  {currentUser
+    ? `${currentUser.full_name} · ${currentUser.role.charAt(0).toUpperCase()}${currentUser.role.slice(1)}`
+    : ''}
+            </span>
             <button
               onClick={handleLogout}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-2.5 py-1 rounded text-xs font-medium transition-colors ml-1 cursor-pointer"
@@ -1272,8 +1333,10 @@ export default function MainDashboard() {
                     <div className="flex items-center gap-3 pt-4">
                       <button
                         type="submit"
+                        disabled={isLoggingIn}
                         className="bg-[#1F3864] hover:bg-[#182c50] text-white text-xs font-semibold px-5 py-2 rounded-md transition-colors cursor-pointer"
                       >
+                      {isLoggingIn ? 'Signing in…' : 'Sign in'}
                         Create and assign
                       </button>
                       <button
