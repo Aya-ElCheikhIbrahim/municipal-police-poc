@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Palette straight from the Figma spec sheet -->
+    <color name="brand">#1F3864</color>        <!-- Brand / primary navy -->
+    <color name="accent">#2E5496</color>       <!-- Accent blue -->
+    <color name="active_ok">#2E7D32</color>    <!-- Active / OK green -->
+    <color name="pending">#F9A825</color>      <!-- Pending amber -->
+    <color name="urgent_alert">#C62828</color> <!-- Urgent / alert red -->
+
+    <color name="brand_dark">#16294B</color>
+    <color name="urgent_dark">#8E1F1F</color>
+
+    <!-- Neutrals -->
+    <color name="bg_canvas">#F2F3F5</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="text_primary">#1C1E21</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="text_on_brand">#FFFFFF</color>
+    <color name="text_on_brand_muted">#C7D0E0</color>
+    <color name="divider">#E4E6EA</color>
+    <color name="input_bg">#F5F6F8</color>
+    <color name="input_border">#D8DCE2</color>
+    <color name="skeleton">#E7E9EC</color>
+    <color name="overlay_scrim">#99000000</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

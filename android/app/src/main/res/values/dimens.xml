@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Spec note: "every tap target at least 48dp" -->
+    <dimen name="tap_target_min">48dp</dimen>
+
+    <dimen name="space_xs">4dp</dimen>
+    <dimen name="space_s">8dp</dimen>
+    <dimen name="space_m">16dp</dimen>
+    <dimen name="space_l">24dp</dimen>
+    <dimen name="space_xl">32dp</dimen>
+
+    <dimen name="corner_radius_card">14dp</dimen>
+    <dimen name="corner_radius_button">10dp</dimen>
+    <dimen name="corner_radius_chip">8dp</dimen>
+    <dimen name="corner_radius_input">10dp</dimen>
+
+    <dimen name="text_display">34sp</dimen>
+    <dimen name="text_title">18sp</dimen>
+    <dimen name="text_body">15sp</dimen>
+    <dimen name="text_caption">12sp</dimen>
+    <dimen name="text_button">15sp</dimen>
+</resources>

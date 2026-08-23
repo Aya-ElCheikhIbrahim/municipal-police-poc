@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.OfficerApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorPrimaryDark">@color/brand_dark</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="android:windowBackground">@color/bg_canvas</item>
+        <item name="android:statusBarColor">@color/brand</item>
+        <item name="android:navigationBarColor">@color/bg_canvas</item>
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
+    <style name="Theme.OfficerApp.NoActionBar" parent="Theme.OfficerApp" />
+
+    <!-- Top bar used on every "logged in" screen: brand navy, status pill on the end -->
+    <style name="AppTopBar">
+        <item name="android:background">@color/brand</item>
+        <item name="android:paddingStart">@dimen/space_m</item>
+        <item name="android:paddingEnd">@dimen/space_m</item>
+        <item name="android:paddingTop">@dimen/space_m</item>
+        <item name="android:paddingBottom">@dimen/space_m</item>
+        <item name="android:minHeight">56dp</item>
+    </style>
+
+    <style name="AppTopBar.Title">
+        <item name="android:textColor">@color/text_on_brand</item>
+        <item name="android:textSize">@dimen/text_title</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- Primary filled button - brand navy -->
+    <style name="Button.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/brand</item>
+        <item name="android:textColor">@color/text_on_brand</item>
+        <item name="android:textSize">@dimen/text_button</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">@dimen/tap_target_min</item>
+        <item name="cornerRadius">@dimen/corner_radius_button</item>
+    </style>
+
+    <style name="Button.Success" parent="Button.Primary">
+        <item name="backgroundTint">@color/active_ok</item>
+    </style>
+
+    <style name="Button.Danger" parent="Button.Primary">
+        <item name="backgroundTint">@color/urgent_alert</item>
+    </style>
+
+    <!-- Outlined / secondary button -->
+    <style name="Button.Outline" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">@color/brand</item>
+        <item name="strokeColor">@color/input_border</item>
+        <item name="android:textSize">@dimen/text_button</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">@dimen/tap_target_min</item>
+        <item name="cornerRadius">@dimen/corner_radius_button</item>
+    </style>
+
+    <style name="Button.Text" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/brand</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">@dimen/tap_target_min</item>
+    </style>
+
+    <style name="Input" />
+
+    <style name="Input.EditText">
+        <item name="android:background">@drawable/bg_input_field</item>
+        <item name="android:paddingStart">@dimen/space_m</item>
+        <item name="android:paddingEnd">@dimen/space_m</item>
+        <item name="android:minHeight">@dimen/tap_target_min</item>
+        <item name="android:textSize">@dimen/text_body</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_secondary</item>
+    </style>
+
+    <style name="StatusPill">
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_on_brand</item>
+    </style>
+
+    <style name="CardSurface">
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:padding">@dimen/space_m</item>
+    </style>
+
+    <!-- Full-bleed dialog theme: our layouts draw their own scrim + card,
+         so the window itself stays transparent and edge-to-edge. -->
+    <style name="Theme.OfficerApp.FullscreenDialog" parent="Theme.AppCompat.Dialog">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowFullscreen">false</item>
+    </style>
+</resources>

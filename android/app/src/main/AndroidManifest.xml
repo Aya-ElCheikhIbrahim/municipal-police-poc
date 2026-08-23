@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Real device location + camera permissions are declared now so the
+         backend/location-tracking work described in LocationTracker.java
+         and MissionDetailActivity's photo capture can be wired in later
+         without touching the manifest again. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <application
+        android:name=".OfficerApp"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.OfficerApp">
+
+        <activity
+            android:name=".ui.login.LoginActivity"
+            android:exported="true"
+            android:theme="@style/Theme.OfficerApp.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.shift.ShiftActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OfficerApp.NoActionBar" />
+
+        <activity
+            android:name=".ui.missions.MissionListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OfficerApp.NoActionBar" />
+
+        <activity
+            android:name=".ui.missiondetail.MissionDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OfficerApp.NoActionBar" />
+
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OfficerApp.NoActionBar" />
+
+    </application>
+</manifest>

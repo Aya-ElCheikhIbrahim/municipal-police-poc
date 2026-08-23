@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menu_state_online" android:title="@string/status_online" android:showAsAction="never" />
+    <item android:id="@+id/menu_state_offline" android:title="@string/status_no_signal" android:showAsAction="never" />
+    <item android:id="@+id/menu_state_syncing" android:title="@string/status_syncing" android:showAsAction="never" />
+</menu>
