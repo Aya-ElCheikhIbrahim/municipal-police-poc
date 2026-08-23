@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_canvas"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        style="@style/AppTopBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="@dimen/tap_target_min"
+            android:layout_height="@dimen/tap_target_min"
+            android:layout_marginStart="-8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/generic_back"
+            android:src="@drawable/ic_back" />
+
+        <TextView
+            style="@style/AppTopBar.Title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/settings_title" />
+
+        <TextView
+            android:id="@+id/tvStatusPill"
+            style="@style/StatusPill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/pill_active"
+            android:text="@string/status_online" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/space_m">
+
+            <LinearLayout style="@style/CardSurface"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingVertical="0dp">
+
+                <include layout="@layout/item_settings_row" android:id="@+id/rowLanguage" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" />
+                <include layout="@layout/item_settings_row" android:id="@+id/rowLocationHistory" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" />
+                <include layout="@layout/item_settings_row" android:id="@+id/rowMyData" />
+            </LinearLayout>
+
+            <Space android:layout_width="match_parent" android:layout_height="@dimen/space_xl" />
+
+            <Button
+                android:id="@+id/btnLogout"
+                style="@style/Button.Outline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_logout_button" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

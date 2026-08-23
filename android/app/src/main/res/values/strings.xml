@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Municipal Police</string>
+
+    <!-- Login -->
+    <string name="login_title">Municipal Police</string>
+    <string name="login_username_hint">Username</string>
+    <string name="login_password_hint">Password</string>
+    <string name="login_button">Log In</string>
+    <string name="login_footnote">Accounts are created by your supervisor. There is no self sign-up.</string>
+    <string name="login_error_required">Enter your username and password</string>
+
+    <!-- Shift / on-duty -->
+    <string name="shift_off_duty_subtitle">Tracking begins now</string>
+    <string name="shift_start_button">Start shift</string>
+    <string name="shift_off_duty_note">Your location is not recorded while you are off duty.</string>
+    <string name="shift_elapsed_label">Shift elapsed</string>
+    <string name="shift_missions_button">Missions · %1$d new</string>
+    <string name="shift_panic_button">Hold 2 seconds for panic</string>
+    <string name="shift_end_button">End shift</string>
+    <string name="shift_last_synced">Last synced %1$s ago</string>
+    <string name="shift_saved_on_phone">Saved on this phone</string>
+    <string name="shift_saved_detail">%1$d locations and %2$d photos will upload when signal returns.</string>
+    <string name="shift_uploading_title">Uploading saved work</string>
+    <string name="shift_uploading_detail">%1$d locations and %2$d photos are being sent to dispatch.</string>
+
+    <!-- Status -->
+    <string name="status_online">Online</string>
+    <string name="status_no_signal">No signal</string>
+    <string name="status_syncing">Syncing</string>
+
+    <!-- End shift dialog -->
+    <string name="end_shift_title">End your shift?</string>
+    <string name="end_shift_body">Location tracking stops and you will show as offline to dispatch.</string>
+    <string name="end_shift_stay">Stay on duty</string>
+    <string name="end_shift_confirm">End shift</string>
+
+    <!-- Panic dialog -->
+    <string name="panic_title">Dispatch has been alerted</string>
+    <string name="panic_body">Your name and location was sent to every dispatcher on duty.</string>
+    <string name="panic_cancel_button">Cancel alert · %1$ds</string>
+    <string name="panic_toast_sent">Alert sent to the operations room</string>
+
+    <!-- Missions list -->
+    <string name="missions_title">Missions</string>
+    <string name="tab_new">New</string>
+    <string name="tab_in_progress">In progress</string>
+    <string name="tab_completed">Completed</string>
+    <string name="missions_empty_title">Nothing assigned yet</string>
+    <string name="missions_empty_body">New missions arrive here as soon as dispatch sends them. You will get a notification.</string>
+    <string name="missions_error_title">Could not load missions</string>
+    <string name="missions_error_body">Check your connection and try again. Nothing you saved has been lost.</string>
+    <string name="missions_try_again">Try again</string>
+    <string name="menu_preview_states">Preview state (demo)</string>
+    <string name="state_loading">Loading</string>
+    <string name="state_success">Success</string>
+    <string name="state_empty">Empty</string>
+    <string name="state_error">Error</string>
+
+    <!-- Priority -->
+    <string name="priority_urgent">Urgent</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_low">Low</string>
+
+    <!-- Mission detail -->
+    <string name="mission_title">Mission</string>
+    <string name="mission_assigned_by">%1$s · assigned by %2$s</string>
+    <string name="mission_map_distance">%1$s away</string>
+    <string name="mission_step_acknowledge">Acknowledge</string>
+    <string name="mission_step_start">Start work</string>
+    <string name="mission_step_complete">Complete with photo</string>
+    <string name="mission_acknowledge_button">Acknowledge</string>
+    <string name="mission_navigate_button">Navigate</string>
+    <string name="mission_acknowledged_at">Acknowledged %1$s</string>
+    <string name="mission_started_at">Started %1$s</string>
+    <string name="mission_photo_progress">%1$d of %2$d photos. Taken in app, logged with time and location.</string>
+    <string name="mission_take_photo">Take photo</string>
+    <string name="mission_complete_button">Complete mission</string>
+    <string name="mission_menu_cancel">Cancel mission</string>
+
+    <!-- Cancel mission dialog -->
+    <string name="cancel_mission_title">Cancel this mission?</string>
+    <string name="cancel_mission_body">Dispatch will be notified. Add a reason so they know what happened.</string>
+    <string name="cancel_mission_reason_hint">Reason</string>
+    <string name="cancel_mission_keep">Keep it</string>
+    <string name="cancel_mission_confirm">Cancel mission</string>
+    <string name="cancel_mission_toast">The operations room has been notified</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_language_label">Language</string>
+    <string name="settings_language_value">English · العربية</string>
+    <string name="settings_location_history_label">My location history</string>
+    <string name="settings_location_history_value">See everywhere you were recorded, any time.</string>
+    <string name="settings_my_data_label">My data</string>
+    <string name="settings_my_data_value">View everything this system collects about you.</string>
+    <string name="settings_logout_button">Log out</string>
+    <string name="settings_choose_language">Choose language</string>
+    <string name="lang_english">English</string>
+    <string name="lang_arabic">العربية</string>
+
+    <string name="mission_completed_toast">Mission marked complete</string>
+    <string name="generic_back">Back</string>
+    <string name="generic_apply">Apply</string>
+</resources>

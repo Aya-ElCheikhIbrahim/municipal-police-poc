@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">شرطة البلدية</string>
+
+    <!-- تسجيل الدخول -->
+    <string name="login_title">شرطة البلدية</string>
+    <string name="login_username_hint">اسم المستخدم</string>
+    <string name="login_password_hint">كلمة المرور</string>
+    <string name="login_button">تسجيل الدخول</string>
+    <string name="login_footnote">الحسابات يُنشئها المشرف. لا يوجد تسجيل ذاتي.</string>
+    <string name="login_error_required">أدخل اسم المستخدم وكلمة المرور</string>
+
+    <!-- الدوام -->
+    <string name="shift_off_duty_subtitle">سيبدأ تتبع الموقع الآن</string>
+    <string name="shift_start_button">بدء الدوام</string>
+    <string name="shift_off_duty_note">لا يُسجَّل موقعك خارج أوقات الدوام.</string>
+    <string name="shift_elapsed_label">مدة الدوام</string>
+    <string name="shift_missions_button">المهام · %1$d جديدة</string>
+    <string name="shift_panic_button">اضغط مطولًا ثانيتين للاستغاثة</string>
+    <string name="shift_end_button">إنهاء الدوام</string>
+    <string name="shift_last_synced">آخر مزامنة قبل %1$s</string>
+    <string name="shift_saved_on_phone">محفوظ على هذا الهاتف</string>
+    <string name="shift_saved_detail">%1$d موقعًا و%2$d صورة سيُرفعان عند عودة الإشارة.</string>
+    <string name="shift_uploading_title">جارٍ رفع البيانات المحفوظة</string>
+    <string name="shift_uploading_detail">يجري إرسال %1$d موقعًا و%2$d صورة إلى غرفة العمليات.</string>
+
+    <!-- الحالة -->
+    <string name="status_online">متصل</string>
+    <string name="status_no_signal">لا إشارة</string>
+    <string name="status_syncing">مزامنة</string>
+
+    <!-- إنهاء الدوام -->
+    <string name="end_shift_title">هل تريد إنهاء الدوام؟</string>
+    <string name="end_shift_body">سيتوقف تتبع الموقع وستظهر غير متصل لدى غرفة العمليات.</string>
+    <string name="end_shift_stay">متابعة الدوام</string>
+    <string name="end_shift_confirm">إنهاء الدوام</string>
+
+    <!-- الاستغاثة -->
+    <string name="panic_title">تم تنبيه غرفة العمليات</string>
+    <string name="panic_body">أُرسل اسمك وموقعك إلى جميع المشرفين في الخدمة.</string>
+    <string name="panic_cancel_button">إلغاء التنبيه · %1$d ثوانٍ</string>
+    <string name="panic_toast_sent">تم إرسال الاستغاثة إلى غرفة العمليات</string>
+
+    <!-- قائمة المهام -->
+    <string name="missions_title">المهام</string>
+    <string name="tab_new">جديدة</string>
+    <string name="tab_in_progress">قيد التنفيذ</string>
+    <string name="tab_completed">منجزة</string>
+    <string name="missions_empty_title">لا توجد مهام حاليًا</string>
+    <string name="missions_empty_body">ستصلك المهام الجديدة فور إرسالها من غرفة العمليات، وستصلك إشعارات بذلك.</string>
+    <string name="missions_error_title">تعذّر تحميل المهام</string>
+    <string name="missions_error_body">تحقق من الاتصال وأعد المحاولة. عملك المحفوظ لم يُفقد.</string>
+    <string name="missions_try_again">إعادة المحاولة</string>
+    <string name="menu_preview_states">معاينة الحالات (تجريبي)</string>
+    <string name="state_loading">تحميل</string>
+    <string name="state_success">نجاح</string>
+    <string name="state_empty">فارغة</string>
+    <string name="state_error">خطأ</string>
+
+    <!-- الأولوية -->
+    <string name="priority_urgent">عاجل</string>
+    <string name="priority_medium">متوسط</string>
+    <string name="priority_low">منخفض</string>
+
+    <!-- تفاصيل المهمة -->
+    <string name="mission_title">المهمة</string>
+    <string name="mission_assigned_by">%1$s · أسندها %2$s</string>
+    <string name="mission_map_distance">يبعد %1$s</string>
+    <string name="mission_step_acknowledge">استلام</string>
+    <string name="mission_step_start">بدء التنفيذ</string>
+    <string name="mission_step_complete">إنجاز مع صورة</string>
+    <string name="mission_acknowledge_button">تأكيد الاستلام</string>
+    <string name="mission_navigate_button">الاتجاهات</string>
+    <string name="mission_acknowledged_at">تم الاستلام %1$s</string>
+    <string name="mission_started_at">بدأ التنفيذ %1$s</string>
+    <string name="mission_photo_progress">%1$d من %2$d صور. تُلتقط داخل التطبيق مع الوقت والموقع.</string>
+    <string name="mission_take_photo">التقاط صورة</string>
+    <string name="mission_complete_button">إنجاز المهمة</string>
+    <string name="mission_menu_cancel">إلغاء المهمة</string>
+
+    <!-- إلغاء المهمة -->
+    <string name="cancel_mission_title">هل تريد إلغاء المهمة؟</string>
+    <string name="cancel_mission_body">سيُبلَّغ غرفة العمليات. اكتب السبب ليعرفوا ما حدث.</string>
+    <string name="cancel_mission_reason_hint">السبب</string>
+    <string name="cancel_mission_keep">تراجع</string>
+    <string name="cancel_mission_confirm">إلغاء المهمة</string>
+    <string name="cancel_mission_toast">تم إبلاغ غرفة العمليات</string>
+
+    <!-- الإعدادات -->
+    <string name="settings_title">الإعدادات</string>
+    <string name="settings_language_label">اللغة</string>
+    <string name="settings_language_value">العربية · English</string>
+    <string name="settings_location_history_label">سجل مواقعي</string>
+    <string name="settings_location_history_value">يمكنك الاطلاع على مواقعك المسجّلة في أي وقت.</string>
+    <string name="settings_my_data_label">بياناتي</string>
+    <string name="settings_my_data_value">عرض كل ما يجمعه النظام عنك.</string>
+    <string name="settings_logout_button">تسجيل الخروج</string>
+    <string name="settings_choose_language">اختر اللغة</string>
+    <string name="lang_english">English</string>
+    <string name="lang_arabic">العربية</string>
+
+    <string name="mission_completed_toast">تم تسجيل المهمة كمنجزة</string>
+    <string name="generic_back">رجوع</string>
+    <string name="generic_apply">تطبيق</string>
+</resources>
