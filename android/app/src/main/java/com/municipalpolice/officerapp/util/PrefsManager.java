@@ -9,6 +9,7 @@ public class PrefsManager {
     private static final String PREFS_NAME = "officer_app_prefs";
     private static final String KEY_LANGUAGE = "language";
     private static final String KEY_LOGGED_IN = "logged_in";
+    private static final String KEY_ACCESS_TOKEN = "access_token";
 
     private final SharedPreferences prefs;
 
@@ -30,5 +31,13 @@ public class PrefsManager {
 
     public void setLoggedIn(boolean loggedIn) {
         prefs.edit().putBoolean(KEY_LOGGED_IN, loggedIn).apply();
+    }
+
+    public String getAccessToken() {
+        return prefs.getString(KEY_ACCESS_TOKEN, null);
+    }
+
+    public void setAccessToken(String token) {
+        prefs.edit().putString(KEY_ACCESS_TOKEN, token).apply();
     }
 }

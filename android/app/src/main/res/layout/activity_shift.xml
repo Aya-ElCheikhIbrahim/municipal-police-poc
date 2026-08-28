@@ -198,6 +198,7 @@
                 android:layout_height="56dp"
                 android:layout_marginBottom="@dimen/space_s"
                 android:background="@drawable/ripple_panic_button"
+                android:stateListAnimator="@animator/animator_panic_button"
                 android:text="@string/shift_panic_button"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
