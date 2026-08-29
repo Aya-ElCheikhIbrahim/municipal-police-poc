@@ -3,6 +3,7 @@ from users.models import User
 
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 class PasswordHashingTests (TestCase):
     def test_password_is_hashed_with_argon2(self):
@@ -48,3 +49,50 @@ class InactiveUserAuthenticationTests(APITestCase):
         format = "json",
         )
         self.assertNotEqual(response.status_code, status.HTTP_200_OK)
+
+
+class LogoutTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="logoutOfficer",
+            password="TestPassword123!",
+            full_name="Logout Officer",
+            badge_number="TP-0010",
+            role="officer",
+        )
+
+    def test_valid_refresh_token_is_blacklisted(self):
+        refresh = RefreshToken.for_user(self.user)
+
+        response = self.client.post(
+            "/api/v1/logout/",
+            {"refresh": str(refresh)},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        refresh_response = self.client.post(
+            "/api/v1/token/refresh/",
+            {"refresh": str(refresh)},
+            format="json",
+        )
+        self.assertEqual(refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_garbage_refresh_token_returns_400(self):
+        response = self.client.post(
+            "/api/v1/logout/",
+            {"refresh": "not-a-real-token"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_logout_succeeds_without_authorization_header(self):
+        refresh = RefreshToken.for_user(self.user)
+
+        self.client.credentials()
+        response = self.client.post(
+            "/api/v1/logout/",
+            {"refresh": str(refresh)},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)

@@ -27,7 +27,7 @@ Refresh Tiken: 12 hours, Roughly 1 shift.
 
 ### Logout
 
-Logout blacklists the refresh tokeb server-side (token_blacklist is installed). A client that only deletes its lcoal copy leaves a valid token alive for up to 12 hours call the endpoint.
+POST /api/v1/logout/ takes the refresh token in the body (`{"refresh": "<token>"}`) and blacklists it server-side (token_blacklist is installed). A client that only deletes its local copy leaves a valid token alive for up to 12 hours, so it must call the endpoint. No access token is required, so a client can still log out after its access token has expired.
 
 The access token caannot be revoked, it simply expires. This is accepted at PoC scale.
 
