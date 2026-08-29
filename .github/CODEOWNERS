@@ -1,8 +1,12 @@
 * @Aya-ElCheikhIbrahim
 
-/backend/      @backend-lead
-/android/      @android-lead
-/web/          @web-lead
-/docs/manuals/ @design-lead
+Lead ownership.
 
-/docs/api/     @Aya-ElCheikhIbrahim @backend-lead @android-lead @web-lead
+/backend/      @Aya-ElCheikhIbrahim @AbdallahNashar
+/android/      @IssamElSayed
+/web/          @HamzaMaaliki
+
+/docs/api/     @Aya-ElCheikhIbrahim @AbdallahNachar
+
+# API contract
+/docs/api/     @Aya-ElCheikhIbrahim @AbdallahNachar
