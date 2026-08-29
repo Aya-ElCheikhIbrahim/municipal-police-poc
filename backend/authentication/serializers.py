@@ -44,3 +44,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     badge_number = serializers.CharField()
     code = serializers.CharField()
     new_password = serializers.CharField(min_length=8, write_only=True)
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(required=True)

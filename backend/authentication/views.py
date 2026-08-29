@@ -9,6 +9,8 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from core.permissions import IsSupervisor
@@ -16,6 +18,7 @@ from users.models import User
 
 from .serializers import (
     LoginSerializer,
+    LogoutSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
 )
@@ -25,6 +28,28 @@ from .services import confirm_reset, issue_reset_code
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
     permission_classes = [AllowAny]
+
+
+class LogoutView(APIView):
+    # AllowAny is deliberate: refresh tokens outlive access tokens (§4.2/§4.3
+    # offline caching), so an officer ending a shift after a dead zone will
+    # often have an expired access token. A valid, non-blacklisted refresh
+    # token is sufficient proof to end the session. Do not tighten this to
+    # IsAuthenticated.
+    permission_classes = [AllowAny]
+    serializer_class = LogoutSerializer
+
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            token = RefreshToken(serializer.validated_data["refresh"])
+            token.blacklist()
+        except TokenError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PasswordResetRequestView(APIView):
