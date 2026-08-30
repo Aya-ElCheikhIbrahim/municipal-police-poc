@@ -8,7 +8,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 
 import com.municipalpolice.officerapp.R;
-import com.municipalpolice.officerapp.data.FakeAuthRepository;
+import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.login.LoginActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
@@ -69,8 +69,8 @@ public class SettingsActivity extends BaseActivity {
     }
 
     private void logout() {
-        FakeAuthRepository.getInstance().logout();
-        new PrefsManager(this).setLoggedIn(false);
+        PrefsManager prefs = new PrefsManager(this);
+        RetrofitAuthRepository.getInstance(prefs).logout();
         Intent intent = new Intent(this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
