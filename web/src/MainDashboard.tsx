@@ -14,9 +14,10 @@ L.Icon.Default.mergeOptions({
 type TabType = 'Live map' | 'Missions' | 'Reports' | 'Users';
 type ReportSubTab = 'Daily activity' | 'Weekly summary';
 type MissionPriority = 'Urgent' | 'High' | 'Low';
-type MissionStatus = 'In progress' | 'Acknowledged' | 'New' | 'Completed';
+type MissionStatus = 'In progress' | 'Acknowledged' | 'New' | 'Completed' | 'Cancelled';
 type UserRole = 'Officer' | 'Dispatcher' | 'Supervisor';
 type UserStatus = 'Active' | 'Inactive';
+type SeverityFilter = 'ALL' | 'URGENT' | 'HIGH' | 'LOW';
 
 interface SystemUser {
   id: string;
@@ -100,19 +101,21 @@ export default function MainDashboard() {
   const [password, setPassword] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [loginError, setLoginError] = useState<string>('');
-  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [_isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
   useEffect(() => {
-  const stored = localStorage.getItem('user');
-  const token = localStorage.getItem('access');
-  if (stored && token) {
-    setCurrentUser(JSON.parse(stored));
-    setIsAuthenticated(true);
-  }
-}, []);
+    const stored = localStorage.getItem('user');
+    const token = localStorage.getItem('access');
+    if (stored && token) {
+      setCurrentUser(JSON.parse(stored));
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   // Navigation & Sub-view State
   const [activeTab, setActiveTab] = useState<TabType>('Missions');
   const [reportSubTab, setReportSubTab] = useState<ReportSubTab>('Daily activity');
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('ALL');
   const [isCreatingMission, setIsCreatingMission] = useState<boolean>(false);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>('1');
@@ -215,12 +218,44 @@ export default function MainDashboard() {
     },
   ]);
 
-  // Daily Officers Activity Data
+  // Daily Officers Activity Base Data
   const dailyOfficerData = [
-    { name: 'Karim Haddad', dutyHours: '7h 42m', distance: '18.4 km', assigned: 6, completed: 5, cancelled: 0, panic: 1 },
-    { name: 'Layla Mansour', dutyHours: '8h 01m', distance: '22.1 km', assigned: 5, completed: 5, cancelled: 0, panic: 0 },
-    { name: 'Samir Youssef', dutyHours: '6h 30m', distance: '14.7 km', assigned: 4, completed: 3, cancelled: 1, panic: 0 },
-    { name: 'Nabil Khoury', dutyHours: '5h 15m', distance: '11.2 km', assigned: 3, completed: 1, cancelled: 1, panic: 0 },
+    {
+      name: 'Karim Haddad',
+      dutyHours: '7h 42m',
+      distance: '18.4 km',
+      assigned: { ALL: 6, URGENT: 1, HIGH: 2, LOW: 3 },
+      completed: { ALL: 5, URGENT: 1, HIGH: 2, LOW: 2 },
+      cancelled: { ALL: 0, URGENT: 0, HIGH: 0, LOW: 0 },
+      panic: 1,
+    },
+    {
+      name: 'Layla Mansour',
+      dutyHours: '8h 01m',
+      distance: '22.1 km',
+      assigned: { ALL: 5, URGENT: 2, HIGH: 2, LOW: 1 },
+      completed: { ALL: 5, URGENT: 2, HIGH: 2, LOW: 1 },
+      cancelled: { ALL: 0, URGENT: 0, HIGH: 0, LOW: 0 },
+      panic: 0,
+    },
+    {
+      name: 'Samir Youssef',
+      dutyHours: '6h 30m',
+      distance: '14.7 km',
+      assigned: { ALL: 4, URGENT: 1, HIGH: 1, LOW: 2 },
+      completed: { ALL: 3, URGENT: 1, HIGH: 0, LOW: 2 },
+      cancelled: { ALL: 1, URGENT: 0, HIGH: 1, LOW: 0 },
+      panic: 0,
+    },
+    {
+      name: 'Nabil Khoury',
+      dutyHours: '5h 15m',
+      distance: '11.2 km',
+      assigned: { ALL: 3, URGENT: 0, HIGH: 2, LOW: 1 },
+      completed: { ALL: 1, URGENT: 0, HIGH: 1, LOW: 0 },
+      cancelled: { ALL: 1, URGENT: 0, HIGH: 1, LOW: 0 },
+      panic: 0,
+    },
   ];
 
   // Weekly Top Officers Data
@@ -489,6 +524,34 @@ export default function MainDashboard() {
     setForceEmptyState(false);
   };
 
+  // Cancel Mission Handler
+  const handleCancelMission = (id: string) => {
+    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setMissions((prevMissions) =>
+      prevMissions.map((mission) => {
+        if (mission.id === id) {
+          const updatedLifecycle: LifecycleStep[] = [
+            ...(mission.lifecycle || []),
+            {
+              label: 'Cancelled',
+              time: currentTime,
+              subtext: `Cancelled by ${currentUser?.full_name || 'Dispatcher'}`,
+              status: 'completed',
+            },
+          ];
+
+          return {
+            ...mission,
+            status: 'Cancelled',
+            lifecycle: updatedLifecycle,
+          };
+        }
+        return mission;
+      })
+    );
+  };
+
   // Submit User Creation
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -515,52 +578,52 @@ export default function MainDashboard() {
   };
 
   const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoginError('');
-  setIsLoggingIn(true);
+    e.preventDefault();
+    setLoginError('');
+    setIsLoggingIn(true);
 
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/login/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/login/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (!res.ok) {
-      setLoginError('Invalid username or password');
-      return;
+      if (!res.ok) {
+        setLoginError('Invalid username or password');
+        return;
+      }
+
+      const data = await res.json();
+
+      // Officers are mobile-only (requirements §3)
+      if (data.user.role === 'officer') {
+        setLoginError('Officers must use the mobile app.');
+        return;
+      }
+
+      localStorage.setItem('access', data.access);
+      localStorage.setItem('refresh', data.refresh);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      setCurrentUser(data.user);
+      setIsAuthenticated(true);
+    } catch {
+      setLoginError('Cannot reach the server. Is the backend running?');
+    } finally {
+      setIsLoggingIn(false);
     }
-
-    const data = await res.json();
-
-    // Officers are mobile-only (requirements §3)
-    if (data.user.role === 'officer') {
-      setLoginError('Officers must use the mobile app.');
-      return;
-    }
-
-    localStorage.setItem('access', data.access);
-    localStorage.setItem('refresh', data.refresh);
-    localStorage.setItem('user', JSON.stringify(data.user));
-
-    setCurrentUser(data.user);
-    setIsAuthenticated(true);
-  } catch {
-    setLoginError('Cannot reach the server. Is the backend running?');
-  } finally {
-    setIsLoggingIn(false);
-  }
-};
+  };
 
   const handleLogout = () => {
-  localStorage.removeItem('access');
-  localStorage.removeItem('refresh');
-  localStorage.removeItem('user');
-  setIsAuthenticated(false);
-  setCurrentUser(null);
-  setUsername('');
-  setPassword('');
-};
+    localStorage.removeItem('access');
+    localStorage.removeItem('refresh');
+    localStorage.removeItem('user');
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setUsername('');
+    setPassword('');
+  };
 
   const selectedMission = missions.find((m) => m.id === selectedMissionId);
   const selectedOfficer = officers.find((o) => o.id === selectedOfficerId);
@@ -571,6 +634,10 @@ export default function MainDashboard() {
   });
 
   const displayMissions = forceEmptyState ? [] : missions;
+
+  // Aggregate stats across active severity filter for top cards
+  const summaryAssigned = dailyOfficerData.reduce((acc, row) => acc + row.assigned[severityFilter], 0);
+  const summaryCompleted = dailyOfficerData.reduce((acc, row) => acc + row.completed[severityFilter], 0);
 
   // ---------------------------------------------------------------------------
   // 1. LOGIN SCREEN VIEW
@@ -709,9 +776,9 @@ export default function MainDashboard() {
 
           <div className="flex items-center gap-2">
             <span className="text-slate-300 font-medium">
-  {currentUser
-    ? `${currentUser.full_name} · ${currentUser.role.charAt(0).toUpperCase()}${currentUser.role.slice(1)}`
-    : ''}
+              {currentUser
+                ? `${currentUser.full_name} · ${currentUser.role.charAt(0).toUpperCase()}${currentUser.role.slice(1)}`
+                : ''}
             </span>
             <button
               onClick={handleLogout}
@@ -1009,17 +1076,39 @@ export default function MainDashboard() {
 
                 {reportSubTab === 'Daily activity' && (
                   <div className="space-y-4">
+                    {/* Severity Filter Controls */}
+                    <div className="flex items-center gap-2 bg-white/70 p-1 rounded-md border border-slate-200/70 w-fit shadow-xs">
+                      <span className="text-[11px] font-semibold text-slate-500 px-2 uppercase tracking-wide">
+                        Severity Filter:
+                      </span>
+                      {(['ALL', 'URGENT', 'HIGH', 'LOW'] as SeverityFilter[]).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setSeverityFilter(level)}
+                          className={`px-3 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                            severityFilter === level
+                              ? 'bg-[#1F3864] text-white shadow-xs'
+                              : 'bg-transparent text-slate-600 hover:bg-slate-200/50'
+                          }`}
+                        >
+                          {level === 'ALL' ? 'All' : level.charAt(0) + level.slice(1).toLowerCase()}
+                        </button>
+                      ))}
+                    </div>
+
                     <div className="grid grid-cols-4 gap-4">
                       <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
                         <div className="text-2xl font-bold text-slate-900">4</div>
                         <div className="text-[11px] text-slate-500 font-medium mt-1">Officers on duty</div>
                       </div>
                       <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
-                        <div className="text-2xl font-bold text-slate-900">18</div>
-                        <div className="text-[11px] text-slate-500 font-medium mt-1">Missions assigned</div>
+                        <div className="text-2xl font-bold text-slate-900">{summaryAssigned}</div>
+                        <div className="text-[11px] text-slate-500 font-medium mt-1">
+                          Missions assigned ({severityFilter.toLowerCase()})
+                        </div>
                       </div>
                       <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
-                        <div className="text-2xl font-bold text-slate-900">14</div>
+                        <div className="text-2xl font-bold text-slate-900">{summaryCompleted}</div>
                         <div className="text-[11px] text-slate-500 font-medium mt-1">Completed</div>
                       </div>
                       <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
@@ -1047,9 +1136,9 @@ export default function MainDashboard() {
                               <td className="p-3.5 font-semibold text-slate-900">{row.name}</td>
                               <td className="p-3.5">{row.dutyHours}</td>
                               <td className="p-3.5">{row.distance}</td>
-                              <td className="p-3.5">{row.assigned}</td>
-                              <td className="p-3.5">{row.completed}</td>
-                              <td className="p-3.5">{row.cancelled}</td>
+                              <td className="p-3.5 font-bold">{row.assigned[severityFilter]}</td>
+                              <td className="p-3.5">{row.completed[severityFilter]}</td>
+                              <td className="p-3.5">{row.cancelled[severityFilter]}</td>
                               <td className="p-3.5">{row.panic}</td>
                             </tr>
                           ))}
@@ -1211,8 +1300,16 @@ export default function MainDashboard() {
                     <button className="bg-white border border-slate-200 text-slate-800 text-xs font-semibold px-4 py-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer">
                       Reassign
                     </button>
-                    <button className="bg-[#C62828] hover:bg-rose-800 text-white text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer">
-                      Cancel mission
+                    <button
+                      onClick={() => handleCancelMission(selectedMission.id)}
+                      disabled={selectedMission.status === 'Cancelled'}
+                      className={`text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer ${
+                        selectedMission.status === 'Cancelled'
+                          ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                          : 'bg-[#C62828] hover:bg-rose-800 text-white'
+                      }`}
+                    >
+                      {selectedMission.status === 'Cancelled' ? 'Mission cancelled' : 'Cancel mission'}
                     </button>
                   </div>
                 </div>
@@ -1333,10 +1430,8 @@ export default function MainDashboard() {
                     <div className="flex items-center gap-3 pt-4">
                       <button
                         type="submit"
-                        disabled={isLoggingIn}
                         className="bg-[#1F3864] hover:bg-[#182c50] text-white text-xs font-semibold px-5 py-2 rounded-md transition-colors cursor-pointer"
                       >
-                      {isLoggingIn ? 'Signing in…' : 'Sign in'}
                         Create and assign
                       </button>
                       <button
@@ -1495,7 +1590,13 @@ export default function MainDashboard() {
                                 </span>
                               </td>
                               <td className="p-3">
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                    m.status === 'Cancelled'
+                                      ? 'bg-rose-100 text-rose-700 font-bold'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
                                   {m.status}
                                 </span>
                               </td>
@@ -1528,7 +1629,7 @@ export default function MainDashboard() {
                         className={`p-3 transition-colors cursor-pointer ${
                           selectedOfficerId === officer.id
                             ? 'bg-slate-100 border-l-4 border-[#1F3864]'
-                            : 'hover:bg-slate-50'
+                            : 'hover:bg-[#f8fafc]'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1538,7 +1639,7 @@ export default function MainDashboard() {
                               officer.status === 'Panic'
                                 ? 'bg-rose-600 text-white animate-pulse'
                                 : officer.status === 'On mission'
-                                ? 'bg-blue-50 text-blue-700'
+                                ? 'bg-blue-50 text-blue-[#2E5496]'
                                 : officer.status === 'Available'
                                 ? 'bg-[#2E7D32]/10 text-[#2E7D32]'
                                 : 'bg-slate-100 text-slate-500'
