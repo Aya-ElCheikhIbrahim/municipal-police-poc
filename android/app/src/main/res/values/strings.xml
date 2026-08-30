@@ -7,8 +7,11 @@
     <string name="login_username_hint">Username</string>
     <string name="login_password_hint">Password</string>
     <string name="login_button">Log In</string>
+    <string name="login_forgot_password">Forgot password?</string>
+    <string name="login_forgot_password_msg">A supervisor will send you a code shortly.</string>
     <string name="login_footnote">Accounts are created by your supervisor. There is no self sign-up.</string>
     <string name="login_error_required">Enter your username and password</string>
+    <string name="login_error_incorrect">incorrect try aigain</string>
 
     <!-- Shift / on-duty -->
     <string name="shift_off_duty_subtitle">Tracking begins now</string>

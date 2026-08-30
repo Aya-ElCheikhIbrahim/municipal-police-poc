@@ -18,12 +18,13 @@ import androidx.annotation.NonNull;
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.FakeMissionRepository;
 import com.municipalpolice.officerapp.model.Officer;
-import com.municipalpolice.officerapp.data.FakeAuthRepository;
+import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.EndShiftDialogFragment;
 import com.municipalpolice.officerapp.ui.dialogs.PanicAlertDialogFragment;
 import com.municipalpolice.officerapp.ui.missions.MissionListActivity;
 import com.municipalpolice.officerapp.ui.settings.SettingsActivity;
+import com.municipalpolice.officerapp.util.PrefsManager;
 import com.municipalpolice.officerapp.util.TimeFormat;
 
 /**
@@ -78,7 +79,8 @@ public class ShiftActivity extends BaseActivity {
         groupOfflineNotice = findViewById(R.id.groupOfflineNotice);
         btnPanic = findViewById(R.id.btnPanic);
 
-        Officer officer = FakeAuthRepository.getInstance().getCachedOfficer();
+        PrefsManager prefs = new PrefsManager(this);
+        Officer officer = RetrofitAuthRepository.getInstance(prefs).getCachedOfficer();
         tvTopBarTitle.setText(officer != null ? officer.getFullName() : getString(R.string.app_name));
 
         findViewById(R.id.btnSettings).setOnClickListener(v ->
