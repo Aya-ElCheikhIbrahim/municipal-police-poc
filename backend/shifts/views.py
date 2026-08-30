@@ -11,16 +11,35 @@ from rest_framework.views import APIView
 
 from core.permissions import IsDispatcherOrSupervisor, IsOfficer
 
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
+from rest_framework import serializers
+
 from . import services
 from .models import LocationPing, Shift
 from .serializers import (
     ActiveOfficerSerializer,
     BulkLocationPingSerializer,
+    EndShiftSerializer,
     LocationPingSerializer,
     ShiftBoundarySerializer,
     ShiftSerializer,
 )
+class IngestResultSerializer(serializers.Serializer):
+    """What POST /location-pings/bulk/ returns."""
 
+    accepted = serializers.IntegerField()
+    duplicates = serializers.IntegerField()
+    rejected = serializers.IntegerField()
+
+
+class TrailSerializer(serializers.Serializer):
+    """What GET /officers/{id}/trail/ returns."""
+
+    officer_id = serializers.IntegerField()
+    date = serializers.DateField()
+    point_count = serializers.IntegerField()
+    distance_covered_m = serializers.IntegerField()
+    points = LocationPingSerializer(many=True)
 
 class StartShiftView(APIView):
     """
@@ -31,7 +50,20 @@ class StartShiftView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
+    serializer_class = ShiftBoundarySerializer
 
+    @extend_schema(
+        request=ShiftBoundarySerializer,
+        responses={201: ShiftSerializer, 200: ShiftSerializer},
+        examples=[
+            OpenApiExample(
+                "With position",
+                value={"latitude": 34.436700, "longitude": 35.849700},
+                request_only=True,
+            ),
+            OpenApiExample("No GPS fix yet", value={}, request_only=True),
+        ],
+    )
     def post(self, request):
         boundary = ShiftBoundarySerializer(data=request.data or {})
         boundary.is_valid(raise_exception=True)
@@ -56,7 +88,24 @@ class EndShiftView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
+    serializer_class = EndShiftSerializer
 
+    @extend_schema(
+        request=EndShiftSerializer,
+        responses={200: ShiftSerializer},
+        examples=[
+            OpenApiExample(
+                "End shift and revoke the session",
+                value={
+                    "latitude": 34.446700,
+                    "longitude": 35.849700,
+                    "refresh": "<refresh token>",
+                },
+                request_only=True,
+            ),
+            OpenApiExample("No GPS fix", value={}, request_only=True),
+        ],
+    )
     def post(self, request):
         boundary = ShiftBoundarySerializer(data=request.data or {})
         boundary.is_valid(raise_exception=True)
@@ -92,7 +141,6 @@ class BulkLocationPingView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
-
     def post(self, request):
         serializer = BulkLocationPingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

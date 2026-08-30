@@ -44,6 +44,12 @@ class ShiftBoundarySerializer(serializers.Serializer):
         return attrs
 
 
+class EndShiftSerializer(ShiftBoundarySerializer):
+    """End Shift body: the end position, plus the refresh token to revoke."""
+
+    refresh = serializers.CharField(required=False, allow_blank=True)
+
+
 class LocationPingUploadSerializer(serializers.Serializer):
     """One ping in a batch upload. Deliberately not a ModelSerializer: the
     unique constraint on client_uuid must be resolved by the database during
