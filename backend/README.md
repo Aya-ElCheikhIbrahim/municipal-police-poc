@@ -30,9 +30,17 @@ Base path: /api/v1
 Swagger UI: /api/docs
 OpenAPI schema: /api/schema
 
-Currently implemented: user management and authentication (login, token refresh, passwrod reset).
-Shifts, location pings, missions and panic events are Phase 3.
+Implemented:
+- Auth: Login, token refresh, logout, password reset
+- Users: full management, supervisors only
+- Settings: GET/ PATCH/settings/, GET/SETTINGS/schema
+- Shifts: start, end, active officers, officer trail
+- Location: batch pinning ingest with offline dedupe
+- Missions: create, assign, aknowledge, start, complete, cancel, notes, photos, unacknowledged sweep
 
+Not startedL
+- Panic events (Alerts) phase 5
+- Websocket push: the map polls /shifts/active every 15s, which meets the refresh requirements without a socket layer.
 ## Common commands
 
 python manage.py runserver
@@ -56,4 +64,3 @@ docs/ARCHIITECTURE.md: App layout, request flow, decisions
 
 docs/SCHEMA.md: All ten tables
 
-PROGRESS.md: What is built, what is left, open risks. 
