@@ -119,7 +119,13 @@ export default function MainDashboard() {
   const [isCreatingMission, setIsCreatingMission] = useState<boolean>(false);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>('1');
-
+  const [showMissionFilters, setShowMissionFilters] = useState(false);
+  const [missionPriorityFilter, setMissionPriorityFilter] = useState('All');
+  const [missionStatusFilter, setMissionStatusFilter] = useState('All');
+  const [missionOfficerFilter, setMissionOfficerFilter] = useState('All');
+  const [appliedPriorityFilter, setAppliedPriorityFilter] = useState('All');
+  const [appliedStatusFilter, setAppliedStatusFilter] = useState('All');
+  const [appliedOfficerFilter, setAppliedOfficerFilter] = useState('All');
   // Network & UI Demo States
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [forceEmptyState, setForceEmptyState] = useState<boolean>(false);
@@ -633,7 +639,23 @@ export default function MainDashboard() {
     return true;
   });
 
-  const displayMissions = forceEmptyState ? [] : missions;
+const displayMissions = forceEmptyState
+  ? []
+  : missions.filter((mission) => {
+      const matchesPriority =
+        appliedPriorityFilter === 'All' ||
+        mission.priority === appliedPriorityFilter;
+
+      const matchesStatus =
+        appliedStatusFilter === 'All' ||
+        mission.status === appliedStatusFilter;
+
+      const matchesOfficer =
+        appliedOfficerFilter === 'All' ||
+        mission.assignedTo === appliedOfficerFilter;
+
+      return matchesPriority && matchesStatus && matchesOfficer;
+    });
 
   // Aggregate stats across active severity filter for top cards
   const summaryAssigned = dailyOfficerData.reduce((acc, row) => acc + row.assigned[severityFilter], 0);
@@ -1521,7 +1543,15 @@ export default function MainDashboard() {
 
                       <div className="flex items-center justify-center gap-3">
                         <button
-                          onClick={() => setForceEmptyState(false)}
+                          onClick={() => {
+  setForceEmptyState(false);
+  setMissionPriorityFilter('All');
+  setMissionStatusFilter('All');
+  setMissionOfficerFilter('All');
+  setAppliedPriorityFilter('All');
+  setAppliedStatusFilter('All');
+  setAppliedOfficerFilter('All');
+}}
                           className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-md transition-colors shadow-xs cursor-pointer"
                         >
                           Clear filters
@@ -1541,13 +1571,101 @@ export default function MainDashboard() {
                 ) : (
                   <>
                     <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
+                      <div className="relative flex items-center gap-2">
                         <button className="px-3 py-1 bg-[#1F3864] text-white text-xs font-medium rounded cursor-pointer">
                           All statuses
                         </button>
                         <button className="px-3 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-medium rounded cursor-pointer">
                           Today
                         </button>
+                        <button
+                          onClick={() => setShowMissionFilters(!showMissionFilters)}
+                          className="px-3 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-medium rounded cursor-pointer"
+                        >
+                          Filter
+                        </button>
+                        {showMissionFilters && (
+                         <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-64 z-50">
+<div className="space-y-3">
+  <div>
+    <label className="block text-xs font-semibold text-slate-600 mb-1">
+      Priority
+    </label>
+    <select
+  value={missionPriorityFilter}
+  onChange={(e) => setMissionPriorityFilter(e.target.value)}
+  className="w-full border border-slate-200 rounded px-2 py-1 text-xs"
+>
+  <option value="All">All</option>
+  <option value="Urgent">Urgent</option>
+  <option value="High">High</option>
+  <option value="Low">Low</option>
+</select>
+  </div>
+
+  <div>
+    <label className="block text-xs font-semibold text-slate-600 mb-1">
+      Status
+    </label>
+    <select
+  value={missionStatusFilter}
+  onChange={(e) => setMissionStatusFilter(e.target.value)}
+  className="w-full border border-slate-200 rounded px-2 py-1 text-xs"
+>
+  <option value="All">All</option>
+  <option value="New">New</option>
+  <option value="Acknowledged">Acknowledged</option>
+  <option value="In progress">In progress</option>
+  <option value="Completed">Completed</option>
+  <option value="Cancelled">Cancelled</option>
+</select>
+  </div>
+
+  <div>
+    <label className="block text-xs font-semibold text-slate-600 mb-1">
+      Officer
+    </label>
+    <select
+  value={missionOfficerFilter}
+  onChange={(e) => setMissionOfficerFilter(e.target.value)}
+  className="w-full border border-slate-200 rounded px-2 py-1 text-xs"
+>
+  <option value="All">All</option>
+  <option value="Karim Haddad">Karim Haddad</option>
+  <option value="Layla Mansour">Layla Mansour</option>
+  <option value="Samir Youssef">Samir Youssef</option>
+  <option value="Nabil Khoury">Nabil Khoury</option>
+</select>
+  </div>
+  
+
+  <div className="flex justify-end gap-2 pt-2">
+  <button
+    onClick={() => {
+      setMissionPriorityFilter('All');
+      setMissionStatusFilter('All');
+      setMissionOfficerFilter('All');
+    }}
+    className="px-3 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50"
+  >
+    Clear
+  </button>
+
+  <button
+    onClick={() => {
+  setAppliedPriorityFilter(missionPriorityFilter);
+  setAppliedStatusFilter(missionStatusFilter);
+  setAppliedOfficerFilter(missionOfficerFilter);
+  setShowMissionFilters(false);
+}}
+    className="px-3 py-1 text-xs bg-[#1F3864] text-white rounded hover:bg-[#182c50]"
+  >
+    Apply
+  </button>
+</div>
+</div>
+                         </div>
+                      )}
                       </div>
                       <button
                         onClick={() => setIsCreatingMission(true)}
