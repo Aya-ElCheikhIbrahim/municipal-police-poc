@@ -101,7 +101,7 @@ public class SettingsActivity extends BaseActivity {
         }
 
         // 2. Mission Check
-        MissionRepository repository = new RetrofitMissionRepository(prefs);
+        MissionRepository repository = new RetrofitMissionRepository(prefs, this);
         AlertDialog loading = new AlertDialog.Builder(this)
                 .setMessage(R.string.logout_validation_loading)
                 .setCancelable(false)
