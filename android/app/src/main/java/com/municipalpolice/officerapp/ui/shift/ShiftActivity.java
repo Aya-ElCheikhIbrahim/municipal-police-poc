@@ -16,8 +16,11 @@ import android.widget.ViewFlipper;
 import androidx.annotation.NonNull;
 
 import com.municipalpolice.officerapp.R;
-import com.municipalpolice.officerapp.data.FakeMissionRepository;
+import com.municipalpolice.officerapp.data.Callback;
+import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
+import com.municipalpolice.officerapp.data.ShiftRepository;
 import com.municipalpolice.officerapp.model.Officer;
+import com.municipalpolice.officerapp.model.Shift;
 import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.EndShiftDialogFragment;
@@ -48,15 +51,17 @@ public class ShiftActivity extends BaseActivity {
     private Button btnPanic;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private long shiftStartElapsedRealtime;
+    private long shiftStartMillis;
     private boolean onDuty = false;
     private boolean simulatedOffline = false;
+    private ShiftRepository shiftRepository;
+    private PrefsManager prefs;
 
     private final Runnable timerTick = new Runnable() {
         @Override
         public void run() {
             if (!onDuty) return;
-            long elapsed = SystemClock.elapsedRealtime() - shiftStartElapsedRealtime;
+            long elapsed = System.currentTimeMillis() - shiftStartMillis;
             tvShiftTimer.setText(TimeFormat.hms(elapsed));
             handler.postDelayed(this, 1000);
         }
@@ -79,7 +84,8 @@ public class ShiftActivity extends BaseActivity {
         groupOfflineNotice = findViewById(R.id.groupOfflineNotice);
         btnPanic = findViewById(R.id.btnPanic);
 
-        PrefsManager prefs = new PrefsManager(this);
+        prefs = new PrefsManager(this);
+        shiftRepository = new RetrofitShiftRepository(prefs, this);
         Officer officer = RetrofitAuthRepository.getInstance(prefs).getCachedOfficer();
         tvTopBarTitle.setText(officer != null ? officer.getFullName() : getString(R.string.app_name));
 
@@ -115,9 +121,21 @@ public class ShiftActivity extends BaseActivity {
 
     // Called by EndShiftDialogFragment via FragmentResultListener-style direct call.
     public void onEndShiftConfirmed() {
-        onDuty = false;
-        handler.removeCallbacks(timerTick);
-        renderOffDuty();
+        shiftRepository.endShift(null, null, prefs.getRefreshToken(), new Callback<Shift>() {
+            @Override
+            public void onSuccess(Shift result) {
+                onDuty = false;
+                prefs.setShiftActive(false);
+                handler.removeCallbacks(timerTick);
+                renderOffDuty();
+                Toast.makeText(ShiftActivity.this, "Shift ended. Duration: " + TimeFormat.hms(result.getDurationSeconds() * 1000L), Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Toast.makeText(ShiftActivity.this, "Failed to end shift: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     public void onPanicSent() {
@@ -125,12 +143,32 @@ public class ShiftActivity extends BaseActivity {
     }
 
     private void startShift() {
-        onDuty = true;
-        shiftStartElapsedRealtime = SystemClock.elapsedRealtime();
-        flipper.setDisplayedChild(PAGE_ON_DUTY);
-        groupOfflineNotice.setVisibility(simulatedOffline ? android.view.View.VISIBLE : android.view.View.GONE);
-        updateStatusPill();
-        handler.post(timerTick);
+        shiftRepository.startShift(null, null, new Callback<Shift>() {
+            @Override
+            public void onSuccess(Shift result) {
+                onDuty = true;
+                prefs.setShiftActive(true);
+                try {
+                    // Simple ISO parser for the purpose of the POC
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                    java.util.Date date = sdf.parse(result.getStartedAt());
+                    shiftStartMillis = date.getTime();
+                } catch (Exception e) {
+                    shiftStartMillis = System.currentTimeMillis();
+                }
+
+                flipper.setDisplayedChild(PAGE_ON_DUTY);
+                groupOfflineNotice.setVisibility(simulatedOffline ? android.view.View.VISIBLE : android.view.View.GONE);
+                updateStatusPill();
+                handler.post(timerTick);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Toast.makeText(ShiftActivity.this, "Failed to start shift: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void renderOffDuty() {

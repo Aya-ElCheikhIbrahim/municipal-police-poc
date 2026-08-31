@@ -2,14 +2,17 @@ package com.municipalpolice.officerapp.data;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.model.Priority;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * In-memory mock backend so every screen in the mockups is fully clickable
@@ -35,23 +38,21 @@ public class FakeMissionRepository implements MissionRepository {
     private void seed() {
         missions.clear();
         missions.add(new Mission(
-                "m-1",
+                1,
                 "Illegal parking blocking access",
-                "Rue Tall",
-                "400 m",
-                "Rania Saab",
+                "Abandoned vehicle blocking the right lane.",
                 Priority.URGENT,
                 MissionStatus.NEW,
-                SystemClock.elapsedRealtime() - 6 * 60 * 1000));
+                34.436700,
+                35.849700));
         missions.add(new Mission(
-                "m-2",
+                2,
                 "Noise complaint, residential",
-                "Al Mina",
-                "2.1 km",
-                "Rania Saab",
+                "Loud music from a cafe.",
                 Priority.LOW,
                 MissionStatus.NEW,
-                SystemClock.elapsedRealtime() - 30 * 60 * 1000));
+                34.446700,
+                35.859700));
     }
 
     /** Lets the demo "Preview state" menu simulate an empty list. */
@@ -84,8 +85,18 @@ public class FakeMissionRepository implements MissionRepository {
         Mission m = find(missionId);
         if (m == null) { callback.onError(new IllegalStateException("not found")); return; }
         handler.postDelayed(() -> {
-            m.setAcknowledgedAtMillis(System.currentTimeMillis());
-            m.setStartedAtMillis(System.currentTimeMillis());
+            m.setAcknowledgedAt(nowIso());
+            m.setStatus(MissionStatus.ACKNOWLEDGED);
+            callback.onSuccess(m);
+        }, 300);
+    }
+
+    @Override
+    public void startMission(String missionId, Callback<Mission> callback) {
+        Mission m = find(missionId);
+        if (m == null) { callback.onError(new IllegalStateException("not found")); return; }
+        handler.postDelayed(() -> {
+            m.setStartedAt(nowIso());
             m.setStatus(MissionStatus.IN_PROGRESS);
             callback.onSuccess(m);
         }, 300);
@@ -97,6 +108,7 @@ public class FakeMissionRepository implements MissionRepository {
         if (m == null) { callback.onError(new IllegalStateException("not found")); return; }
         handler.postDelayed(() -> {
             m.setStatus(MissionStatus.COMPLETED);
+            m.setCompletedAt(nowIso());
             callback.onSuccess(m);
         }, 300);
     }
@@ -115,12 +127,21 @@ public class FakeMissionRepository implements MissionRepository {
     public void addMissionPhoto(String missionId, String localPhotoUri, Callback<Mission> callback) {
         Mission m = find(missionId);
         if (m == null) { callback.onError(new IllegalStateException("not found")); return; }
-        m.addPhoto(localPhotoUri);
+        // m.addPhoto(localPhotoUri); // Model changed, omitting for mock
         callback.onSuccess(m);
     }
 
     private Mission find(String id) {
-        for (Mission m : missions) if (m.getId().equals(id)) return m;
+        try {
+            int intId = Integer.parseInt(id);
+            for (Mission m : missions) if (m.getId() == intId) return m;
+        } catch (NumberFormatException ignored) {}
         return null;
+    }
+
+    private String nowIso() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return sdf.format(new Date());
     }
 }
