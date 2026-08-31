@@ -6,5 +6,6 @@ buildscript {
 }
 
 plugins {
-    id 'com.android.application' version '8.5.2' apply false
+    // This allows the version to be pulled from gradle.properties
+    id 'com.android.application' version "${agpVersion}" apply false
 }
