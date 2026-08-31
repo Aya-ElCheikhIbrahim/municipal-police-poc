@@ -67,6 +67,7 @@ public class RetrofitAuthRepository implements AuthRepository {
                     
                     prefs.setLoggedIn(true);
                     prefs.setAuthToken(response.body().getAccessToken());
+                    prefs.setRefreshToken(response.body().getRefreshToken());
                     prefs.setUserData(userData.getId(), userData.getFullName(), userData.getBadgeNumber());
                     
                     callback.onSuccess(cachedOfficer);

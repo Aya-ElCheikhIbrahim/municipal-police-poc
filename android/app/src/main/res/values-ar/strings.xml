@@ -17,7 +17,7 @@
     <string name="shift_start_button">بدء الدوام</string>
     <string name="shift_off_duty_note">لا يُسجَّل موقعك خارج أوقات الدوام.</string>
     <string name="shift_elapsed_label">مدة الدوام</string>
-    <string name="shift_missions_button">المهام · %1$d جديدة</string>
+    <string name="shift_missions_button">المهام</string>
     <string name="shift_panic_button">اضغط مطولًا ثانيتين للاستغاثة</string>
     <string name="shift_end_button">إنهاء الدوام</string>
     <string name="shift_last_synced">آخر مزامنة قبل %1$s</string>
@@ -96,12 +96,17 @@
     <string name="settings_location_history_value">يمكنك الاطلاع على مواقعك المسجّلة في أي وقت.</string>
     <string name="settings_my_data_label">بياناتي</string>
     <string name="settings_my_data_value">عرض كل ما يجمعه النظام عنك.</string>
+    <string name="settings_officer_id_label">رقم الضابط</string>
     <string name="settings_logout_button">تسجيل الخروج</string>
     <string name="settings_choose_language">اختر اللغة</string>
     <string name="lang_english">English</string>
     <string name="lang_arabic">العربية</string>
 
     <string name="mission_completed_toast">تم تسجيل المهمة كمنجزة</string>
+    <string name="mission_toast_acknowledged">تم استلام المهمة</string>
     <string name="generic_back">رجوع</string>
     <string name="generic_apply">تطبيق</string>
+    <string name="logout_error_active_shift">لا يمكنك تسجيل الخروج أثناء وجود دوام نشط. يرجى إنهاء دوامك أولاً.</string>
+    <string name="logout_error_pending_missions">لديك مهام نشطة. يرجى إنجازها أو إلغاؤها قبل تسجيل الخروج.</string>
+    <string name="logout_validation_loading">جاري التحقق من حالة الدوام...</string>
 </resources>

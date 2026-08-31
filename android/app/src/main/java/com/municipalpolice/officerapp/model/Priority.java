@@ -1,8 +1,14 @@
 package com.municipalpolice.officerapp.model;
 
-/** Mission priority — drives the colored pill (urgent/pending/active palette). */
+import com.google.gson.annotations.SerializedName;
+
 public enum Priority {
-    URGENT,
+    @SerializedName("low")
+    LOW,
+    @SerializedName("medium")
     MEDIUM,
-    LOW
+    @SerializedName("high")
+    HIGH,
+    @SerializedName("urgent")
+    URGENT
 }

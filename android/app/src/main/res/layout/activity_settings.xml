@@ -55,6 +55,8 @@
                 android:orientation="vertical"
                 android:paddingVertical="0dp">
 
+                <include layout="@layout/item_settings_row" android:id="@+id/rowOfficerId" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" />
                 <include layout="@layout/item_settings_row" android:id="@+id/rowLanguage" />
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" />
                 <include layout="@layout/item_settings_row" android:id="@+id/rowLocationHistory" />
