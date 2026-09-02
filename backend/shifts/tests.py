@@ -9,7 +9,9 @@ break a requirement, and they run in a few seconds.
 import uuid
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -257,3 +259,89 @@ class ActiveShiftsContractTests(TestCase):
         client.force_authenticate(make_user("supervisor2", role="supervisor"))
         row = client.get("/api/v1/shifts/active/").json()[0]
         self.assertIsNone(row["latest_ping"])
+
+
+class DistanceCachingTests(TestCase):
+    """shift.distance_m is now the read path; ingest is what keeps it correct."""
+
+    def setUp(self):
+        self.officer = make_user("officer7")
+
+    def test_ingest_sets_distance_m_to_match_shift_distance_m(self):
+        shift, _ = services.start_shift(self.officer)
+        now = timezone.now()
+        services.ingest_pings(
+            self.officer,
+            [
+                ping_row(34.4367, 35.8497, now),
+                ping_row(34.4467, 35.8497, now + timezone.timedelta(seconds=30)),
+            ],
+        )
+        shift.refresh_from_db()
+        self.assertGreater(shift.distance_m, 0)
+        self.assertEqual(shift.distance_m, services.shift_distance_m(shift))
+
+    def test_out_of_order_offline_batch_still_totals_correctly(self):
+        """A second batch with pings recorded BEFORE the first batch's pings
+        is the offline-sync case full recompute exists for: an incremental
+        add would miss the earlier segment entirely."""
+        shift, _ = services.start_shift(self.officer)
+        now = timezone.now()
+
+        services.ingest_pings(
+            self.officer,
+            [
+                ping_row(34.4367, 35.8497, now + timezone.timedelta(seconds=60)),
+                ping_row(34.4467, 35.8497, now + timezone.timedelta(seconds=90)),
+            ],
+        )
+        services.ingest_pings(
+            self.officer,
+            [ping_row(34.4267, 35.8497, now)],
+        )
+
+        shift.refresh_from_db()
+        expected = services.shift_distance_m(shift)
+        self.assertEqual(shift.distance_m, expected)
+        # Prove the earlier-recorded ping actually contributes: recomputing
+        # from just the first batch would undercount.
+        self.assertGreater(
+            expected,
+            services.trail_distance_m(
+                shift.pings.filter(recorded_at__gt=now).order_by("recorded_at")
+            ),
+        )
+
+
+class ActiveShiftsQueryCountTests(TestCase):
+    """Cost must not scale with officer count — that was the whole bug."""
+
+    def _seed_active_officers(self, prefix, count):
+        officers = []
+        for i in range(count):
+            officer = make_user(f"{prefix}_officer_{i}")
+            services.start_shift(officer)
+            services.ingest_pings(
+                officer,
+                [ping_row(34.4367, 35.8497, timezone.now())],
+            )
+            officers.append(officer)
+        return officers
+
+    def _query_count_for_active_shifts(self, prefix, officer_count):
+        officers = self._seed_active_officers(prefix, officer_count)
+        client = APIClient()
+        client.force_authenticate(make_user(f"{prefix}_dispatcher", role="dispatcher"))
+        with CaptureQueriesContext(connection) as ctx:
+            response = client.get("/api/v1/shifts/active/")
+        self.assertEqual(response.status_code, 200)
+        # Reset to an empty active set so the next seeding measures exactly
+        # its own officer count, not this batch plus the next one.
+        for officer in officers:
+            services.end_shift(officer)
+        return len(ctx)
+
+    def test_query_count_does_not_scale_with_officer_count(self):
+        two_officers = self._query_count_for_active_shifts("qc2", 2)
+        five_officers = self._query_count_for_active_shifts("qc5", 5)
+        self.assertEqual(two_officers, five_officers)

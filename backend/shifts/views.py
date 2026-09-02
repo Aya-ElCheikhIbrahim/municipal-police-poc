@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from datetime import datetime, time
 
 from django.utils import timezone
@@ -171,15 +168,26 @@ class ActiveShiftsView(APIView):
     permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
 
     def get(self, request):
-        shifts = (
+        shifts = list(
             Shift.objects.filter(status=Shift.Status.ACTIVE)
             .select_related("officer")
             .order_by("started_at")
         )
 
+        # DISTINCT ON is Postgres-specific, but both the project and its test
+        # database run Postgres, so one query for every shift's latest ping
+        # (instead of one query per officer) is deliberate here.
+        latest = {
+            p.shift_id: p
+            for p in LocationPing.objects
+                .filter(shift_id__in=[s.id for s in shifts])
+                .order_by("shift_id", "-recorded_at")
+                .distinct("shift_id")
+        }
+
         payload = []
         for shift in shifts:
-            latest = shift.pings.order_by("-recorded_at").first()
+            ping = latest.get(shift.id)
             payload.append(
                 {
                     "officer": {
@@ -193,8 +201,8 @@ class ActiveShiftsView(APIView):
                     "status": "available",
                     "shift_started_at": shift.started_at,
                     "shift_duration_seconds": shift.duration_seconds,
-                    "distance_covered_m": services.shift_distance_m(shift),
-                    "latest_ping": LocationPingSerializer(latest).data if latest else None,
+                    "distance_covered_m": shift.distance_m,
+                    "latest_ping": LocationPingSerializer(ping).data if ping else None,
                     "current_mission": None,
                 }
             )
