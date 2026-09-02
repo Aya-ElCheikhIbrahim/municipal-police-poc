@@ -3,7 +3,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { searchTripoliLocations } from './data/tripoliLocations';
 import municipalPoliceLogo from './assets/policelogo.png';
-import type { LoginUser } from './features/auth/types';
 import { roleLabel } from './features/auth/types';
 import { useAuth } from './features/auth/AuthContext';
 import { UsersPage } from './features/users/UsersPage';
@@ -21,7 +20,6 @@ type TabType = 'Live map' | 'Missions' | 'Reports' | 'Users';
 type ReportSubTab = 'Daily activity' | 'Weekly summary';
 type MissionPriority = 'Urgent' | 'High' | 'Low';
 type MissionStatus = 'In progress' | 'Acknowledged' | 'New' | 'Completed' | 'Cancelled';
-type UserRole = 'Officer' | 'Dispatcher' | 'Supervisor';
 type SeverityFilter = 'ALL' | 'URGENT' | 'HIGH' | 'LOW';
 
 
@@ -94,8 +92,7 @@ export default function MainDashboard() {
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('ALL');
   const [isCreatingMission, setIsCreatingMission] = useState<boolean>(false);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
-  const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>('1');
-  const [showMissionFilters, setShowMissionFilters] = useState(false); 
+  const [, setSelectedOfficerId] = useState<string | null>('1');  const [showMissionFilters, setShowMissionFilters] = useState(false); 
   const [missionPriorityFilter, setMissionPriorityFilter] = useState('All');
   const [missionStatusFilter, setMissionStatusFilter] = useState('All');
   const [missionOfficerFilter, setMissionOfficerFilter] = useState('All');
@@ -138,8 +135,7 @@ export default function MainDashboard() {
   const [newMissionAddress, setNewMissionAddress] = useState('Rue Tall, Tripoli');
   const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
   const [newMissionDeadline, setNewMissionDeadline] = useState('');
-  const [selectedCoords, setSelectedCoords] = useState<[number, number]>([34.4367, 35.8497]);
-
+  const [selectedCoords] = useState<[number, number]>([34.4367, 35.8497]);
   // Officers Data
   const [officers, setOfficers] = useState<Officer[]>([
     {
@@ -280,7 +276,6 @@ export default function MainDashboard() {
 
 
   const pickerMapRef = useRef<HTMLDivElement | null>(null);
-  const pickerMapInstance = useRef<L.Map | null>(null);
   const pickerMarkerRef = useRef<L.Marker | null>(null);
 
   // Trigger Panic Simulation
@@ -378,7 +373,6 @@ export default function MainDashboard() {
   
 
   const selectedMission = missions.find((m) => m.id === selectedMissionId);
-  const selectedOfficer = officers.find((o) => o.id === selectedOfficerId);
 const displayMissions = forceEmptyState
   ? []
   : missions.filter((mission) => {
