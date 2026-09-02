@@ -119,7 +119,7 @@ class Command(BaseCommand):
     def _stop(self):
         ended = 0
         for officer in User.objects.filter(username__startswith=SIM_USERNAME_PREFIX):
-            if Shift.objects.filter(user=officer, status=Shift.Status.ACTIVE).exists():
+            if Shift.objects.filter(officer=officer, status=Shift.Status.ACTIVE).exists():
                 services.end_shift(officer)
                 ended += 1
         self.stdout.write(self.style.SUCCESS(f"Ended {ended} simulated shifts."))
