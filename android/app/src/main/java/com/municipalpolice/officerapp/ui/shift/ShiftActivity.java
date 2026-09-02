@@ -1,5 +1,6 @@
 package com.municipalpolice.officerapp.ui.shift;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,8 +18,12 @@ import androidx.annotation.NonNull;
 
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
+import com.municipalpolice.officerapp.data.MissionRepository;
+import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
 import com.municipalpolice.officerapp.data.ShiftRepository;
+import com.municipalpolice.officerapp.model.Mission;
+import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.model.Shift;
 import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
@@ -29,6 +34,8 @@ import com.municipalpolice.officerapp.ui.missions.MissionListActivity;
 import com.municipalpolice.officerapp.ui.settings.SettingsActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
 import com.municipalpolice.officerapp.util.TimeFormat;
+
+import java.util.List;
 
 /**
  * Combines mockup screens "2 - Off duty", "3 - On duty", "Syncing" and the
@@ -55,6 +62,7 @@ public class ShiftActivity extends BaseActivity {
     private boolean onDuty = false;
     private boolean simulatedOffline = false;
     private ShiftRepository shiftRepository;
+    private MissionRepository missionRepository;
     private PrefsManager prefs;
 
     private final Runnable timerTick = new Runnable() {
@@ -86,6 +94,7 @@ public class ShiftActivity extends BaseActivity {
 
         prefs = new PrefsManager(this);
         shiftRepository = new RetrofitShiftRepository(prefs, this);
+        missionRepository = new RetrofitMissionRepository(prefs, (android.content.Context) this);
         Officer officer = RetrofitAuthRepository.getInstance(prefs).getCachedOfficer();
         tvTopBarTitle.setText(officer != null ? officer.getFullName() : getString(R.string.app_name));
 
@@ -95,11 +104,47 @@ public class ShiftActivity extends BaseActivity {
         findViewById(R.id.btnStartShift).setOnClickListener(v -> startShift());
         findViewById(R.id.btnMissions).setOnClickListener(v ->
                 startActivity(new Intent(this, MissionListActivity.class)));
-        findViewById(R.id.btnEndShift).setOnClickListener(v ->
-                EndShiftDialogFragment.newInstance().show(getSupportFragmentManager(), "end_shift"));
+        findViewById(R.id.btnEndShift).setOnClickListener(v -> checkMissionsBeforeEndShift());
 
         setUpPanicHoldButton();
         renderOffDuty();
+    }
+
+    private void checkMissionsBeforeEndShift() {
+        final android.app.Dialog loading = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setMessage(R.string.logout_validation_loading)
+                .setCancelable(false)
+                .show();
+
+        missionRepository.fetchMissions(new Callback<List<Mission>>() {
+            @Override
+            public void onSuccess(List<Mission> result) {
+                if (loading != null) loading.dismiss();
+                boolean active = false;
+                for (Mission m : result) {
+                    if (m.getStatus() == MissionStatus.ACKNOWLEDGED || m.getStatus() == MissionStatus.IN_PROGRESS) {
+                        active = true;
+                        break;
+                    }
+                }
+
+                if (active) {
+                    new androidx.appcompat.app.AlertDialog.Builder(ShiftActivity.this)
+                            .setTitle(R.string.shift_end_button)
+                            .setMessage(R.string.end_shift_error_active_missions)
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show();
+                } else {
+                    EndShiftDialogFragment.newInstance().show(ShiftActivity.this.getSupportFragmentManager(), "end_shift");
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                if (loading != null) loading.dismiss();
+                Toast.makeText(ShiftActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void setUpPanicHoldButton() {

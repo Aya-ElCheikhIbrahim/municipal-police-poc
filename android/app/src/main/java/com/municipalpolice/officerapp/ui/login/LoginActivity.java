@@ -1,10 +1,17 @@
 package com.municipalpolice.officerapp.ui.login;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
@@ -14,6 +21,9 @@ import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** Screen "1 - Login". Accounts are supervisor-created; there's no self sign-up (see footnote). */
 public class LoginActivity extends BaseActivity {
 
@@ -21,6 +31,11 @@ public class LoginActivity extends BaseActivity {
     private EditText etPassword;
     private Button btnLogin;
     private Button btnForgotPassword;
+
+    private final ActivityResultLauncher<String[]> permissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                // Permissions handled. We could check if location was denied and show a warning.
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +54,30 @@ public class LoginActivity extends BaseActivity {
         PrefsManager prefs = new PrefsManager(this);
         if (prefs.isLoggedIn() && RetrofitAuthRepository.getInstance(prefs).getCachedOfficer() != null) {
             goToShift();
+        }
+
+        checkAndRequestPermissions();
+    }
+
+    private void checkAndRequestPermissions() {
+        List<String> permissions = new ArrayList<>();
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        permissions.add(Manifest.permission.CAMERA);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+
+        List<String> listPermissionsNeeded = new ArrayList<>();
+        for (String p : permissions) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                listPermissionsNeeded.add(p);
+            }
+        }
+
+        if (!listPermissionsNeeded.isEmpty()) {
+            permissionLauncher.launch(listPermissionsNeeded.toArray(new String[0]));
         }
     }
 

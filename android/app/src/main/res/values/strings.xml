@@ -110,4 +110,9 @@
     <string name="logout_error_active_shift">You cannot log out while a shift is active. Please end your shift first.</string>
     <string name="logout_error_pending_missions">You have active missions. Please complete or cancel them before logging out.</string>
     <string name="logout_validation_loading">Verifying duty status...</string>
+    <string name="end_shift_error_active_missions">You cannot end your shift while you have active missions. Please complete or cancel them first.</string>
+    <string name="mission_acknowledge_warning_title">Acknowledge Mission</string>
+    <string name="mission_acknowledge_warning_body">Are you sure you want to start this mission?</string>
+    <string name="generic_proceed">Proceed</string>
+    <string name="generic_cancel">Cancel</string>
 </resources>

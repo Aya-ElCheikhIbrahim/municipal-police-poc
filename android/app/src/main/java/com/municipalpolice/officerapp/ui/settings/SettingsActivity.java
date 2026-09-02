@@ -100,6 +100,10 @@ public class SettingsActivity extends BaseActivity {
             return;
         }
 
+        validateMissionsBeforeLogout(prefs);
+    }
+
+    private void validateMissionsBeforeLogout(PrefsManager prefs) {
         // 2. Mission Check
         MissionRepository repository = new RetrofitMissionRepository(prefs, this);
         AlertDialog loading = new AlertDialog.Builder(this)

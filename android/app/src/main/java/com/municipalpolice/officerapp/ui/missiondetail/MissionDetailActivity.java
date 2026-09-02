@@ -181,20 +181,27 @@ public class MissionDetailActivity extends BaseActivity {
     }
 
     private void acknowledgeMission() {
-        missionRepository.acknowledgeMission(missionId, new Callback<Mission>() {
-            @Override
-            public void onSuccess(Mission result) {
-                mission = result;
-                render();
-                Toast.makeText(MissionDetailActivity.this, R.string.mission_toast_acknowledged, Toast.LENGTH_SHORT).show();
-            }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.mission_acknowledge_warning_title)
+                .setMessage(R.string.mission_acknowledge_warning_body)
+                .setPositiveButton(R.string.generic_proceed, (dialog, which) -> {
+                    missionRepository.acknowledgeMission(missionId, new Callback<Mission>() {
+                        @Override
+                        public void onSuccess(Mission result) {
+                            mission = result;
+                            render();
+                            Toast.makeText(MissionDetailActivity.this, R.string.mission_toast_acknowledged, Toast.LENGTH_SHORT).show();
+                        }
 
-            @Override
-            public void onError(Throwable error) {
-                String message = error.getMessage() != null ? error.getMessage() : getString(R.string.missions_error_title);
-                Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
-            }
-        });
+                        @Override
+                        public void onError(Throwable error) {
+                            String message = error.getMessage() != null ? error.getMessage() : getString(R.string.missions_error_title);
+                            Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton(R.string.generic_cancel, null)
+                .show();
     }
 
     private void startMission() {
