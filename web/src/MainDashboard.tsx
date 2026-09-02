@@ -5,6 +5,7 @@ import { searchTripoliLocations } from './data/tripoliLocations';
 import municipalPoliceLogo from './assets/policelogo.png';
 import type { LoginUser } from './features/auth/types';
 import { roleLabel } from './features/auth/types';
+import { useAuth } from './features/auth/AuthContext';
 
 // Fix Leaflet's default icon paths in React/Vite bundlers
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -93,22 +94,8 @@ export default function MainDashboard() {
   };
 
   // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [username, setUsername] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [currentUser, setCurrentUser] = useState<LoginUser | null>(null);
-  const [loginError, setLoginError] = useState<string>('');
-  const [_isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('user');
-    const token = localStorage.getItem('access');
-    if (stored && token) {
-      setCurrentUser(JSON.parse(stored));
-      setIsAuthenticated(true);
-    }
-  }, []);
-
+  const { user, logout } = useAuth();
+  
   // Navigation & Sub-view State
   const [activeTab, setActiveTab] = useState<TabType>('Missions');
   const [reportSubTab, setReportSubTab] = useState<ReportSubTab>('Daily activity');
@@ -116,7 +103,7 @@ export default function MainDashboard() {
   const [isCreatingMission, setIsCreatingMission] = useState<boolean>(false);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>('1');
-  const [showMissionFilters, setShowMissionFilters] = useState(false);
+  const [showMissionFilters, setShowMissionFilters] = useState(false); 
   const [missionPriorityFilter, setMissionPriorityFilter] = useState('All');
   const [missionStatusFilter, setMissionStatusFilter] = useState('All');
   const [missionOfficerFilter, setMissionOfficerFilter] = useState('All');
@@ -347,7 +334,7 @@ export default function MainDashboard() {
   // LEAFLET MAP 1: LIVE MAP INSTANCE INITIALIZATION
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (activeTab !== 'Live map' || !liveMapRef.current || isConnectionLost || !isAuthenticated) {
+    if (activeTab !== 'Live map' || !liveMapRef.current || isConnectionLost ) {
       if (liveMapInstance.current) {
         liveMapInstance.current.remove();
         liveMapInstance.current = null;
@@ -377,13 +364,13 @@ export default function MainDashboard() {
     return () => {
       clearTimeout(timer);
     };
-  }, [activeTab, isConnectionLost, isAuthenticated]);
+  }, [activeTab, isConnectionLost ]);
 
   // ---------------------------------------------------------------------------
   // LEAFLET MAP 1: MARKERS & PAN UPDATE
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (activeTab !== 'Live map' || !liveMapInstance.current || isConnectionLost || !isAuthenticated) return;
+    if (activeTab !== 'Live map' || !liveMapInstance.current || isConnectionLost ) return;
 
     const map = liveMapInstance.current;
 
@@ -431,13 +418,13 @@ export default function MainDashboard() {
     if (activeOfficer) {
       map.panTo(activeOfficer.coords, { animate: true });
     }
-  }, [activeTab, officers, selectedOfficerId, isConnectionLost, isAuthenticated]);
+  }, [activeTab, officers, selectedOfficerId, isConnectionLost ]);
 
   // ---------------------------------------------------------------------------
   // LEAFLET MAP 2: NEW MISSION LOCATION PICKER
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isCreatingMission || !pickerMapRef.current || isConnectionLost || !isAuthenticated) {
+    if (!isCreatingMission || !pickerMapRef.current || isConnectionLost ) {
       if (pickerMapInstance.current) {
         pickerMapInstance.current.remove();
         pickerMapInstance.current = null;
@@ -483,7 +470,7 @@ export default function MainDashboard() {
 
       pickerMapInstance.current = map;
     }
-  }, [isCreatingMission, isConnectionLost, isAuthenticated]);
+  }, [isCreatingMission, isConnectionLost ]);
 
   // Update pin location on click without rebuilding map instance
   useEffect(() => {
@@ -540,7 +527,7 @@ export default function MainDashboard() {
             {
               label: 'Cancelled',
               time: currentTime,
-              subtext: `Cancelled by ${currentUser?.full_name || 'Dispatcher'}`,
+              subtext: `Cancelled by ${user?.full_name || 'Dispatcher'}`,
               status: 'completed',
             },
           ];
@@ -581,53 +568,8 @@ export default function MainDashboard() {
     setNewUserPassword('');
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    setIsLoggingIn(true);
 
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/login/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!res.ok) {
-        setLoginError('Invalid username or password');
-        return;
-      }
-
-      const data = await res.json();
-
-      // Officers are mobile-only (requirements §3)
-      if (data.user.role === 'officer') {
-        setLoginError('Officers must use the mobile app.');
-        return;
-      }
-
-      localStorage.setItem('access', data.access);
-      localStorage.setItem('refresh', data.refresh);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      setCurrentUser(data.user);
-      setIsAuthenticated(true);
-    } catch {
-      setLoginError('Cannot reach the server. Is the backend running?');
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('access');
-    localStorage.removeItem('refresh');
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-    setUsername('');
-    setPassword('');
-  };
+  
 
   const selectedMission = missions.find((m) => m.id === selectedMissionId);
   const selectedOfficer = officers.find((o) => o.id === selectedOfficerId);
@@ -658,69 +600,6 @@ const displayMissions = forceEmptyState
   // Aggregate stats across active severity filter for top cards
   const summaryAssigned = dailyOfficerData.reduce((acc, row) => acc + row.assigned[severityFilter], 0);
   const summaryCompleted = dailyOfficerData.reduce((acc, row) => acc + row.completed[severityFilter], 0);
-
-  // ---------------------------------------------------------------------------
-  // 1. LOGIN SCREEN VIEW
-  // ---------------------------------------------------------------------------
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800">
-        <header className="bg-[#1F3864] text-white px-6 py-3 font-semibold text-lg shadow-sm">
-          Municipal Police — Operations
-        </header>
-
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm border border-slate-200">
-            <img
-              src={municipalPoliceLogo}
-
-              alt="Municipal Police Logo"
-              className="w-24 h-24 object-contain mx-auto mb-4"
-            />
-            <h2 className="text-xl font-bold text-slate-900 text-center mb-1">Sign in</h2>
-            <p className="text-xs text-slate-500 text-center mb-6">Dispatcher and supervisor access</p>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Username</label>
-                <input
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#1F3864]/20 focus:border-[#1F3864]"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Password</label>
-                <input
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#1F3864]/20 focus:border-[#1F3864]"
-                  required
-                />
-              </div>
-              {loginError && (
-                <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
-                  {loginError}
-                </div>
-              )}
-              <button
-                type="submit"
-                className="w-full bg-[#1F3864] hover:bg-[#182c50] text-white font-medium py-2 rounded text-sm transition-colors mt-2 cursor-pointer"
-              >
-                Sign in
-              </button>
-            </form>
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // 2. MAIN DASHBOARD VIEW
@@ -808,11 +687,11 @@ const displayMissions = forceEmptyState
 
           <div className="flex items-center gap-2">
             <span className="text-slate-300 font-medium">
-              {currentUser
-                  ? `${currentUser.full_name} · ${roleLabel(currentUser.role)}`                : ''}
+              {user
+                  ? `${user.full_name} · ${roleLabel(user.role)}`                : ''}
             </span>
             <button
-              onClick={handleLogout}
+              onClick={logout}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-2.5 py-1 rounded text-xs font-medium transition-colors ml-1 cursor-pointer"
             >
               Log out
