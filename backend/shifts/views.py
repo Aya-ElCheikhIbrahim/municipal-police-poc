@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from datetime import datetime, time
 
 from django.utils import timezone
