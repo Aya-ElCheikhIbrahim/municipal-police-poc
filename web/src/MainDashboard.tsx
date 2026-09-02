@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { searchTripoliLocations } from './data/tripoliLocations';
 import municipalPoliceLogo from './assets/policelogo.png';
 
 // Fix Leaflet's default icon paths in React/Vite bundlers
@@ -179,94 +180,6 @@ export default function MainDashboard() {
   const [newMissionAssignee, setNewMissionAssignee] = useState('Karim Haddad · Badge 214');
   const [newMissionAddress, setNewMissionAddress] = useState('Rue Tall, Tripoli');
   const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
-  const tripoliLocations = [
-  'Abu Samra, Tripoli, Lebanon', 'Bahsas, Tripoli, Lebanon',
-  'Al Tall, Tripoli, Lebanon', 'Al Qobbe, Tripoli, Lebanon',
-  'Al Dam Wal Farez, Tripoli, Lebanon', 'Al Maarad, Tripoli, Lebanon',
-  'Jabal Mohsen, Tripoli, Lebanon', 'Tabbaneh, Tripoli, Lebanon',
-  'Zahrieh, Tripoli, Lebanon', 'Azmi Street, Tripoli, Lebanon',
-  'Old City, Tripoli, Lebanon', 'Mina, Tripoli, Lebanon', 'Mitein Street, Tripoli, Lebanon',
-  'Central, Tripoli, Lebanon', 'Corniche, Tripoli, Lebanon', 'Metran Street, Tripoli, Lebanon',
-  'Boulevard, Tripoli, Lebanon', 'Haddadine, Tripoli, Lebanon', 'Al Nini, Tripoli, Lebanon',
-];
-  const locationAliases: Record<string, string[]> = {
-  'Abu Samra, Tripoli, Lebanon': [
-    'abu samra', 'abou samra', 'abi samra', 'abo samra'
-  ],
-
-  'Bahsas, Tripoli, Lebanon': [
-    'bahsas', 'bahssas', 'bohssas', 'bohsas', 'al bahsas', 'el bahsas'
-  ],
-
-  'Al Tall, Tripoli, Lebanon': [
-    'tall', 'tal', 'tell', 'tel', 'al tall', 'el tall', 'al tell', 'el tell'
-  ],
-
-  'Al Qobbe, Tripoli, Lebanon': [
-    'qobbe', 'qobbeh', 'kobbe', 'kobbeh', 'qubbe', 'qubbeh',
-    'qibbeh', 'ebbeh', 'ebeh', 'ebe', 'ebbe'
-  ],
-
-  'Al Dam Wal Farez, Tripoli, Lebanon': [
-    'dam w farez', 'dam wal farez', 'dam wel farez', 'dam el farez',
-    'dam farez', 'dam w farz', 'dam wel farz', 'damm w farez', 'dam w farz'
-  ],
-
-  'Al Maarad, Tripoli, Lebanon': [
-    'maarad', 'maared', 'maarad', 'al maarad', 'el maarad',
-    'al maared', 'el maared'
-  ],
-
-  'Jabal Mohsen, Tripoli, Lebanon': [
-    'jabal mohsen', 'jabal mohsin', 'jabal muhsin', 'jabal mohssin'
-  ],
-
-  'Tabbaneh, Tripoli, Lebanon': [
-    'tabbaneh', 'tebbaneh', 'tabbane', 'tebbane', 'bab el tabbaneh',
-    'bab al tabbaneh', 'bab el tebbeneh', 'tebbene'
-  ],
-
-  'Zahrieh, Tripoli, Lebanon': [
-    'zahrieh', 'zahriyeh', 'zahriyyeh', 'zahriye', 'zahrieh', 'zehriye'
-  ],
-
-  'Azmi Street, Tripoli, Lebanon': [
-    'azmi', 'azmi street', 'azmi st', 'azmy', 'aazmi', 'aazmi street'
-  ],
-
-  'Old City, Tripoli, Lebanon': [
-    'old city', 'old tripoli', 'tripoli old city', 'old souks',
-    'old souk', 'souk'
-  ],
-
-  'Mina, Tripoli, Lebanon': [
-    'mina', 'el mina', 'al mina', 'minaa', 'el minaa', 'al minaa'
-  ],
-
-  'Mitein Street, Tripoli, Lebanon': [
-    'miten', 'mitein' , 'miten street'
-  ]
-};
-  const searchTripoliLocations = (query: string) => {
-  const search = query.trim().toLowerCase();
-
-  if (!search) {
-    setLocationSuggestions([]);
-    return;
-  }
-
-  const matches = tripoliLocations.filter((location) => {
-  const matchesName = location.toLowerCase().includes(search);
-
-  const matchesAlias = locationAliases[location]?.some((alias) =>
-    alias.includes(search)
-  );
-
-  return matchesName || matchesAlias;
-});
-
-  setLocationSuggestions(matches.slice(0, 8));
-};
   const [newMissionDeadline, setNewMissionDeadline] = useState('');
   const [selectedCoords, setSelectedCoords] = useState<[number, number]>([34.4367, 35.8497]);
 
@@ -765,6 +678,7 @@ const displayMissions = forceEmptyState
           <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm border border-slate-200">
             <img
               src={municipalPoliceLogo}
+
               alt="Municipal Police Logo"
               className="w-24 h-24 object-contain mx-auto mb-4"
             />
@@ -1536,7 +1450,7 @@ const displayMissions = forceEmptyState
                           onChange={(e) => {
                             const value = e.target.value;
                             setNewMissionAddress(value);
-                            searchTripoliLocations(value);
+                            setLocationSuggestions(searchTripoliLocations(value));
                            }}
                           className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864]"
                         />
