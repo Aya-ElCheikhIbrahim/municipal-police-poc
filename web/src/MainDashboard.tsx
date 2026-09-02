@@ -7,6 +7,7 @@ import type { LoginUser } from './features/auth/types';
 import { roleLabel } from './features/auth/types';
 import { useAuth } from './features/auth/AuthContext';
 import { UsersPage } from './features/users/UsersPage';
+import { LiveMapPage } from './features/map/LiveMapPage';
 // Fix Leaflet's default icon paths in React/Vite bundlers
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -277,9 +278,6 @@ export default function MainDashboard() {
     },
   ]);
 
-  // Leaflet Map Refs
-  const liveMapRef = useRef<HTMLDivElement | null>(null);
-  const liveMapInstance = useRef<L.Map | null>(null);
 
   const pickerMapRef = useRef<HTMLDivElement | null>(null);
   const pickerMapInstance = useRef<L.Map | null>(null);
@@ -303,149 +301,6 @@ export default function MainDashboard() {
       setSelectedOfficerId(target.id);
     }
   };
-
-  // ---------------------------------------------------------------------------
-  // LEAFLET MAP 1: LIVE MAP INSTANCE INITIALIZATION
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (activeTab !== 'Live map' || !liveMapRef.current || isConnectionLost ) {
-      if (liveMapInstance.current) {
-        liveMapInstance.current.remove();
-        liveMapInstance.current = null;
-      }
-      return;
-    }
-
-    if (!liveMapInstance.current) {
-      const map = L.map(liveMapRef.current, {
-        center: [34.4367, 35.8497],
-        zoom: 13,
-        zoomControl: false,
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-      }).addTo(map);
-
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-      liveMapInstance.current = map;
-    }
-
-    const timer = setTimeout(() => {
-      liveMapInstance.current?.invalidateSize();
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [activeTab, isConnectionLost ]);
-
-  // ---------------------------------------------------------------------------
-  // LEAFLET MAP 1: MARKERS & PAN UPDATE
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (activeTab !== 'Live map' || !liveMapInstance.current || isConnectionLost ) return;
-
-    const map = liveMapInstance.current;
-
-    // Remove old markers
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Marker) {
-        map.removeLayer(layer);
-      }
-    });
-
-    // Add updated officer markers
-    officers.forEach((officer) => {
-      const isSelected = selectedOfficerId === officer.id;
-      const isPanic = officer.status === 'Panic';
-
-      const colorClass = isPanic
-        ? 'bg-rose-600 animate-ping'
-        : officer.status === 'On mission'
-        ? 'bg-[#2E5496]'
-        : officer.status === 'Available'
-        ? 'bg-[#2E7D32]'
-        : 'bg-slate-400';
-
-      const customHtml = `
-        <div class="relative flex items-center justify-center">
-          ${isPanic ? `<div class="absolute w-8 h-8 rounded-full bg-rose-500/50 animate-ping"></div>` : ''}
-          <div class="w-5 h-5 rounded-full ${isPanic ? 'bg-rose-600' : colorClass} border-2 border-white shadow-md ${
-        isSelected ? 'ring-4 ring-indigo-500/50 scale-125' : ''
-      }"></div>
-        </div>
-      `;
-
-      const customIcon = L.divIcon({
-        html: customHtml,
-        className: 'custom-leaflet-marker',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      });
-
-      const marker = L.marker(officer.coords, { icon: customIcon }).addTo(map);
-      marker.on('click', () => setSelectedOfficerId(officer.id));
-    });
-
-    const activeOfficer = officers.find((o) => o.id === selectedOfficerId);
-    if (activeOfficer) {
-      map.panTo(activeOfficer.coords, { animate: true });
-    }
-  }, [activeTab, officers, selectedOfficerId, isConnectionLost ]);
-
-  // ---------------------------------------------------------------------------
-  // LEAFLET MAP 2: NEW MISSION LOCATION PICKER
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!isCreatingMission || !pickerMapRef.current || isConnectionLost ) {
-      if (pickerMapInstance.current) {
-        pickerMapInstance.current.remove();
-        pickerMapInstance.current = null;
-        pickerMarkerRef.current = null;
-      }
-      return;
-    }
-
-    if (!pickerMapInstance.current) {
-      const map = L.map(pickerMapRef.current, {
-        center: selectedCoords,
-        zoom: 14,
-        zoomControl: false,
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-      }).addTo(map);
-
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-      const pinHtml = `
-        <div class="w-6 h-6 bg-rose-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white text-[10px] font-bold">
-          📍
-        </div>
-      `;
-      const pinIcon = L.divIcon({
-        html: pinHtml,
-        className: 'custom-pin-marker',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
-
-      const marker = L.marker(selectedCoords, { icon: pinIcon }).addTo(map);
-      pickerMarkerRef.current = marker;
-
-      map.on('click', (e: L.LeafletMouseEvent) => {
-        const { lat, lng } = e.latlng;
-        const newLat = parseFloat(lat.toFixed(4));
-        const newLng = parseFloat(lng.toFixed(4));
-        setSelectedCoords([newLat, newLng]);
-      });
-
-      pickerMapInstance.current = map;
-    }
-  }, [isCreatingMission, isConnectionLost ]);
-
   // Update pin location on click without rebuilding map instance
   useEffect(() => {
     if (pickerMarkerRef.current) {
@@ -1409,95 +1264,8 @@ const displayMissions = forceEmptyState
               </div>
             )}
 
-            {/* LIVE MAP TAB WITH REAL INTERACTIVE LEAFLET MAP */}
-            {activeTab === 'Live map' && (
-              <div className="flex-1 flex w-full">
-                <aside className="w-64 bg-white border-r border-slate-200 flex flex-col z-10 shadow-xs">
-                  <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <span className="font-bold text-xs text-slate-700">On duty</span>
-                    <span className="text-xs text-slate-400 font-medium">{officers.length} officers</span>
-                  </div>
-
-                  <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
-                    {officers.map((officer) => (
-                      <div
-                        key={officer.id}
-                        onClick={() => setSelectedOfficerId(officer.id)}
-                        className={`p-3 transition-colors cursor-pointer ${
-                          selectedOfficerId === officer.id
-                            ? 'bg-slate-100 border-l-4 border-[#1F3864]'
-                            : 'hover:bg-[#f8fafc]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-xs text-slate-900">{officer.name}</span>
-                          <span
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                              officer.status === 'Panic'
-                                ? 'bg-rose-600 text-white animate-pulse'
-                                : officer.status === 'On mission'
-                                ? 'bg-blue-50 text-blue-[#2E5496]'
-                                : officer.status === 'Available'
-                                ? 'bg-[#2E7D32]/10 text-[#2E7D32]'
-                                : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            {officer.status}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {officer.badge} · {officer.details}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </aside>
-
-                {/* Leaflet Map Div */}
-                <main className="flex-1 relative">
-                  <div ref={liveMapRef} className="w-full h-full z-0" />
-                </main>
-
-                <aside className="w-80 bg-white border-l border-slate-200 flex flex-col justify-between p-4 overflow-y-auto z-10 shadow-xs">
-                  {selectedOfficer ? (
-                    <div className="space-y-5">
-                      <div className="flex items-start justify-between pb-3 border-b border-slate-100">
-                        <div>
-                          <h3 className="font-bold text-slate-900 text-sm">{selectedOfficer.name}</h3>
-                        </div>
-                        <span className="text-xs text-slate-400 font-medium">{selectedOfficer.badge}</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <div className="text-lg font-bold text-slate-900">{selectedOfficer.dutyTime}</div>
-                          <div className="text-[10px] text-slate-400 font-medium mt-0.5">On duty</div>
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <div className="text-lg font-bold text-slate-900">{selectedOfficer.distanceCovered}</div>
-                          <div className="text-[10px] text-slate-400 font-medium mt-0.5">Covered today</div>
-                        </div>
-                      </div>
-
-                      <div className="pt-2 grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            setActiveTab('Missions');
-                            setIsCreatingMission(true);
-                          }}
-                          className="w-full py-2 px-3 border border-slate-800 text-slate-900 text-xs font-semibold rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
-                        >
-                          Assign mission
-                        </button>
-                        <button className="w-full py-2 px-3 border border-slate-200 text-slate-700 text-xs font-semibold rounded-md hover:bg-slate-50 transition-colors cursor-pointer">
-                          Full history
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </aside>
-              </div>
-            )}
+            {/* LIVE MAP TAB */}
+            {activeTab === 'Live map' && <LiveMapPage />}
           </>
         )}
       </div>
