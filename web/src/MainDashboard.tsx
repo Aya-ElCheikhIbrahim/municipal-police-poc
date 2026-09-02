@@ -3,6 +3,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { searchTripoliLocations } from './data/tripoliLocations';
 import municipalPoliceLogo from './assets/policelogo.png';
+import type { LoginUser } from './features/auth/types';
+import { roleLabel } from './features/auth/types';
 
 // Fix Leaflet's default icon paths in React/Vite bundlers
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -29,14 +31,7 @@ interface SystemUser {
   phone: string;
   status: UserStatus;
 }
-interface AuthUser {
-  id: number;
-  username: string;
-  full_name: string;
-  badge_number: string;
-  role: 'officer' | 'sidpatcher' | 'supervisor';
-  preferred_language: string;
-}
+
 interface Officer {
   id: string;
   name: string;
@@ -101,7 +96,7 @@ export default function MainDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<LoginUser | null>(null);
   const [loginError, setLoginError] = useState<string>('');
   const [_isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
@@ -814,8 +809,7 @@ const displayMissions = forceEmptyState
           <div className="flex items-center gap-2">
             <span className="text-slate-300 font-medium">
               {currentUser
-                ? `${currentUser.full_name} · ${currentUser.role.charAt(0).toUpperCase()}${currentUser.role.slice(1)}`
-                : ''}
+                  ? `${currentUser.full_name} · ${roleLabel(currentUser.role)}`                : ''}
             </span>
             <button
               onClick={handleLogout}
