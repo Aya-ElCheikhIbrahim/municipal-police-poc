@@ -55,8 +55,12 @@ function refreshAccessToken(): Promise<string> {
   })
     .then(async (res) => {
       if (!res.ok) throw new Error('Refresh rejected');
-      const data = await res.json();
-      tokenStore.setAccess(data.access);
+            const data = await res.json();
+      if (data.refresh) {
+        tokenStore.set(data.access, data.refresh);
+      } else {
+        tokenStore.setAccess(data.access);
+      }
       return data.access as string;
     })
     .finally(() => {
@@ -138,3 +142,9 @@ export const apiClient = {
   patch: <T>(path: string, body: unknown) => request<T>(path, { method: 'PATCH', body }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
+export interface Paginated<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
