@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ViewFlipper;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -15,10 +16,13 @@ import com.google.android.material.tabs.TabLayout;
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
 import com.municipalpolice.officerapp.data.FakeMissionRepository;
+import com.municipalpolice.officerapp.data.MissionRepository;
+import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.missiondetail.MissionDetailActivity;
+import com.municipalpolice.officerapp.util.PrefsManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,11 +40,14 @@ public class MissionListActivity extends BaseActivity {
     private MissionAdapter adapter;
     private final List<Mission> allMissions = new ArrayList<>();
     private int selectedTab = 0;
+    private MissionRepository missionRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_mission_list);
+
+        missionRepository = new RetrofitMissionRepository(new PrefsManager(this), this);
 
         flipper = findViewById(R.id.flipper);
         swipeRefresh = findViewById(R.id.swipeRefresh);
@@ -68,13 +75,13 @@ public class MissionListActivity extends BaseActivity {
 
     private void openMissionDetail(Mission mission) {
         Intent intent = new Intent(this, MissionDetailActivity.class);
-        intent.putExtra(MissionDetailActivity.EXTRA_MISSION_ID, mission.getId());
+        intent.putExtra(MissionDetailActivity.EXTRA_MISSION_ID, String.valueOf(mission.getId()));
         startActivity(intent);
     }
 
     private void loadMissions() {
         flipper.setDisplayedChild(PAGE_LOADING);
-        FakeMissionRepository.getInstance().fetchMissions(new Callback<List<Mission>>() {
+        missionRepository.fetchMissions(new Callback<List<Mission>>() {
             @Override
             public void onSuccess(List<Mission> result) {
                 swipeRefresh.setRefreshing(false);
@@ -95,7 +102,7 @@ public class MissionListActivity extends BaseActivity {
         List<Mission> filtered = new ArrayList<>();
         for (Mission m : allMissions) {
             boolean matchesTab =
-                    (selectedTab == 0 && m.getStatus() == MissionStatus.NEW) ||
+                    (selectedTab == 0 && (m.getStatus() == MissionStatus.NEW || m.getStatus() == MissionStatus.ASSIGNED)) ||
                     (selectedTab == 1 && (m.getStatus() == MissionStatus.ACKNOWLEDGED || m.getStatus() == MissionStatus.IN_PROGRESS)) ||
                     (selectedTab == 2 && m.getStatus() == MissionStatus.COMPLETED);
             if (matchesTab) filtered.add(m);
@@ -107,8 +114,6 @@ public class MissionListActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Re-pull so status changes made in MissionDetailActivity (acknowledge/
-        // complete/cancel) are reflected when the officer comes back to the list.
         if (flipper.getDisplayedChild() == PAGE_CONTENT || flipper.getDisplayedChild() == PAGE_EMPTY) {
             loadMissions();
         }
@@ -120,7 +125,6 @@ public class MissionListActivity extends BaseActivity {
         return true;
     }
 
-    /** Demo-only: lets you preview loading/empty/error states without a real backend. */
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();

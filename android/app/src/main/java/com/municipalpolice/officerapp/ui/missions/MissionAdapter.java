@@ -45,12 +45,15 @@ public class MissionAdapter extends RecyclerView.Adapter<MissionAdapter.ViewHold
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Mission mission = missions.get(position);
         holder.tvTitle.setText(mission.getTitle());
-        holder.tvSubtitle.setText(mission.getLocation() + " · " + mission.getDistanceMeters());
+        String location = mission.getAddress() != null ? mission.getAddress() : 
+                         (mission.getLatitude() + ", " + mission.getLongitude());
+        holder.tvSubtitle.setText(location);
 
         int pillRes;
         String priorityLabel;
         switch (mission.getPriority()) {
             case URGENT:
+            case HIGH:
                 pillRes = R.drawable.pill_urgent;
                 priorityLabel = holder.itemView.getContext().getString(R.string.priority_urgent);
                 break;

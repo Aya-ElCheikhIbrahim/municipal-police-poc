@@ -1,5 +1,6 @@
 package com.municipalpolice.officerapp.ui.shift;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,15 +17,25 @@ import android.widget.ViewFlipper;
 import androidx.annotation.NonNull;
 
 import com.municipalpolice.officerapp.R;
-import com.municipalpolice.officerapp.data.FakeMissionRepository;
+import com.municipalpolice.officerapp.data.Callback;
+import com.municipalpolice.officerapp.data.MissionRepository;
+import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
+import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
+import com.municipalpolice.officerapp.data.ShiftRepository;
+import com.municipalpolice.officerapp.model.Mission;
+import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.model.Officer;
-import com.municipalpolice.officerapp.data.FakeAuthRepository;
+import com.municipalpolice.officerapp.model.Shift;
+import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.EndShiftDialogFragment;
 import com.municipalpolice.officerapp.ui.dialogs.PanicAlertDialogFragment;
 import com.municipalpolice.officerapp.ui.missions.MissionListActivity;
 import com.municipalpolice.officerapp.ui.settings.SettingsActivity;
+import com.municipalpolice.officerapp.util.PrefsManager;
 import com.municipalpolice.officerapp.util.TimeFormat;
+
+import java.util.List;
 
 /**
  * Combines mockup screens "2 - Off duty", "3 - On duty", "Syncing" and the
@@ -47,15 +58,18 @@ public class ShiftActivity extends BaseActivity {
     private Button btnPanic;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private long shiftStartElapsedRealtime;
+    private long shiftStartMillis;
     private boolean onDuty = false;
     private boolean simulatedOffline = false;
+    private ShiftRepository shiftRepository;
+    private MissionRepository missionRepository;
+    private PrefsManager prefs;
 
     private final Runnable timerTick = new Runnable() {
         @Override
         public void run() {
             if (!onDuty) return;
-            long elapsed = SystemClock.elapsedRealtime() - shiftStartElapsedRealtime;
+            long elapsed = System.currentTimeMillis() - shiftStartMillis;
             tvShiftTimer.setText(TimeFormat.hms(elapsed));
             handler.postDelayed(this, 1000);
         }
@@ -78,7 +92,10 @@ public class ShiftActivity extends BaseActivity {
         groupOfflineNotice = findViewById(R.id.groupOfflineNotice);
         btnPanic = findViewById(R.id.btnPanic);
 
-        Officer officer = FakeAuthRepository.getInstance().getCachedOfficer();
+        prefs = new PrefsManager(this);
+        shiftRepository = new RetrofitShiftRepository(prefs, this);
+        missionRepository = new RetrofitMissionRepository(prefs, (android.content.Context) this);
+        Officer officer = RetrofitAuthRepository.getInstance(prefs).getCachedOfficer();
         tvTopBarTitle.setText(officer != null ? officer.getFullName() : getString(R.string.app_name));
 
         findViewById(R.id.btnSettings).setOnClickListener(v ->
@@ -87,11 +104,47 @@ public class ShiftActivity extends BaseActivity {
         findViewById(R.id.btnStartShift).setOnClickListener(v -> startShift());
         findViewById(R.id.btnMissions).setOnClickListener(v ->
                 startActivity(new Intent(this, MissionListActivity.class)));
-        findViewById(R.id.btnEndShift).setOnClickListener(v ->
-                EndShiftDialogFragment.newInstance().show(getSupportFragmentManager(), "end_shift"));
+        findViewById(R.id.btnEndShift).setOnClickListener(v -> checkMissionsBeforeEndShift());
 
         setUpPanicHoldButton();
         renderOffDuty();
+    }
+
+    private void checkMissionsBeforeEndShift() {
+        final android.app.Dialog loading = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setMessage(R.string.logout_validation_loading)
+                .setCancelable(false)
+                .show();
+
+        missionRepository.fetchMissions(new Callback<List<Mission>>() {
+            @Override
+            public void onSuccess(List<Mission> result) {
+                if (loading != null) loading.dismiss();
+                boolean active = false;
+                for (Mission m : result) {
+                    if (m.getStatus() == MissionStatus.ACKNOWLEDGED || m.getStatus() == MissionStatus.IN_PROGRESS) {
+                        active = true;
+                        break;
+                    }
+                }
+
+                if (active) {
+                    new androidx.appcompat.app.AlertDialog.Builder(ShiftActivity.this)
+                            .setTitle(R.string.shift_end_button)
+                            .setMessage(R.string.end_shift_error_active_missions)
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show();
+                } else {
+                    EndShiftDialogFragment.newInstance().show(ShiftActivity.this.getSupportFragmentManager(), "end_shift");
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                if (loading != null) loading.dismiss();
+                Toast.makeText(ShiftActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void setUpPanicHoldButton() {
@@ -113,9 +166,21 @@ public class ShiftActivity extends BaseActivity {
 
     // Called by EndShiftDialogFragment via FragmentResultListener-style direct call.
     public void onEndShiftConfirmed() {
-        onDuty = false;
-        handler.removeCallbacks(timerTick);
-        renderOffDuty();
+        shiftRepository.endShift(null, null, prefs.getRefreshToken(), new Callback<Shift>() {
+            @Override
+            public void onSuccess(Shift result) {
+                onDuty = false;
+                prefs.setShiftActive(false);
+                handler.removeCallbacks(timerTick);
+                renderOffDuty();
+                Toast.makeText(ShiftActivity.this, "Shift ended. Duration: " + TimeFormat.hms(result.getDurationSeconds() * 1000L), Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Toast.makeText(ShiftActivity.this, "Failed to end shift: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     public void onPanicSent() {
@@ -123,12 +188,32 @@ public class ShiftActivity extends BaseActivity {
     }
 
     private void startShift() {
-        onDuty = true;
-        shiftStartElapsedRealtime = SystemClock.elapsedRealtime();
-        flipper.setDisplayedChild(PAGE_ON_DUTY);
-        groupOfflineNotice.setVisibility(simulatedOffline ? android.view.View.VISIBLE : android.view.View.GONE);
-        updateStatusPill();
-        handler.post(timerTick);
+        shiftRepository.startShift(null, null, new Callback<Shift>() {
+            @Override
+            public void onSuccess(Shift result) {
+                onDuty = true;
+                prefs.setShiftActive(true);
+                try {
+                    // Simple ISO parser for the purpose of the POC
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                    java.util.Date date = sdf.parse(result.getStartedAt());
+                    shiftStartMillis = date.getTime();
+                } catch (Exception e) {
+                    shiftStartMillis = System.currentTimeMillis();
+                }
+
+                flipper.setDisplayedChild(PAGE_ON_DUTY);
+                groupOfflineNotice.setVisibility(simulatedOffline ? android.view.View.VISIBLE : android.view.View.GONE);
+                updateStatusPill();
+                handler.post(timerTick);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Toast.makeText(ShiftActivity.this, "Failed to start shift: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void renderOffDuty() {

@@ -16,17 +16,16 @@ import androidx.annotation.NonNull;
 
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
-import com.municipalpolice.officerapp.data.FakeMissionRepository;
+import com.municipalpolice.officerapp.data.MissionRepository;
+import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.CancelMissionDialogFragment;
+import com.municipalpolice.officerapp.util.PrefsManager;
 
 /**
- * Screens "5 - Mission detail" (assigned: steps + Acknowledge/Navigate) and
- * "6 - Mission, in progress" (checklist + photos + Complete mission).
- * Both are one Activity with a ViewFlipper since they're the same mission,
- * just at different points in its lifecycle.
+ * Screens "5 - Mission detail" and "6 - Mission, in progress".
  */
 public class MissionDetailActivity extends BaseActivity {
 
@@ -47,12 +46,14 @@ public class MissionDetailActivity extends BaseActivity {
 
     private String missionId;
     private Mission mission;
+    private MissionRepository missionRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_mission_detail);
 
+        missionRepository = new RetrofitMissionRepository(new PrefsManager(this), this);
         missionId = getIntent().getStringExtra(EXTRA_MISSION_ID);
 
         flipper = findViewById(R.id.flipper);
@@ -73,7 +74,13 @@ public class MissionDetailActivity extends BaseActivity {
         setUpStepRow(findViewById(R.id.step2), "2", R.string.mission_step_start);
         setUpStepRow(findViewById(R.id.step3), "3", R.string.mission_step_complete);
 
-        findViewById(R.id.btnAcknowledge).setOnClickListener(v -> acknowledgeMission());
+        findViewById(R.id.btnAcknowledge).setOnClickListener(v -> {
+            if (mission.getStatus() == MissionStatus.ACKNOWLEDGED) {
+                startMission();
+            } else {
+                acknowledgeMission();
+            }
+        });
         findViewById(R.id.btnNavigate).setOnClickListener(v -> openNavigation());
         findViewById(R.id.btnTakePhoto).setOnClickListener(v -> takePhoto());
         findViewById(R.id.btnCompleteMission).setOnClickListener(v -> completeMission());
@@ -89,21 +96,17 @@ public class MissionDetailActivity extends BaseActivity {
     }
 
     private void loadMission() {
-        FakeMissionRepository.getInstance().fetchMissions(new Callback<java.util.List<Mission>>() {
+        missionRepository.getMissionById(missionId, new Callback<Mission>() {
             @Override
-            public void onSuccess(java.util.List<Mission> result) {
-                for (Mission m : result) {
-                    if (m.getId().equals(missionId)) {
-                        mission = m;
-                        break;
-                    }
-                }
+            public void onSuccess(Mission result) {
+                mission = result;
                 if (mission != null) render();
             }
 
             @Override
             public void onError(Throwable error) {
-                Toast.makeText(MissionDetailActivity.this, R.string.missions_error_title, Toast.LENGTH_SHORT).show();
+                String message = error.getMessage() != null ? error.getMessage() : getString(R.string.missions_error_title);
+                Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
                 finish();
             }
         });
@@ -111,13 +114,16 @@ public class MissionDetailActivity extends BaseActivity {
 
     private void render() {
         tvMissionTitle.setText(mission.getTitle());
-        tvAssignedBy.setText(getString(R.string.mission_assigned_by, mission.getLocation(), mission.getAssignedBy()));
-        tvMapDistance.setText(getString(R.string.mission_map_distance, mission.getDistanceMeters()));
+        String location = mission.getAddress() != null ? mission.getAddress() : 
+                         (mission.getLatitude() + ", " + mission.getLongitude());
+        tvAssignedBy.setText(getString(R.string.mission_assigned_by, location, "Dispatch"));
+        tvMapDistance.setText(getString(R.string.mission_map_distance, "--"));
 
         int pillRes;
         String label;
         switch (mission.getPriority()) {
             case URGENT:
+            case HIGH:
                 pillRes = R.drawable.pill_urgent;
                 label = getString(R.string.priority_urgent);
                 break;
@@ -132,24 +138,40 @@ public class MissionDetailActivity extends BaseActivity {
         tvPriorityPill.setBackgroundResource(pillRes);
         tvPriorityPill.setText(label);
 
+        boolean isAwaitingStart = mission.getStatus() == MissionStatus.ACKNOWLEDGED;
         boolean inProgress = mission.getStatus() == MissionStatus.IN_PROGRESS
                 || mission.getStatus() == MissionStatus.COMPLETED;
+        
         flipper.setDisplayedChild(inProgress ? PAGE_IN_PROGRESS : PAGE_ASSIGNED);
 
-        if (inProgress) {
-            tvAcknowledgedAt.setText(getString(R.string.mission_acknowledged_at, formatTime(mission.getAcknowledgedAtMillis())));
-            tvStartedAt.setText(getString(R.string.mission_started_at, formatTime(mission.getStartedAtMillis())));
+        if (!inProgress) {
+            TextView btnAction = findViewById(R.id.btnAcknowledge);
+            if (isAwaitingStart) {
+                btnAction.setText(R.string.mission_step_start);
+            } else {
+                btnAction.setText(R.string.mission_acknowledge_button);
+            }
+        } else {
+            tvAcknowledgedAt.setText(getString(R.string.mission_acknowledged_at, formatTime(mission.getAcknowledgedAt())));
+            tvStartedAt.setText(getString(R.string.mission_started_at, formatTime(mission.getStartedAt())));
             renderPhotos();
         }
     }
 
-    private String formatTime(long millis) {
-        if (millis <= 0) return "--:--";
-        return DateFormat.format("HH:mm", millis).toString();
+    private String formatTime(String isoString) {
+        if (isoString == null) return "--:--";
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date date = sdf.parse(isoString);
+            return DateFormat.format("HH:mm", date).toString();
+        } catch (Exception e) {
+            return "--:--";
+        }
     }
 
     private void renderPhotos() {
-        int taken = mission.getPhotoUris().size();
+        int taken = mission.getPhotos().size();
         tvPhotoProgress.setText(getString(R.string.mission_photo_progress, taken, mission.getRequiredPhotoCount()));
 
         FrameLayout[] slots = { photoSlot1, photoSlot2, photoSlot3 };
@@ -159,7 +181,31 @@ public class MissionDetailActivity extends BaseActivity {
     }
 
     private void acknowledgeMission() {
-        FakeMissionRepository.getInstance().acknowledgeMission(missionId, new Callback<Mission>() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.mission_acknowledge_warning_title)
+                .setMessage(R.string.mission_acknowledge_warning_body)
+                .setPositiveButton(R.string.generic_proceed, (dialog, which) -> {
+                    missionRepository.acknowledgeMission(missionId, new Callback<Mission>() {
+                        @Override
+                        public void onSuccess(Mission result) {
+                            mission = result;
+                            render();
+                            Toast.makeText(MissionDetailActivity.this, R.string.mission_toast_acknowledged, Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void onError(Throwable error) {
+                            String message = error.getMessage() != null ? error.getMessage() : getString(R.string.missions_error_title);
+                            Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton(R.string.generic_cancel, null)
+                .show();
+    }
+
+    private void startMission() {
+        missionRepository.startMission(missionId, new Callback<Mission>() {
             @Override
             public void onSuccess(Mission result) {
                 mission = result;
@@ -168,39 +214,27 @@ public class MissionDetailActivity extends BaseActivity {
 
             @Override
             public void onError(Throwable error) {
-                Toast.makeText(MissionDetailActivity.this, R.string.missions_error_title, Toast.LENGTH_SHORT).show();
+                String message = error.getMessage() != null ? error.getMessage() : getString(R.string.missions_error_title);
+                Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void openNavigation() {
-        // TODO(backend): replace with real coordinates once dispatch sends them;
-        // for now this opens a generic maps search on the mission's location text.
         try {
-            Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + Uri.encode(mission.getLocation()));
+            String query = mission.getAddress() != null ? mission.getAddress() : 
+                          (mission.getLatitude() + "," + mission.getLongitude());
+            Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + Uri.encode(query));
             Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
             startActivity(mapIntent);
         } catch (Exception e) {
-            Toast.makeText(this, mission.getLocation(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, mission.getTitle(), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void takePhoto() {
-        // TODO(backend): launch the real camera via ACTION_IMAGE_CAPTURE / CameraX,
-        // then upload through MissionRepository#addMissionPhoto. For this UI mock we
-        // just record a placeholder so the "N of 5 photos" state is demonstrable.
-        if (mission.getPhotoUris().size() >= mission.getRequiredPhotoCount()) return;
-        FakeMissionRepository.getInstance().addMissionPhoto(
-                missionId, "mock://photo-" + System.currentTimeMillis(), new Callback<Mission>() {
-                    @Override
-                    public void onSuccess(Mission result) {
-                        mission = result;
-                        renderPhotos();
-                    }
-
-                    @Override
-                    public void onError(Throwable error) { }
-                });
+        if (mission.getPhotos().size() >= mission.getRequiredPhotoCount()) return;
+        Toast.makeText(this, "Photo integration pending", Toast.LENGTH_SHORT).show();
     }
 
     private void completeMission() {
@@ -208,7 +242,7 @@ public class MissionDetailActivity extends BaseActivity {
             Toast.makeText(this, R.string.mission_take_photo, Toast.LENGTH_SHORT).show();
             return;
         }
-        FakeMissionRepository.getInstance().completeMission(missionId, new Callback<Mission>() {
+        missionRepository.completeMission(missionId, new Callback<Mission>() {
             @Override
             public void onSuccess(Mission result) {
                 Toast.makeText(MissionDetailActivity.this, R.string.mission_completed_toast, Toast.LENGTH_SHORT).show();
@@ -217,13 +251,14 @@ public class MissionDetailActivity extends BaseActivity {
 
             @Override
             public void onError(Throwable error) {
-                Toast.makeText(MissionDetailActivity.this, R.string.missions_error_title, Toast.LENGTH_SHORT).show();
+                String message = error.getMessage() != null ? error.getMessage() : getString(R.string.missions_error_title);
+                Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     public void onMissionCancelConfirmed(String reason) {
-        FakeMissionRepository.getInstance().cancelMission(missionId, reason, new Callback<Void>() {
+        missionRepository.cancelMission(missionId, reason, new Callback<Void>() {
             @Override
             public void onSuccess(Void result) {
                 Toast.makeText(MissionDetailActivity.this, R.string.cancel_mission_toast, Toast.LENGTH_SHORT).show();
@@ -232,7 +267,8 @@ public class MissionDetailActivity extends BaseActivity {
 
             @Override
             public void onError(Throwable error) {
-                Toast.makeText(MissionDetailActivity.this, R.string.missions_error_title, Toast.LENGTH_SHORT).show();
+                String message = error.getMessage() != null ? error.getMessage() : getString(R.string.missions_error_title);
+                Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
             }
         });
     }

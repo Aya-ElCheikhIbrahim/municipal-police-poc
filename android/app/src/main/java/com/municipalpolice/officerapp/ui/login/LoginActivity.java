@@ -1,18 +1,28 @@
 package com.municipalpolice.officerapp.ui.login;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
+
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
-import com.municipalpolice.officerapp.data.FakeAuthRepository;
+import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Screen "1 - Login". Accounts are supervisor-created; there's no self sign-up (see footnote). */
 public class LoginActivity extends BaseActivity {
@@ -20,6 +30,12 @@ public class LoginActivity extends BaseActivity {
     private EditText etUsername;
     private EditText etPassword;
     private Button btnLogin;
+    private Button btnForgotPassword;
+
+    private final ActivityResultLauncher<String[]> permissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                // Permissions handled. We could check if location was denied and show a warning.
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,34 +45,68 @@ public class LoginActivity extends BaseActivity {
         etUsername = findViewById(R.id.etUsername);
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
+        btnForgotPassword = findViewById(R.id.btnForgotPassword);
 
         btnLogin.setOnClickListener(v -> attemptLogin());
+        btnForgotPassword.setOnClickListener(v -> showForgotPasswordMessage());
 
         // Skip straight to the shift screen if a session is already cached
-        // (e.g. returning from Settings > Log out was never pressed).
         PrefsManager prefs = new PrefsManager(this);
-        if (prefs.isLoggedIn() && FakeAuthRepository.getInstance().getCachedOfficer() != null) {
+        if (prefs.isLoggedIn() && RetrofitAuthRepository.getInstance(prefs).getCachedOfficer() != null) {
             goToShift();
+        }
+
+        checkAndRequestPermissions();
+    }
+
+    private void checkAndRequestPermissions() {
+        List<String> permissions = new ArrayList<>();
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        permissions.add(Manifest.permission.CAMERA);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+
+        List<String> listPermissionsNeeded = new ArrayList<>();
+        for (String p : permissions) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                listPermissionsNeeded.add(p);
+            }
+        }
+
+        if (!listPermissionsNeeded.isEmpty()) {
+            permissionLauncher.launch(listPermissionsNeeded.toArray(new String[0]));
         }
     }
 
+    private void showForgotPasswordMessage() {
+        Toast.makeText(this, R.string.login_forgot_password_msg, Toast.LENGTH_LONG).show();
+    }
+
     private void attemptLogin() {
-        String username = etUsername.getText().toString();
-        String password = etPassword.getText().toString();
+        String username = etUsername.getText().toString().trim();
+        String password = etPassword.getText().toString().trim();
+
+        if (username.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, R.string.login_error_required, Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         btnLogin.setEnabled(false);
-        FakeAuthRepository.getInstance().login(username, password, new Callback<Officer>() {
+        PrefsManager prefs = new PrefsManager(this);
+        RetrofitAuthRepository.getInstance(prefs).login(username, password, new Callback<Officer>() {
             @Override
             public void onSuccess(Officer result) {
                 btnLogin.setEnabled(true);
-                new PrefsManager(LoginActivity.this).setLoggedIn(true);
                 goToShift();
             }
 
             @Override
             public void onError(Throwable error) {
                 btnLogin.setEnabled(true);
-                Toast.makeText(LoginActivity.this, R.string.login_error_required, Toast.LENGTH_SHORT).show();
+                Toast.makeText(LoginActivity.this, R.string.login_error_incorrect, Toast.LENGTH_SHORT).show();
             }
         });
     }
