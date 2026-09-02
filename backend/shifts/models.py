@@ -26,6 +26,8 @@ class Shift(models.Model):
     end_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     end_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
+    distance_m = models.PositiveIntegerField(default=0)
+
     class Meta:
         db_table = "shifts_shift"
         ordering = ["-started_at"]
