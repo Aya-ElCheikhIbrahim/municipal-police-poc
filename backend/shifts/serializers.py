@@ -100,6 +100,20 @@ class ShiftSerializer(serializers.ModelSerializer):
         ]
  
  
+class CurrentMissionSerializer(serializers.Serializer):
+    """
+    The mission an officer is on, as the map row carries it.
+ 
+    Four fields on purpose: the drawer calls GET /missions/{id}/ for the full
+    record and its timeline, so widening this would ship the same data twice.
+    """
+ 
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    priority = serializers.CharField()
+    status = serializers.CharField()
+ 
+ 
 class ActiveOfficerSerializer(serializers.Serializer):
     """
     The contract for GET /shifts/active/ — the shape web builds against.
@@ -112,5 +126,5 @@ class ActiveOfficerSerializer(serializers.Serializer):
     shift_duration_seconds = serializers.IntegerField()
     distance_covered_m = serializers.IntegerField()
     latest_ping = LocationPingSerializer(allow_null=True)
-    current_mission = serializers.DictField(allow_null=True)
+    current_mission = CurrentMissionSerializer(allow_null=True)
  

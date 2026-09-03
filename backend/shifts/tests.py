@@ -15,6 +15,9 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from missions import services as mission_services
+from missions.models import Mission
+
 from . import services
 from .models import LocationPing, Shift
 
@@ -259,6 +262,78 @@ class ActiveShiftsContractTests(TestCase):
         client.force_authenticate(make_user("supervisor2", role="supervisor"))
         row = client.get("/api/v1/shifts/active/").json()[0]
         self.assertIsNone(row["latest_ping"])
+
+
+class ActiveShiftsMissionTests(TestCase):
+    """
+    §4.6 marker colour. The contract counts an officer as busy only once they
+    have acknowledged, so ASSIGNED must still read as available.
+    """
+
+    def setUp(self):
+        self.officer = make_user("mission_officer")
+        self.dispatcher = make_user("mission_dispatcher", role="dispatcher")
+        services.start_shift(self.officer)
+        self.client = APIClient()
+        self.client.force_authenticate(self.dispatcher)
+
+    def _assign(self, title, priority=Mission.Priority.HIGH):
+        return mission_services.create_mission(
+            created_by=self.dispatcher,
+            title=title,
+            latitude=34.4367,
+            longitude=35.8497,
+            priority=priority,
+            assigned_to=self.officer,
+        )
+
+    def _row(self):
+        response = self.client.get("/api/v1/shifts/active/")
+        self.assertEqual(response.status_code, 200)
+        return response.json()[0]
+
+    def test_acknowledged_mission_makes_the_officer_in_mission(self):
+        mission = self._assign("Traffic obstruction on Al-Mina road")
+        mission_services.acknowledge_mission(mission, officer=self.officer)
+
+        row = self._row()
+        self.assertEqual(row["status"], "in_mission")
+        # Exactly these four fields; the drawer fetches the rest by id.
+        self.assertEqual(
+            row["current_mission"],
+            {
+                "id": mission.id,
+                "title": "Traffic obstruction on Al-Mina road",
+                "priority": "high",
+                "status": "acknowledged",
+            },
+        )
+
+    def test_assigned_but_unacknowledged_officer_is_still_available(self):
+        """Showing them as busy would hide a free officer from the dispatcher."""
+        self._assign("Sent but not yet seen")
+
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+
+    def test_two_open_missions_show_the_most_recently_assigned(self):
+        older = self._assign("Assigned an hour ago")
+        mission_services.acknowledge_mission(older, officer=self.officer)
+        newer = self._assign("Assigned just now")
+        mission_services.acknowledge_mission(newer, officer=self.officer)
+
+        # Both were assigned in the same test tick; space them out so the
+        # ordering under test is the one being asserted, not clock luck.
+        now = timezone.now()
+        Mission.objects.filter(pk=older.pk).update(
+            assigned_at=now - timezone.timedelta(hours=1)
+        )
+        Mission.objects.filter(pk=newer.pk).update(assigned_at=now)
+
+        row = self._row()
+        self.assertEqual(row["status"], "in_mission")
+        self.assertEqual(row["current_mission"]["id"], newer.id)
 
 
 class DistanceCachingTests(TestCase):
