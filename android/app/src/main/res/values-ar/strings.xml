@@ -11,6 +11,7 @@
     <string name="login_forgot_password_msg">يرجى الاتصال بمشرفك لإعادة تعيين كلمة المرور الخاصة بك.</string>
     <string name="login_footnote">الحسابات يُنشئها المشرف. لا يوجد تسجيل ذاتي.</string>
     <string name="login_error_required">أدخل اسم المستخدم وكلمة المرور</string>
+    <string name="login_error_incorrect">البيانات غير صحيحة، حاول مرة أخرى</string>
 
     <!-- الدوام -->
     <string name="shift_off_duty_subtitle">سيبدأ تتبع الموقع الآن</string>
