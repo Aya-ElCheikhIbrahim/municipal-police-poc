@@ -154,7 +154,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Storage stays UTC (USE_TZ below); this only sets the local day boundary,
+# which §5 and the daily reports of §4.8 both mean in Beirut terms. Left as
+# UTC, a night-shift officer's 01:00 pings fall on the previous date.
+TIME_ZONE = "Asia/Beirut"
 
 USE_I18N = True
 

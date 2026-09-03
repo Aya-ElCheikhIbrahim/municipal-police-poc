@@ -95,11 +95,17 @@ def start_shift(officer, latitude=None, longitude=None) -> tuple[Shift, bool]:
         return existing, False
 
     try:
-        shift = Shift.objects.create(
-            officer=officer,
-            start_latitude=_as_decimal(latitude),
-            start_longitude=_as_decimal(longitude),
-        )
+        # A savepoint, so losing the race below rolls back only the failed
+        # INSERT. Without it the surrounding transaction is aborted and the
+        # recovery query raises TransactionManagementError instead of
+        # returning the winner's shift — the retry this function promises
+        # would never have worked.
+        with transaction.atomic():
+            shift = Shift.objects.create(
+                officer=officer,
+                start_latitude=_as_decimal(latitude),
+                start_longitude=_as_decimal(longitude),
+            )
         return shift, True
     except IntegrityError:
         # Lost a race against the unique partial index; the other request won.

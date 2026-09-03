@@ -17,7 +17,6 @@ from .models import LocationPing, Shift
 from .serializers import (
     ActiveOfficerSerializer,
     BulkLocationPingSerializer,
-    EndShiftSerializer,
     LocationPingSerializer,
     ShiftBoundarySerializer,
     ShiftSerializer,
@@ -81,24 +80,22 @@ class EndShiftView(APIView):
     """
     POST /api/v1/shifts/end/ — §4.2 stops tracking.
 
-    §4.1 also requires the session to end here. Pass the refresh token in the
-    body and it is blacklisted, which is the only way to revoke a JWT.
+    §4.1 also requires the session to end, but revoking the JWT is
+    POST /api/v1/logout/'s job; the client calls it separately. Doing it here
+    too meant a failed blacklist still returned 200, so a phone could believe
+    its session was revoked when it was not.
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
-    serializer_class = EndShiftSerializer
+    serializer_class = ShiftBoundarySerializer
 
     @extend_schema(
-        request=EndShiftSerializer,
+        request=ShiftBoundarySerializer,
         responses={200: ShiftSerializer},
         examples=[
             OpenApiExample(
-                "End shift and revoke the session",
-                value={
-                    "latitude": 34.446700,
-                    "longitude": 35.849700,
-                    "refresh": "<refresh token>",
-                },
+                "With position",
+                value={"latitude": 34.446700, "longitude": 35.849700},
                 request_only=True,
             ),
             OpenApiExample("No GPS fix", value={}, request_only=True),
@@ -116,16 +113,6 @@ class EndShiftView(APIView):
             )
         except services.ShiftError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        refresh = request.data.get("refresh") if isinstance(request.data, dict) else None
-        if refresh:
-            try:
-                from rest_framework_simplejwt.tokens import RefreshToken
-
-                RefreshToken(refresh).blacklist()
-            except Exception:
-                # A bad or already-blacklisted token must not fail End Shift.
-                pass
 
         return Response(ShiftSerializer(shift).data, status=status.HTTP_200_OK)
 
