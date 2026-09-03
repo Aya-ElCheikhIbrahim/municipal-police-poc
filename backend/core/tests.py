@@ -14,7 +14,14 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from .models import SystemSetting
-from .registry import DEFINITIONS, SettingError, all_settings, get_setting, set_settings
+from .registry import (
+    DEFINITIONS,
+    SettingError,
+    all_settings,
+    get_setting,
+    invalidate_cache,
+    set_settings,
+)
 
 User = get_user_model()
 
@@ -32,6 +39,16 @@ def make_user(username, role="officer", **extra):
 
 class SystemSettingTests(TestCase):
     """Bounds live in the registry because the JSON column cannot hold them."""
+
+    def setUp(self):
+        # `all_settings` caches for 60s in a process-wide LocMemCache, but a
+        # TestCase rolls its rows back — so a value written by one test
+        # outlives its own row and changes what the next test reads. Without
+        # this, the suite passes only because Django runs test methods in
+        # alphabetical order and "defaults" happens to sort before
+        # "ping_interval"; renaming either one would break the other.
+        invalidate_cache()
+        self.addCleanup(invalidate_cache)
 
     def test_defaults_match_the_requirements(self):
         self.assertEqual(get_setting("location_ping_interval_seconds"), 30)  # §4.3
