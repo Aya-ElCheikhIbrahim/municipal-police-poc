@@ -105,6 +105,7 @@
 
     <string name="mission_completed_toast">تم تسجيل المهمة كمنجزة</string>
     <string name="mission_toast_acknowledged">تم استلام المهمة</string>
+    <string name="mission_location_permission_denied">تتبع الموقع مطلوب للمهام.</string>
     <string name="generic_back">رجوع</string>
     <string name="generic_apply">تطبيق</string>
     <string name="logout_error_active_shift">لا يمكنك تسجيل الخروج أثناء وجود دوام نشط. يرجى إنهاء دوامك أولاً.</string>

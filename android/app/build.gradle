@@ -35,6 +35,9 @@ dependencies {
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.core:core:1.13.1'
 
+    // OpenStreetMap
+    implementation 'org.osmdroid:osmdroid-android:6.1.18'
+
     // Networking
     implementation 'com.squareup.retrofit2:retrofit:2.11.0'
     implementation 'com.squareup.retrofit2:converter-gson:2.11.0'

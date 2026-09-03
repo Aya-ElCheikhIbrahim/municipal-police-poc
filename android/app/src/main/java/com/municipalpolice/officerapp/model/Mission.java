@@ -52,7 +52,7 @@ public class Mission implements Serializable {
     private static final int REQUIRED_PHOTOS = 1;
 
     public Mission(int id, String title, String description, Priority priority, 
-                   MissionStatus status, Double latitude, Double longitude) {
+                   MissionStatus status, Double latitude, Double longitude, String address) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -60,6 +60,17 @@ public class Mission implements Serializable {
         this.status = status;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.address = address;
+    }
+
+    public String getLocationDisplay() {
+        if (address != null && !address.trim().isEmpty()) {
+            return address;
+        }
+        if (latitude != null && longitude != null) {
+            return String.format(java.util.Locale.US, "%.4f, %.4f", latitude, longitude);
+        }
+        return "No location";
     }
 
     public int getId() { return id; }

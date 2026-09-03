@@ -1,6 +1,7 @@
 package com.municipalpolice.officerapp.ui.missiondetail;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.DateFormat;
@@ -12,17 +13,29 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
+import com.municipalpolice.officerapp.data.LocationTracker;
 import com.municipalpolice.officerapp.data.MissionRepository;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
+import com.municipalpolice.officerapp.data.StandardLocationTracker;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.CancelMissionDialogFragment;
 import com.municipalpolice.officerapp.util.PrefsManager;
+
+import org.osmdroid.api.IMapController;
+import org.osmdroid.config.Configuration;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Marker;
 
 /**
  * Screens "5 - Mission detail" and "6 - Mission, in progress".
@@ -38,7 +51,7 @@ public class MissionDetailActivity extends BaseActivity {
     private TextView tvMissionTitle;
     private TextView tvPriorityPill;
     private TextView tvAssignedBy;
-    private TextView tvMapDistance;
+    private MapView mapView;
     private TextView tvAcknowledgedAt;
     private TextView tvStartedAt;
     private TextView tvPhotoProgress;
@@ -47,20 +60,39 @@ public class MissionDetailActivity extends BaseActivity {
     private String missionId;
     private Mission mission;
     private MissionRepository missionRepository;
+    private LocationTracker locationTracker;
+
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                Boolean fineLocationGranted = result.getOrDefault(android.Manifest.permission.ACCESS_FINE_LOCATION, false);
+                Boolean coarseLocationGranted = result.getOrDefault(android.Manifest.permission.ACCESS_COARSE_LOCATION, false);
+                if (fineLocationGranted != null && fineLocationGranted) {
+                    startLocationTrackingIfNecessary();
+                } else if (coarseLocationGranted != null && coarseLocationGranted) {
+                    startLocationTrackingIfNecessary();
+                } else {
+                    Toast.makeText(this, R.string.mission_location_permission_denied, Toast.LENGTH_LONG).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // OSMdroid initialization
+        Configuration.getInstance().setUserAgentValue(getPackageName());
+        
         setContentView(R.layout.activity_mission_detail);
 
         missionRepository = new RetrofitMissionRepository(new PrefsManager(this), this);
+        locationTracker = new StandardLocationTracker(this);
         missionId = getIntent().getStringExtra(EXTRA_MISSION_ID);
 
         flipper = findViewById(R.id.flipper);
         tvMissionTitle = findViewById(R.id.tvMissionTitle);
         tvPriorityPill = findViewById(R.id.tvPriorityPill);
         tvAssignedBy = findViewById(R.id.tvAssignedBy);
-        tvMapDistance = findViewById(R.id.tvMapDistance);
+        mapView = findViewById(R.id.mapView);
         tvAcknowledgedAt = findViewById(R.id.tvAcknowledgedAt);
         tvStartedAt = findViewById(R.id.tvStartedAt);
         tvPhotoProgress = findViewById(R.id.tvPhotoProgress);
@@ -82,10 +114,55 @@ public class MissionDetailActivity extends BaseActivity {
             }
         });
         findViewById(R.id.btnNavigate).setOnClickListener(v -> openNavigation());
+        findViewById(R.id.btnMapNavigate).setOnClickListener(v -> openNavigation());
         findViewById(R.id.btnTakePhoto).setOnClickListener(v -> takePhoto());
         findViewById(R.id.btnCompleteMission).setOnClickListener(v -> completeMission());
 
+        initMap();
+        checkLocationPermissions();
         loadMission();
+    }
+
+    private void initMap() {
+        mapView.setTileSource(TileSourceFactory.MAPNIK);
+        mapView.setMultiTouchControls(true);
+        // Disable rotation for a simple snippet look
+        mapView.setBuiltInZoomControls(false);
+    }
+
+    private void checkLocationPermissions() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            locationPermissionLauncher.launch(new String[]{
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+        } else {
+            startLocationTrackingIfNecessary();
+        }
+    }
+
+    private void startLocationTrackingIfNecessary() {
+        if (mission != null && mission.getStatus() == MissionStatus.IN_PROGRESS) {
+            locationTracker.startTracking(missionId);
+        }
+    }
+
+    private void updateMapLocation() {
+        if (mission == null || mission.getLatitude() == null || mission.getLongitude() == null) return;
+        
+        GeoPoint startPoint = new GeoPoint(mission.getLatitude(), mission.getLongitude());
+        IMapController mapController = mapView.getController();
+        mapController.setZoom(17.5);
+        mapController.setCenter(startPoint);
+
+        Marker startMarker = new Marker(mapView);
+        startMarker.setPosition(startPoint);
+        startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        startMarker.setTitle(mission.getTitle());
+        
+        mapView.getOverlays().clear();
+        mapView.getOverlays().add(startMarker);
+        mapView.invalidate();
     }
 
     private void setUpStepRow(View row, String number, int labelRes) {
@@ -112,12 +189,28 @@ public class MissionDetailActivity extends BaseActivity {
         });
     }
 
+    private void updateStepRowStatus(View row, boolean isDone, boolean isCurrent) {
+        View vNumber = row.findViewById(R.id.tvStepNumber);
+        View vLabel = row.findViewById(R.id.tvStepLabel);
+
+        if (isDone) {
+            vNumber.setBackgroundResource(R.drawable.circle_step_done);
+            if (vNumber instanceof TextView) ((TextView) vNumber).setText(""); 
+            vLabel.setAlpha(0.5f);
+        } else if (isCurrent) {
+            vNumber.setBackgroundResource(R.drawable.circle_step_current);
+            vLabel.setAlpha(1.0f);
+        } else {
+            vNumber.setBackgroundResource(R.drawable.circle_step_pending);
+            vLabel.setAlpha(0.5f);
+        }
+    }
+
     private void render() {
         tvMissionTitle.setText(mission.getTitle());
-        String location = mission.getAddress() != null ? mission.getAddress() : 
-                         (mission.getLatitude() + ", " + mission.getLongitude());
+        String location = mission.getLocationDisplay();
         tvAssignedBy.setText(getString(R.string.mission_assigned_by, location, "Dispatch"));
-        tvMapDistance.setText(getString(R.string.mission_map_distance, "--"));
+        updateMapLocation();
 
         int pillRes;
         String label;
@@ -138,7 +231,7 @@ public class MissionDetailActivity extends BaseActivity {
         tvPriorityPill.setBackgroundResource(pillRes);
         tvPriorityPill.setText(label);
 
-        boolean isAwaitingStart = mission.getStatus() == MissionStatus.ACKNOWLEDGED;
+        boolean isAcknowledged = mission.getStatus() == MissionStatus.ACKNOWLEDGED;
         boolean inProgress = mission.getStatus() == MissionStatus.IN_PROGRESS
                 || mission.getStatus() == MissionStatus.COMPLETED;
         
@@ -146,10 +239,16 @@ public class MissionDetailActivity extends BaseActivity {
 
         if (!inProgress) {
             TextView btnAction = findViewById(R.id.btnAcknowledge);
-            if (isAwaitingStart) {
+            if (isAcknowledged) {
                 btnAction.setText(R.string.mission_step_start);
+                updateStepRowStatus(findViewById(R.id.step1), true, false);
+                updateStepRowStatus(findViewById(R.id.step2), false, true);
+                updateStepRowStatus(findViewById(R.id.step3), false, false);
             } else {
                 btnAction.setText(R.string.mission_acknowledge_button);
+                updateStepRowStatus(findViewById(R.id.step1), false, true);
+                updateStepRowStatus(findViewById(R.id.step2), false, false);
+                updateStepRowStatus(findViewById(R.id.step3), false, false);
             }
         } else {
             tvAcknowledgedAt.setText(getString(R.string.mission_acknowledged_at, formatTime(mission.getAcknowledgedAt())));
@@ -210,6 +309,7 @@ public class MissionDetailActivity extends BaseActivity {
             public void onSuccess(Mission result) {
                 mission = result;
                 render();
+                startLocationTrackingIfNecessary();
             }
 
             @Override
@@ -271,6 +371,24 @@ public class MissionDetailActivity extends BaseActivity {
                 Toast.makeText(MissionDetailActivity.this, message, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mapView.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mapView.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        locationTracker.stopTracking();
+        super.onDestroy();
     }
 
     @Override
