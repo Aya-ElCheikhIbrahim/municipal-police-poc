@@ -7,11 +7,22 @@ break a requirement, and they run in a few seconds.
 """
 
 import uuid
+from datetime import datetime, time, timedelta
+from datetime import timezone as dt_timezone
+from decimal import Decimal
+from unittest import mock
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.db.models import QuerySet
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
+
+from missions import services as mission_services
+from missions.models import Mission
 
 from . import services
 from .models import LocationPing, Shift
@@ -257,3 +268,256 @@ class ActiveShiftsContractTests(TestCase):
         client.force_authenticate(make_user("supervisor2", role="supervisor"))
         row = client.get("/api/v1/shifts/active/").json()[0]
         self.assertIsNone(row["latest_ping"])
+
+
+class ActiveShiftsMissionTests(TestCase):
+    """
+    §4.6 marker colour. The contract counts an officer as busy only once they
+    have acknowledged, so ASSIGNED must still read as available.
+    """
+
+    def setUp(self):
+        self.officer = make_user("mission_officer")
+        self.dispatcher = make_user("mission_dispatcher", role="dispatcher")
+        services.start_shift(self.officer)
+        self.client = APIClient()
+        self.client.force_authenticate(self.dispatcher)
+
+    def _assign(self, title, priority=Mission.Priority.HIGH):
+        return mission_services.create_mission(
+            created_by=self.dispatcher,
+            title=title,
+            latitude=34.4367,
+            longitude=35.8497,
+            priority=priority,
+            assigned_to=self.officer,
+        )
+
+    def _row(self):
+        response = self.client.get("/api/v1/shifts/active/")
+        self.assertEqual(response.status_code, 200)
+        return response.json()[0]
+
+    def test_acknowledged_mission_makes_the_officer_in_mission(self):
+        mission = self._assign("Traffic obstruction on Al-Mina road")
+        mission_services.acknowledge_mission(mission, officer=self.officer)
+
+        row = self._row()
+        self.assertEqual(row["status"], "in_mission")
+        # Exactly these four fields; the drawer fetches the rest by id.
+        self.assertEqual(
+            row["current_mission"],
+            {
+                "id": mission.id,
+                "title": "Traffic obstruction on Al-Mina road",
+                "priority": "high",
+                "status": "acknowledged",
+            },
+        )
+
+    def test_assigned_but_unacknowledged_officer_is_still_available(self):
+        """Showing them as busy would hide a free officer from the dispatcher."""
+        self._assign("Sent but not yet seen")
+
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+
+    def test_two_open_missions_show_the_most_recently_assigned(self):
+        older = self._assign("Assigned an hour ago")
+        mission_services.acknowledge_mission(older, officer=self.officer)
+        newer = self._assign("Assigned just now")
+        mission_services.acknowledge_mission(newer, officer=self.officer)
+
+        # Both were assigned in the same test tick; space them out so the
+        # ordering under test is the one being asserted, not clock luck.
+        now = timezone.now()
+        Mission.objects.filter(pk=older.pk).update(
+            assigned_at=now - timezone.timedelta(hours=1)
+        )
+        Mission.objects.filter(pk=newer.pk).update(assigned_at=now)
+
+        row = self._row()
+        self.assertEqual(row["status"], "in_mission")
+        self.assertEqual(row["current_mission"]["id"], newer.id)
+
+
+class DistanceCachingTests(TestCase):
+    """shift.distance_m is now the read path; ingest is what keeps it correct."""
+
+    def setUp(self):
+        self.officer = make_user("officer7")
+
+    def test_ingest_sets_distance_m_to_match_shift_distance_m(self):
+        shift, _ = services.start_shift(self.officer)
+        now = timezone.now()
+        services.ingest_pings(
+            self.officer,
+            [
+                ping_row(34.4367, 35.8497, now),
+                ping_row(34.4467, 35.8497, now + timezone.timedelta(seconds=30)),
+            ],
+        )
+        shift.refresh_from_db()
+        self.assertGreater(shift.distance_m, 0)
+        self.assertEqual(shift.distance_m, services.shift_distance_m(shift))
+
+    def test_out_of_order_offline_batch_still_totals_correctly(self):
+        """A second batch with pings recorded BEFORE the first batch's pings
+        is the offline-sync case full recompute exists for: an incremental
+        add would miss the earlier segment entirely."""
+        shift, _ = services.start_shift(self.officer)
+        now = timezone.now()
+
+        services.ingest_pings(
+            self.officer,
+            [
+                ping_row(34.4367, 35.8497, now + timezone.timedelta(seconds=60)),
+                ping_row(34.4467, 35.8497, now + timezone.timedelta(seconds=90)),
+            ],
+        )
+        services.ingest_pings(
+            self.officer,
+            [ping_row(34.4267, 35.8497, now)],
+        )
+
+        shift.refresh_from_db()
+        expected = services.shift_distance_m(shift)
+        self.assertEqual(shift.distance_m, expected)
+        # Prove the earlier-recorded ping actually contributes: recomputing
+        # from just the first batch would undercount.
+        self.assertGreater(
+            expected,
+            services.trail_distance_m(
+                shift.pings.filter(recorded_at__gt=now).order_by("recorded_at")
+            ),
+        )
+
+
+class ActiveShiftsQueryCountTests(TestCase):
+    """Cost must not scale with officer count — that was the whole bug."""
+
+    def _seed_active_officers(self, prefix, count):
+        officers = []
+        for i in range(count):
+            officer = make_user(f"{prefix}_officer_{i}")
+            services.start_shift(officer)
+            services.ingest_pings(
+                officer,
+                [ping_row(34.4367, 35.8497, timezone.now())],
+            )
+            officers.append(officer)
+        return officers
+
+    def _query_count_for_active_shifts(self, prefix, officer_count):
+        officers = self._seed_active_officers(prefix, officer_count)
+        client = APIClient()
+        client.force_authenticate(make_user(f"{prefix}_dispatcher", role="dispatcher"))
+        with CaptureQueriesContext(connection) as ctx:
+            response = client.get("/api/v1/shifts/active/")
+        self.assertEqual(response.status_code, 200)
+        # Reset to an empty active set so the next seeding measures exactly
+        # its own officer count, not this batch plus the next one.
+        for officer in officers:
+            services.end_shift(officer)
+        return len(ctx)
+
+    def test_query_count_does_not_scale_with_officer_count(self):
+        two_officers = self._query_count_for_active_shifts("qc2", 2)
+        five_officers = self._query_count_for_active_shifts("qc5", 5)
+        self.assertEqual(two_officers, five_officers)
+
+
+class TrailDayBoundaryTests(TestCase):
+    """
+    §5 — "today" is a Beirut day, not a UTC one.
+
+    Beirut runs UTC+2/+3, so a night-shift officer's 01:00 ping is stored at
+    22:00 or 23:00 UTC the day before. Under TIME_ZONE = "UTC" both the default
+    day and the window around it came out a day early, and the ping landed on
+    yesterday's trail. §4.8 reports are per officer per day, so this boundary
+    has to be the local one before they are built on top of it.
+    """
+
+    def setUp(self):
+        self.officer = make_user("night_officer")
+        self.client = APIClient()
+        self.client.force_authenticate(self.officer)
+
+    def _record_ping_at(self, when):
+        """Store one ping at an exact instant, bypassing ingest's freshness
+        rules — those are covered elsewhere and are not what this asserts."""
+        shift, _ = services.start_shift(self.officer)
+        Shift.objects.filter(pk=shift.pk).update(started_at=when - timedelta(hours=1))
+        LocationPing.objects.create(
+            client_uuid=uuid.uuid4(),
+            shift=shift,
+            officer=self.officer,
+            latitude=Decimal("34.436700"),
+            longitude=Decimal("35.849700"),
+            recorded_at=when,
+        )
+
+    def _trail(self, query=""):
+        response = self.client.get(f"/api/v1/officers/{self.officer.id}/trail/{query}")
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def test_a_0100_beirut_ping_belongs_to_that_beirut_day(self):
+        today = timezone.localdate()
+        one_am = datetime.combine(today, time(1, 0), tzinfo=ZoneInfo("Asia/Beirut"))
+
+        # The premise of the test: this instant really is the previous UTC day.
+        # If it were not, the assertions below would pass under UTC too and
+        # prove nothing about the boundary.
+        self.assertEqual(
+            one_am.astimezone(dt_timezone.utc).date(), today - timedelta(days=1)
+        )
+
+        self._record_ping_at(one_am)
+
+        todays = self._trail()
+        self.assertEqual(todays["date"], today.isoformat())
+        self.assertEqual(todays["point_count"], 1)
+
+        yesterday = (today - timedelta(days=1)).isoformat()
+        self.assertEqual(self._trail(f"?date={yesterday}")["point_count"], 0)
+
+
+class StartShiftRaceRecoveryTests(TestCase):
+    """
+    §4.2 — a retrying phone must not get an error, even when it loses a race.
+
+    Two requests can both pass the "already on shift?" check before either
+    inserts; the loser's INSERT then hits unique_active_shift_per_officer.
+    Recovery means querying for the winner's shift, and on Postgres that only
+    works if the failed INSERT was rolled back to a savepoint — otherwise the
+    surrounding transaction is aborted and the recovery query raises
+    TransactionManagementError instead.
+    """
+
+    def test_losing_the_race_returns_the_winners_shift(self):
+        officer = make_user("racer")
+        winner, created = services.start_shift(officer)
+        self.assertTrue(created)
+
+        # Stand in for the race without threads: blind the first "already
+        # active?" lookup so the create runs against a shift that really is
+        # there. The constraint fires for real and the recovery path is the
+        # thing under test.
+        real_first = QuerySet.first
+        blinded = []
+
+        def blind_first(self, *args, **kwargs):
+            if not blinded and self.model is Shift:
+                blinded.append(True)
+                return None
+            return real_first(self, *args, **kwargs)
+
+        with mock.patch.object(QuerySet, "first", blind_first):
+            shift, created = services.start_shift(officer)
+
+        self.assertTrue(blinded, "the lookup was never blinded; the race never happened")
+        self.assertFalse(created)
+        self.assertEqual(shift.pk, winner.pk)
+        self.assertEqual(Shift.objects.filter(officer=officer).count(), 1)

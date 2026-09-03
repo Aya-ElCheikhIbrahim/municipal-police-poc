@@ -95,5 +95,5 @@ class DeviceTokenViewSet(
     serializer_class = DeviceTokenSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_query(self):
+    def get_queryset(self):
         return DeviceToken.objects.filter(user=self.request.user)

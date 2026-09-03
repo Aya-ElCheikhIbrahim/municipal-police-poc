@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from datetime import datetime, time
 
 from django.utils import timezone
@@ -10,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import IsDispatcherOrSupervisor, IsOfficer
+from missions.models import Mission
 
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -19,7 +17,6 @@ from .models import LocationPing, Shift
 from .serializers import (
     ActiveOfficerSerializer,
     BulkLocationPingSerializer,
-    EndShiftSerializer,
     LocationPingSerializer,
     ShiftBoundarySerializer,
     ShiftSerializer,
@@ -83,24 +80,22 @@ class EndShiftView(APIView):
     """
     POST /api/v1/shifts/end/ — §4.2 stops tracking.
 
-    §4.1 also requires the session to end here. Pass the refresh token in the
-    body and it is blacklisted, which is the only way to revoke a JWT.
+    §4.1 also requires the session to end, but revoking the JWT is
+    POST /api/v1/logout/'s job; the client calls it separately. Doing it here
+    too meant a failed blacklist still returned 200, so a phone could believe
+    its session was revoked when it was not.
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
-    serializer_class = EndShiftSerializer
+    serializer_class = ShiftBoundarySerializer
 
     @extend_schema(
-        request=EndShiftSerializer,
+        request=ShiftBoundarySerializer,
         responses={200: ShiftSerializer},
         examples=[
             OpenApiExample(
-                "End shift and revoke the session",
-                value={
-                    "latitude": 34.446700,
-                    "longitude": 35.849700,
-                    "refresh": "<refresh token>",
-                },
+                "With position",
+                value={"latitude": 34.446700, "longitude": 35.849700},
                 request_only=True,
             ),
             OpenApiExample("No GPS fix", value={}, request_only=True),
@@ -118,16 +113,6 @@ class EndShiftView(APIView):
             )
         except services.ShiftError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        refresh = request.data.get("refresh") if isinstance(request.data, dict) else None
-        if refresh:
-            try:
-                from rest_framework_simplejwt.tokens import RefreshToken
-
-                RefreshToken(refresh).blacklist()
-            except Exception:
-                # A bad or already-blacklisted token must not fail End Shift.
-                pass
 
         return Response(ShiftSerializer(shift).data, status=status.HTTP_200_OK)
 
@@ -171,15 +156,46 @@ class ActiveShiftsView(APIView):
     permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
 
     def get(self, request):
-        shifts = (
+        shifts = list(
             Shift.objects.filter(status=Shift.Status.ACTIVE)
             .select_related("officer")
             .order_by("started_at")
         )
 
+        # DISTINCT ON is Postgres-specific, but both the project and its test
+        # database run Postgres, so one query for every shift's latest ping
+        # (instead of one query per officer) is deliberate here.
+        latest = {
+            p.shift_id: p
+            for p in LocationPing.objects
+                .filter(shift_id__in=[s.id for s in shifts])
+                .order_by("shift_id", "-recorded_at")
+                .distinct("shift_id")
+        }
+
+        # Same one-query shape for the mission each officer is on. ASSIGNED is
+        # excluded deliberately: an officer counts as busy only once they have
+        # acknowledged, because showing an unacknowledged officer as busy would
+        # hide a free officer from the dispatcher. DISTINCT ON keeps the most
+        # recently assigned mission when an officer somehow holds two.
+        missions = {
+            m.assigned_to_id: m
+            for m in Mission.objects
+                .filter(
+                    assigned_to_id__in=[s.officer_id for s in shifts],
+                    status__in=[
+                        Mission.Status.ACKNOWLEDGED,
+                        Mission.Status.IN_PROGRESS,
+                    ],
+                )
+                .order_by("assigned_to_id", "-assigned_at")
+                .distinct("assigned_to_id")
+        }
+
         payload = []
         for shift in shifts:
-            latest = shift.pings.order_by("-recorded_at").first()
+            ping = latest.get(shift.id)
+            mission = missions.get(shift.officer_id)
             payload.append(
                 {
                     "officer": {
@@ -187,15 +203,12 @@ class ActiveShiftsView(APIView):
                         "full_name": shift.officer.full_name,
                         "badge_number": shift.officer.badge_number,
                     },
-                    # §4.6 colours: available (green) / on_mission (blue).
-                    # Hardcoded until the missions app lands; the field exists
-                    # now so web does not have to change shape later.
-                    "status": "available",
+                    "status": "in_mission" if mission is not None else "available",
                     "shift_started_at": shift.started_at,
                     "shift_duration_seconds": shift.duration_seconds,
-                    "distance_covered_m": services.shift_distance_m(shift),
-                    "latest_ping": LocationPingSerializer(latest).data if latest else None,
-                    "current_mission": None,
+                    "distance_covered_m": shift.distance_m,
+                    "latest_ping": LocationPingSerializer(ping).data if ping else None,
+                    "current_mission": mission,
                 }
             )
 

@@ -1,6 +1,3 @@
-from django.db import models
-
-# Create your models here.
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -25,6 +22,8 @@ class Shift(models.Model):
     start_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     end_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     end_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+
+    distance_m = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = "shifts_shift"

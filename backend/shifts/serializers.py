@@ -38,21 +38,6 @@ class ShiftBoundarySerializer(serializers.Serializer):
         return attrs
  
  
-class EndShiftSerializer(ShiftBoundarySerializer):
-    """
-    End Shift body: the end position, plus the refresh token to revoke.
- 
-    §4.1 requires the session to end when the officer taps End Shift, and
-    blacklisting the refresh token is the only way to revoke a JWT.
-    """
- 
-    refresh = serializers.CharField(
-        required=False,
-        allow_blank=True,
-        help_text="Refresh token to blacklist. Optional; a bad one does not fail the request.",
-    )
- 
- 
 class LocationPingUploadSerializer(serializers.Serializer):
     """One ping in a batch upload. Deliberately not a ModelSerializer: the
     unique constraint on client_uuid must be resolved by the database during
@@ -100,6 +85,20 @@ class ShiftSerializer(serializers.ModelSerializer):
         ]
  
  
+class CurrentMissionSerializer(serializers.Serializer):
+    """
+    The mission an officer is on, as the map row carries it.
+ 
+    Four fields on purpose: the drawer calls GET /missions/{id}/ for the full
+    record and its timeline, so widening this would ship the same data twice.
+    """
+ 
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    priority = serializers.CharField()
+    status = serializers.CharField()
+ 
+ 
 class ActiveOfficerSerializer(serializers.Serializer):
     """
     The contract for GET /shifts/active/ — the shape web builds against.
@@ -112,5 +111,5 @@ class ActiveOfficerSerializer(serializers.Serializer):
     shift_duration_seconds = serializers.IntegerField()
     distance_covered_m = serializers.IntegerField()
     latest_ping = LocationPingSerializer(allow_null=True)
-    current_mission = serializers.DictField(allow_null=True)
+    current_mission = CurrentMissionSerializer(allow_null=True)
  

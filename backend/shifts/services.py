@@ -95,11 +95,17 @@ def start_shift(officer, latitude=None, longitude=None) -> tuple[Shift, bool]:
         return existing, False
 
     try:
-        shift = Shift.objects.create(
-            officer=officer,
-            start_latitude=_as_decimal(latitude),
-            start_longitude=_as_decimal(longitude),
-        )
+        # A savepoint, so losing the race below rolls back only the failed
+        # INSERT. Without it the surrounding transaction is aborted and the
+        # recovery query raises TransactionManagementError instead of
+        # returning the winner's shift — the retry this function promises
+        # would never have worked.
+        with transaction.atomic():
+            shift = Shift.objects.create(
+                officer=officer,
+                start_latitude=_as_decimal(latitude),
+                start_longitude=_as_decimal(longitude),
+            )
         return shift, True
     except IntegrityError:
         # Lost a race against the unique partial index; the other request won.
@@ -171,6 +177,14 @@ def ingest_pings(officer, rows):
     ]
 
     LocationPing.objects.bulk_create(objects, ignore_conflicts=True)
+
+    # Full recompute, not an incremental add: an offline sync can deliver
+    # pings recorded earlier than ones already stored, so adding new segments
+    # to a running total would drift. This costs one scan per batch upload
+    # (every few minutes per officer) instead of one scan per read of
+    # /shifts/active/ (every 15s per officer, times every dispatcher watching).
+    shift.distance_m = shift_distance_m(shift)
+    shift.save(update_fields=["distance_m"])
 
     return IngestResult(
         accepted=len(objects),
