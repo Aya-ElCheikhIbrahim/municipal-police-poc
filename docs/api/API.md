@@ -31,6 +31,8 @@ POST /api/v1/logout/ takes the refresh token in the body (`{"refresh": "<token>"
 
 The access token caannot be revoked, it simply expires. This is accepted at PoC scale.
 
+POST /api/v1/shifts/end/ does not revoke the session. It ends the duty period and nothing else, so a client that wants §4.1's "session ends when the officer taps End Shift" must call POST /api/v1/logout/ separately, and check its response. End Shift used to accept a `refresh` field and blacklist it, but it returned 200 even when the blacklisting failed, which told the client its session was gone when it was not.
+
 
 ## 3. Roles and Permissions
 
