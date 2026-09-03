@@ -21,17 +21,6 @@ type ReportSubTab = 'Daily activity' | 'Weekly summary';
 type SeverityFilter = 'ALL' | 'URGENT' | 'HIGH' | 'LOW';
 
 
-interface Officer {
-  id: string;
-  name: string;
-  badge: string;
-  status: 'Available' | 'On mission' | 'Offline' | 'Panic';
-  details: string;
-  dutyTime: string;
-  distanceCovered: string;
-  coords: [number, number]; // [lat, lng]
-}
-
 
 export default function MainDashboard() {
   // Dynamic Date Helpers
@@ -73,9 +62,6 @@ export default function MainDashboard() {
   const [isConnectionLost, setIsConnectionLost] = useState<boolean>(false);
   const [secondsDisconnected, setSecondsDisconnected] = useState<number>(47);
 
-  // Panic Simulation State
-  const [isPanicActive, setIsPanicActive] = useState<boolean>(false);
-  const [panicOfficer, setPanicOfficer] = useState<Officer | null>(null);
 
   // Connection Lost Disconnect Timer
   useEffect(() => {
@@ -93,48 +79,7 @@ export default function MainDashboard() {
   
 
 
-  const [officers, setOfficers] = useState<Officer[]>([
-    {
-      id: '1',
-      name: 'Karim Haddad',
-      badge: 'Badge 214',
-      status: 'On mission',
-      details: '2h 14m · Rue Tall',
-      dutyTime: '2h 14m',
-      distanceCovered: '4.8 km',
-      coords: [34.4367, 35.8497],
-    },
-    {
-      id: '2',
-      name: 'Layla Mansour',
-      badge: 'Badge 187',
-      status: 'Available',
-      details: '3h 02m · Al Mina',
-      dutyTime: '3h 02m',
-      distanceCovered: '6.2 km',
-      coords: [34.4482, 35.8201],
-    },
-    {
-      id: '3',
-      name: 'Samir Youssef',
-      badge: 'Badge 226',
-      status: 'Available',
-      details: '1h 48m · Abou Samra',
-      dutyTime: '1h 48m',
-      distanceCovered: '3.1 km',
-      coords: [34.4251, 35.8524],
-    },
-    {
-      id: '4',
-      name: 'Nabil Khoury',
-      badge: 'Badge 195',
-      status: 'Offline',
-      details: 'shift ended 16:40',
-      dutyTime: '0h 00m',
-      distanceCovered: '0.0 km',
-      coords: [34.4310, 35.8390],
-    },
-  ]);
+ 
 
   // Daily Officers Activity Base Data
   const dailyOfficerData = [
@@ -187,23 +132,6 @@ export default function MainDashboard() {
 
 
 
-  // Trigger Panic Simulation
-  const handleTogglePanic = () => {
-    if (isPanicActive) {
-      setOfficers((prev) =>
-        prev.map((o) => (o.id === panicOfficer?.id ? { ...o, status: 'On mission' } : o))
-      );
-      setIsPanicActive(false);
-      setPanicOfficer(null);
-    } else {
-      const target = officers[0];
-      setPanicOfficer(target);
-      setOfficers((prev) =>
-        prev.map((o) => (o.id === target.id ? { ...o, status: 'Panic' } : o))
-      );
-      setIsPanicActive(true);
-    }
-  };
 
 // Aggregate stats across active severity filter for top cards
   const summaryAssigned = dailyOfficerData.reduce((acc, row) => acc + row.assigned[severityFilter], 0);
@@ -250,14 +178,7 @@ export default function MainDashboard() {
         <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700 rounded px-2 py-1">
             <span className="text-[10px] text-slate-400 font-semibold mr-1">DEMO STATES:</span>
-            <button
-              onClick={handleTogglePanic}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                isPanicActive ? 'bg-rose-600 text-white animate-pulse' : 'bg-rose-500/20 text-rose-300 hover:bg-rose-600 hover:text-white'
-              }`}
-            >
-              {isPanicActive ? 'Clear Panic' : 'Trigger Panic'}
-            </button>
+            
             <button
               onClick={() => {
                 setIsLoading(!isLoading);
@@ -304,41 +225,6 @@ export default function MainDashboard() {
           </div>
         </div>
       </header>
-
-      {/* PANIC EMERGENCY BANNER */}
-      {isPanicActive && panicOfficer && (
-        <div className="bg-rose-600 text-white px-6 py-2.5 flex items-center justify-between shadow-lg border-b border-rose-700 animate-pulse">
-          <div className="flex items-center gap-3">
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-            </span>
-            <span className="font-extrabold text-sm uppercase tracking-wider">
-              EMERGENCY PANIC ALERT: {panicOfficer.name} ({panicOfficer.badge})
-            </span>
-            <span className="text-xs bg-rose-700 px-2 py-0.5 rounded font-mono">
-              Location: Rue Tall, Tripoli
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setActiveTab('Live map');
-              }}
-              className="bg-white text-rose-700 hover:bg-rose-50 text-xs font-bold px-3 py-1 rounded transition-colors shadow-xs cursor-pointer"
-            >
-              Locate on Map
-            </button>
-            <button
-              onClick={handleTogglePanic}
-              className="bg-rose-800 hover:bg-rose-900 text-white text-xs font-semibold px-3 py-1 rounded border border-rose-500 transition-colors cursor-pointer"
-            >
-              Clear Alarm
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Main Content Body */}
       <div className="flex-1 flex overflow-hidden relative">
