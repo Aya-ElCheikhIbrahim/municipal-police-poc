@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import IsDispatcherOrSupervisor, IsOfficer
+from missions.models import Mission
 
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -185,9 +186,29 @@ class ActiveShiftsView(APIView):
                 .distinct("shift_id")
         }
 
+        # Same one-query shape for the mission each officer is on. ASSIGNED is
+        # excluded deliberately: an officer counts as busy only once they have
+        # acknowledged, because showing an unacknowledged officer as busy would
+        # hide a free officer from the dispatcher. DISTINCT ON keeps the most
+        # recently assigned mission when an officer somehow holds two.
+        missions = {
+            m.assigned_to_id: m
+            for m in Mission.objects
+                .filter(
+                    assigned_to_id__in=[s.officer_id for s in shifts],
+                    status__in=[
+                        Mission.Status.ACKNOWLEDGED,
+                        Mission.Status.IN_PROGRESS,
+                    ],
+                )
+                .order_by("assigned_to_id", "-assigned_at")
+                .distinct("assigned_to_id")
+        }
+
         payload = []
         for shift in shifts:
             ping = latest.get(shift.id)
+            mission = missions.get(shift.officer_id)
             payload.append(
                 {
                     "officer": {
@@ -195,15 +216,12 @@ class ActiveShiftsView(APIView):
                         "full_name": shift.officer.full_name,
                         "badge_number": shift.officer.badge_number,
                     },
-                    # §4.6 colours: available (green) / on_mission (blue).
-                    # Hardcoded until the missions app lands; the field exists
-                    # now so web does not have to change shape later.
-                    "status": "available",
+                    "status": "in_mission" if mission is not None else "available",
                     "shift_started_at": shift.started_at,
                     "shift_duration_seconds": shift.duration_seconds,
                     "distance_covered_m": shift.distance_m,
                     "latest_ping": LocationPingSerializer(ping).data if ping else None,
-                    "current_mission": None,
+                    "current_mission": mission,
                 }
             )
 
