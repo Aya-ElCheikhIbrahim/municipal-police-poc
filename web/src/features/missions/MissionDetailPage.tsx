@@ -5,6 +5,7 @@ import { PriorityBadge, StatusBadge } from './MissionBadges';
 import { canCancel, canReassign } from './types';
 import { ApiError } from '../../shared/api/client';
 import type { ActiveOfficer } from '../officers/types';
+import { missionsApi } from './api';
 
 interface MissionDetailPageProps {
   missionId: number;
@@ -192,13 +193,9 @@ export function MissionDetailPage({
                   <button
                     key={entry.officer.id}
                     disabled={isBusy}
-                    onClick={() =>
-                      run(() =>
-                        import('./api').then((m) =>
-                          m.missionsApi.assign(mission.id, entry.officer.id),
-                        ),
-                      )
-                    }
+                    onClick={() => run(() => missionsApi.assign(mission.id, entry.officer.id))
+
+                                        }
                     className="w-full text-left px-3 py-2 text-xs border border-slate-200 rounded hover:bg-slate-50 cursor-pointer"
                   >
                     {entry.officer.full_name}
@@ -228,13 +225,7 @@ export function MissionDetailPage({
             <div className="flex items-center gap-2">
               <button
                 disabled={isBusy || !cancelReason.trim()}
-                onClick={() =>
-                  run(() =>
-                    import('./api').then((m) =>
-                      m.missionsApi.cancel(mission.id, cancelReason.trim()),
-                    ),
-                  )
-                }
+            onClick={() => run(() => missionsApi.cancel(mission.id, cancelReason.trim()))}
                 className="bg-[#C62828] hover:bg-rose-800 disabled:bg-slate-300 text-white text-xs font-semibold px-4 py-2 rounded-md cursor-pointer"
               >
                 {isBusy ? 'Cancelling…' : 'Confirm cancellation'}

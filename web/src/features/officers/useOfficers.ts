@@ -37,10 +37,10 @@ export function useActiveOfficers(enabled = true): UseActiveOfficersResult {
     }
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
+    refresh();
     if (!enabled) return;
 
-    refresh();
     const timer = setInterval(refresh, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [enabled, refresh]);
