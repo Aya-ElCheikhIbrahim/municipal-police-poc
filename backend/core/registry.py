@@ -69,6 +69,49 @@ DEFINITIONS: dict[str, Definition] = {
         minimum=1,
         maximum=365,
     ),
+    # §4.7 — the officer gets a 10-second window to withdraw a panic alert.
+    # The 5-60 bounds are a guard rail, not a spec value: SCHEMA.md gives the
+    # default only. Below 5s nobody could realistically react in time; above
+    # 60s a dispatcher may already be en route to an alert the officer is
+    # still allowed to cancel out from under them.
+    "panic_cancel_grace_seconds": Definition(
+        default=10,
+        description="Seconds an officer has to cancel their own panic alert.",
+        coerce=int,
+        minimum=5,
+        maximum=60,
+    ),
+    # §4.5 — a mission cannot be completed without photo evidence.
+    "mission_photo_min": Definition(
+        default=1,
+        description="Photos required before a mission can be completed.",
+        coerce=int,
+        minimum=1,
+        maximum=5,
+    ),
+    # §4.5 — the upper end of the same rule.
+    # The maximum of 10 is a guard rail, not a spec value: SCHEMA.md gives the
+    # default of 5 only. It caps how far a supervisor can raise the limit
+    # before an officer is uploading more than a phone connection can carry.
+    "mission_photo_max": Definition(
+        default=5,
+        description="Photos allowed on one mission.",
+        coerce=int,
+        minimum=1,
+        maximum=10,
+    ),
+    # §4.6 — the dashboard map refreshes every 15-30 seconds.
+    # The 10-60 bounds are a guard rail, not a spec value: SCHEMA.md gives the
+    # default only. They allow tuning either side of the range the
+    # requirements ask for without letting every open dashboard poll hard
+    # enough to hurt the server.
+    "map_refresh_seconds": Definition(
+        default=20,
+        description="How often the dispatcher dashboard reloads the map, in seconds.",
+        coerce=int,
+        minimum=10,
+        maximum=60,
+    ),
 }
 
 
