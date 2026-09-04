@@ -2,12 +2,12 @@ package com.municipalpolice.officerapp.ui.missions;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
+import android.widget.TextView;
 import android.widget.ViewFlipper;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -15,8 +15,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.material.tabs.TabLayout;
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
-import com.municipalpolice.officerapp.data.FakeMissionRepository;
 import com.municipalpolice.officerapp.data.MissionRepository;
+import com.municipalpolice.officerapp.data.NetworkMonitor;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
@@ -27,7 +27,12 @@ import com.municipalpolice.officerapp.util.PrefsManager;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Screen "4 - Mission list" with New / In progress / Completed tabs and every load state from the mockups. */
+/**
+ * Mission list screen.
+ *
+ * Uses the same backend-aware NetworkMonitor as ShiftActivity,
+ * so both screens agree on Online / No signal.
+ */
 public class MissionListActivity extends BaseActivity {
 
     private static final int PAGE_LOADING = 0;
@@ -37,112 +42,472 @@ public class MissionListActivity extends BaseActivity {
 
     private ViewFlipper flipper;
     private SwipeRefreshLayout swipeRefresh;
+    private TextView tvStatusPill;
+
     private MissionAdapter adapter;
-    private final List<Mission> allMissions = new ArrayList<>();
-    private int selectedTab = 0;
     private MissionRepository missionRepository;
+
+    private NetworkMonitor networkMonitor;
+
+    private final Handler handler =
+            new Handler(Looper.getMainLooper());
+
+    private final List<Mission> allMissions =
+            new ArrayList<>();
+
+    private int selectedTab = 0;
+
+    private boolean backendOnline = false;
+    private boolean firstNetworkResultReceived = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_mission_list);
 
-        missionRepository = new RetrofitMissionRepository(new PrefsManager(this), this);
+        // ---------------------------------------------------------
+        // REPOSITORY
+        // ---------------------------------------------------------
 
-        flipper = findViewById(R.id.flipper);
-        swipeRefresh = findViewById(R.id.swipeRefresh);
-        RecyclerView recyclerView = findViewById(R.id.recyclerMissions);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new MissionAdapter(this::openMissionDetail);
+        missionRepository =
+                new RetrofitMissionRepository(
+                        new PrefsManager(this),
+                        this
+                );
+
+        // ---------------------------------------------------------
+        // VIEWS
+        // ---------------------------------------------------------
+
+        flipper =
+                findViewById(R.id.flipper);
+
+        swipeRefresh =
+                findViewById(R.id.swipeRefresh);
+
+        tvStatusPill =
+                findViewById(R.id.tvStatusPill);
+
+        RecyclerView recyclerView =
+                findViewById(R.id.recyclerMissions);
+
+        recyclerView.setLayoutManager(
+                new LinearLayoutManager(this)
+        );
+
+        adapter =
+                new MissionAdapter(
+                        this::openMissionDetail
+                );
+
         recyclerView.setAdapter(adapter);
 
-        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
-        findViewById(R.id.btnTryAgain).setOnClickListener(v -> loadMissions());
-        swipeRefresh.setOnRefreshListener(this::loadMissions);
+        // ---------------------------------------------------------
+        // NETWORK MONITOR
+        // ---------------------------------------------------------
 
-        TabLayout tabLayout = findViewById(R.id.tabLayout);
-        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override public void onTabSelected(TabLayout.Tab tab) {
-                selectedTab = tab.getPosition();
-                renderFilteredList();
-            }
-            @Override public void onTabUnselected(TabLayout.Tab tab) { }
-            @Override public void onTabReselected(TabLayout.Tab tab) { }
-        });
+        networkMonitor =
+                new NetworkMonitor(
+                        this,
+                        new NetworkMonitor.Listener() {
 
-        loadMissions();
+                            @Override
+                            public void onNetworkAvailable() {
+
+                                handler.post(() -> {
+
+                                    boolean wasOffline =
+                                            firstNetworkResultReceived
+                                                    && !backendOnline;
+
+                                    backendOnline = true;
+                                    firstNetworkResultReceived = true;
+
+                                    setOnlineStatus();
+
+                                    /*
+                                     * If Django has just returned,
+                                     * reload missions automatically.
+                                     */
+                                    if (wasOffline
+                                            || flipper.getDisplayedChild()
+                                            == PAGE_ERROR) {
+
+                                        loadMissions();
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onNetworkLost() {
+
+                                handler.post(() -> {
+
+                                    backendOnline = false;
+                                    firstNetworkResultReceived = true;
+
+                                    setOfflineStatus();
+
+                                    swipeRefresh.setRefreshing(false);
+
+                                    showErrorPage();
+                                });
+                            }
+                        }
+                );
+
+        // ---------------------------------------------------------
+        // BACK
+        // ---------------------------------------------------------
+
+        findViewById(R.id.btnBack)
+                .setOnClickListener(
+                        v -> finish()
+                );
+
+        // ---------------------------------------------------------
+        // TRY AGAIN
+        // ---------------------------------------------------------
+
+        findViewById(R.id.btnTryAgain)
+                .setOnClickListener(
+                        v -> loadMissions()
+                );
+
+        // ---------------------------------------------------------
+        // PULL TO REFRESH
+        // ---------------------------------------------------------
+
+        swipeRefresh.setOnRefreshListener(
+                this::loadMissions
+        );
+
+        // ---------------------------------------------------------
+        // TABS
+        // ---------------------------------------------------------
+
+        TabLayout tabLayout =
+                findViewById(R.id.tabLayout);
+
+        tabLayout.addOnTabSelectedListener(
+                new TabLayout.OnTabSelectedListener() {
+
+                    @Override
+                    public void onTabSelected(
+                            TabLayout.Tab tab
+                    ) {
+
+                        selectedTab =
+                                tab.getPosition();
+
+                        renderFilteredList();
+                    }
+
+                    @Override
+                    public void onTabUnselected(
+                            TabLayout.Tab tab
+                    ) {
+                        // Nothing required
+                    }
+
+                    @Override
+                    public void onTabReselected(
+                            TabLayout.Tab tab
+                    ) {
+                        // Nothing required
+                    }
+                }
+        );
+
+        // Start with loading UI.
+        showLoading();
     }
 
-    private void openMissionDetail(Mission mission) {
-        Intent intent = new Intent(this, MissionDetailActivity.class);
-        intent.putExtra(MissionDetailActivity.EXTRA_MISSION_ID, String.valueOf(mission.getId()));
+    // ---------------------------------------------------------
+    // LIFECYCLE
+    // ---------------------------------------------------------
+
+    @Override
+    protected void onStart() {
+
+        super.onStart();
+
+        if (networkMonitor != null) {
+            networkMonitor.start();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+
+        if (networkMonitor != null) {
+            networkMonitor.stop();
+        }
+
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+
+        handler.removeCallbacksAndMessages(null);
+
+        if (networkMonitor != null) {
+            networkMonitor.stop();
+        }
+
+        super.onDestroy();
+    }
+
+    // ---------------------------------------------------------
+    // MISSION DETAIL
+    // ---------------------------------------------------------
+
+    private void openMissionDetail(
+            Mission mission
+    ) {
+
+        Intent intent =
+                new Intent(
+                        this,
+                        MissionDetailActivity.class
+                );
+
+        intent.putExtra(
+                MissionDetailActivity.EXTRA_MISSION_ID,
+                String.valueOf(mission.getId())
+        );
+
         startActivity(intent);
     }
 
-    private void loadMissions() {
-        flipper.setDisplayedChild(PAGE_LOADING);
-        missionRepository.fetchMissions(new Callback<List<Mission>>() {
-            @Override
-            public void onSuccess(List<Mission> result) {
-                swipeRefresh.setRefreshing(false);
-                allMissions.clear();
-                allMissions.addAll(result);
-                renderFilteredList();
-            }
+    // ---------------------------------------------------------
+    // LOAD MISSIONS
+    // ---------------------------------------------------------
 
-            @Override
-            public void onError(Throwable error) {
-                swipeRefresh.setRefreshing(false);
-                flipper.setDisplayedChild(PAGE_ERROR);
-            }
-        });
+    private void loadMissions() {
+
+        showLoading();
+
+        missionRepository.fetchMissions(
+                new Callback<List<Mission>>() {
+
+                    @Override
+                    public void onSuccess(
+                            List<Mission> result
+                    ) {
+
+                        handler.post(() -> {
+
+                            swipeRefresh.setRefreshing(false);
+
+                            /*
+                             * Do NOT decide connectivity here.
+                             *
+                             * NetworkMonitor owns Online/No signal.
+                             */
+
+                            allMissions.clear();
+
+                            if (result != null) {
+                                allMissions.addAll(result);
+                            }
+
+                            renderFilteredList();
+                        });
+                    }
+
+                    @Override
+                    public void onError(
+                            Throwable error
+                    ) {
+
+                        handler.post(() -> {
+
+                            swipeRefresh.setRefreshing(false);
+
+                            /*
+                             * A mission request can fail for reasons
+                             * other than connectivity (401, 403, 500).
+                             *
+                             * Therefore we don't automatically call
+                             * setOfflineStatus() here.
+                             */
+
+                            showErrorPage();
+                        });
+                    }
+                }
+        );
     }
+
+    // ---------------------------------------------------------
+    // LOADING
+    // ---------------------------------------------------------
+
+    private void showLoading() {
+
+        flipper.setDisplayedChild(
+                PAGE_LOADING
+        );
+
+        if (firstNetworkResultReceived) {
+
+            if (backendOnline) {
+                setOnlineStatus();
+            } else {
+                setOfflineStatus();
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // ERROR
+    // ---------------------------------------------------------
+
+    private void showErrorPage() {
+
+        flipper.setDisplayedChild(
+                PAGE_ERROR
+        );
+
+        if (firstNetworkResultReceived) {
+
+            if (backendOnline) {
+                setOnlineStatus();
+            } else {
+                setOfflineStatus();
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // STATUS
+    // ---------------------------------------------------------
+
+    private void setOnlineStatus() {
+
+        tvStatusPill.setText(
+                R.string.status_online
+        );
+
+        tvStatusPill.setBackgroundResource(
+                R.drawable.pill_active
+        );
+    }
+
+    private void setOfflineStatus() {
+
+        tvStatusPill.setText(
+                R.string.status_no_signal
+        );
+
+        tvStatusPill.setBackgroundResource(
+                R.drawable.pill_offline
+        );
+    }
+
+    // ---------------------------------------------------------
+    // FILTER MISSIONS
+    // ---------------------------------------------------------
 
     private void renderFilteredList() {
-        List<Mission> filtered = new ArrayList<>();
-        for (Mission m : allMissions) {
+
+        List<Mission> filtered =
+                new ArrayList<>();
+
+        for (Mission mission : allMissions) {
+
             boolean matchesTab =
-                    (selectedTab == 0 && (m.getStatus() == MissionStatus.NEW || m.getStatus() == MissionStatus.ASSIGNED)) ||
-                    (selectedTab == 1 && (m.getStatus() == MissionStatus.ACKNOWLEDGED || m.getStatus() == MissionStatus.IN_PROGRESS)) ||
-                    (selectedTab == 2 && m.getStatus() == MissionStatus.COMPLETED);
-            if (matchesTab) filtered.add(m);
+
+                    // NEW
+                    (
+                            selectedTab == 0
+                                    &&
+                                    (
+                                            mission.getStatus()
+                                                    == MissionStatus.NEW
+
+                                                    ||
+
+                                                    mission.getStatus()
+                                                            == MissionStatus.ASSIGNED
+                                    )
+                    )
+
+                            ||
+
+                            // IN PROGRESS
+                            (
+                                    selectedTab == 1
+                                            &&
+                                            (
+                                                    mission.getStatus()
+                                                            == MissionStatus.ACKNOWLEDGED
+
+                                                            ||
+
+                                                            mission.getStatus()
+                                                                    == MissionStatus.IN_PROGRESS
+                                            )
+                            )
+
+                            ||
+
+                            // COMPLETED
+                            (
+                                    selectedTab == 2
+                                            &&
+                                            mission.getStatus()
+                                                    == MissionStatus.COMPLETED
+                            );
+
+            if (matchesTab) {
+                filtered.add(mission);
+            }
         }
+
         adapter.submitList(filtered);
-        flipper.setDisplayedChild(filtered.isEmpty() ? PAGE_EMPTY : PAGE_CONTENT);
+
+        if (filtered.isEmpty()) {
+
+            flipper.setDisplayedChild(
+                    PAGE_EMPTY
+            );
+
+        } else {
+
+            flipper.setDisplayedChild(
+                    PAGE_CONTENT
+            );
+        }
     }
+
+    // ---------------------------------------------------------
+    // RETURNING FROM MISSION DETAIL
+    // ---------------------------------------------------------
 
     @Override
     protected void onResume() {
+
         super.onResume();
-        if (flipper.getDisplayedChild() == PAGE_CONTENT || flipper.getDisplayedChild() == PAGE_EMPTY) {
+
+        if (firstNetworkResultReceived
+                && backendOnline
+                && (
+                flipper.getDisplayedChild()
+                        == PAGE_CONTENT
+
+                        ||
+
+                        flipper.getDisplayedChild()
+                                == PAGE_EMPTY
+        )) {
+
             loadMissions();
         }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_missions, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.menu_state_loading) {
-            flipper.setDisplayedChild(PAGE_LOADING);
-            return true;
-        } else if (id == R.id.menu_state_success) {
-            FakeMissionRepository.getInstance().resetSeed();
-            loadMissions();
-            return true;
-        } else if (id == R.id.menu_state_empty) {
-            FakeMissionRepository.getInstance().clearAll();
-            loadMissions();
-            return true;
-        } else if (id == R.id.menu_state_error) {
-            flipper.setDisplayedChild(PAGE_ERROR);
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 }
+

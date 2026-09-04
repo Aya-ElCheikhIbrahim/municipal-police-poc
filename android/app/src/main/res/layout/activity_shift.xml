@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -7,7 +9,10 @@
     android:background="@color/bg_canvas"
     android:fitsSystemWindows="true">
 
-    <!-- Shared top bar: officer name / screen title + status pill + settings gear -->
+    <!-- ========================================================= -->
+    <!-- SHARED TOP BAR                                            -->
+    <!-- ========================================================= -->
+
     <LinearLayout
         style="@style/AppTopBar"
         android:layout_width="match_parent"
@@ -41,7 +46,13 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/settings_title"
             android:src="@drawable/ic_settings" />
+
     </LinearLayout>
+
+
+    <!-- ========================================================= -->
+    <!-- MAIN PAGES                                                -->
+    <!-- ========================================================= -->
 
     <ViewFlipper
         android:id="@+id/flipper"
@@ -50,15 +61,23 @@
         android:layout_weight="1"
         android:padding="@dimen/space_l">
 
-        <!-- ============ 0: OFF DUTY ============ -->
+
+        <!-- ===================================================== -->
+        <!-- PAGE 0: OFF DUTY                                      -->
+        <!-- ===================================================== -->
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
-            <LinearLayout style="@style/CardSurface"
+            <LinearLayout
+                style="@style/CardSurface"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -88,18 +107,29 @@
                     android:text="@string/shift_off_duty_note"
                     android:textColor="@color/text_secondary"
                     android:textSize="@dimen/text_caption" />
+
             </LinearLayout>
 
-            <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
         </LinearLayout>
 
-        <!-- ============ 1: ON DUTY ============ -->
+
+        <!-- ===================================================== -->
+        <!-- PAGE 1: ON DUTY / WORKING OFFLINE                    -->
+        <!-- ===================================================== -->
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <LinearLayout style="@style/CardSurface"
+            <!-- Shift timer card -->
+            <LinearLayout
+                style="@style/CardSurface"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -123,6 +153,7 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="@dimen/text_caption" />
 
+                <!-- ONLINE state: location text -->
                 <TextView
                     android:id="@+id/tvLocationLine"
                     android:layout_width="match_parent"
@@ -132,8 +163,32 @@
                     android:text="Rue Tell, Tripoli · accurate to 8 m"
                     android:textColor="@color/text_secondary"
                     android:textSize="@dimen/text_caption" />
+
+                <!-- OFFLINE state divider -->
+                <View
+                    android:id="@+id/dividerLastSynced"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="@dimen/space_m"
+                    android:background="@color/divider"
+                    android:visibility="gone" />
+
+                <!-- OFFLINE state: last synced text -->
+                <TextView
+                    android:id="@+id/tvLastSynced"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_m"
+                    android:gravity="center"
+                    android:text="Last synced 12 minutes ago"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/text_body"
+                    android:visibility="gone" />
+
             </LinearLayout>
 
+
+            <!-- Missions button -->
             <Button
                 android:id="@+id/btnMissions"
                 style="@style/Button.Primary"
@@ -143,28 +198,31 @@
                 android:backgroundTint="@color/accent"
                 android:text="@string/shift_missions_button" />
 
-            <!-- Working-offline extras (hidden on-duty when connected) -->
+
+            <!-- ================================================= -->
+            <!-- WORKING OFFLINE NOTICE                            -->
+            <!-- ================================================= -->
+
             <LinearLayout
                 android:id="@+id/groupOfflineNotice"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_m"
-                android:orientation="vertical"
+                android:orientation="horizontal"
                 android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/tvLastSynced"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/shift_last_synced"
-                    android:textColor="@color/pending"
-                    android:textSize="@dimen/text_caption"
-                    android:textStyle="bold" />
+                <!-- Warning stripe -->
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="match_parent"
+                    android:background="@color/pending" />
 
-                <LinearLayout style="@style/CardSurface"
-                    android:layout_width="match_parent"
+                <!-- Saved work card -->
+                <LinearLayout
+                    style="@style/CardSurface"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_s"
+                    android:layout_weight="1"
                     android:orientation="vertical">
 
                     <TextView
@@ -173,25 +231,29 @@
                         android:text="@string/shift_saved_on_phone"
                         android:textColor="@color/text_primary"
                         android:textStyle="bold"
-                        android:textSize="@dimen/text_body" />
+                        android:textSize="@dimen/text_title" />
 
                     <TextView
                         android:id="@+id/tvSavedDetail"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="@string/shift_saved_detail"
+                        android:layout_marginTop="@dimen/space_s"
+                        android:text="24 locations and 2 photos will upload when the signal returns."
                         android:textColor="@color/text_secondary"
-                        android:textSize="@dimen/text_caption" />
+                        android:textSize="@dimen/text_body" />
+
                 </LinearLayout>
+
             </LinearLayout>
+
 
             <Space
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1" />
 
-            <!-- Primary actions live in the lower half for one-thumb reach -->
+
+            <!-- Panic -->
             <Button
                 android:id="@+id/btnPanic"
                 android:layout_width="match_parent"
@@ -203,44 +265,75 @@
                 android:textColor="@color/white"
                 android:textSize="@dimen/text_button" />
 
+
+            <!-- End Shift -->
             <Button
                 android:id="@+id/btnEndShift"
                 style="@style/Button.Outline"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/shift_end_button" />
+
         </LinearLayout>
 
-        <!-- ============ 2: SYNCING ============ -->
+
+        <!-- ===================================================== -->
+        <!-- PAGE 2: SYNCING                                      -->
+        <!-- ===================================================== -->
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:gravity="center">
+            android:orientation="vertical">
 
-            <ProgressBar
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:indeterminateTint="@color/brand" />
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_m"
-                android:text="@string/shift_uploading_title"
-                android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="@dimen/text_title" />
 
-            <TextView
-                android:id="@+id/tvSyncingDetail"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_s"
-                android:gravity="center"
-                android:text="@string/shift_uploading_detail"
-                android:textColor="@color/text_secondary"
-                android:textSize="@dimen/text_body" />
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ProgressBar
+                    android:id="@+id/progressSyncing"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:indeterminate="true"
+                    android:indeterminateTint="@color/brand" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_l"
+                    android:text="@string/shift_uploading_title"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold"
+                    android:textSize="@dimen/text_title" />
+
+                <TextView
+                    android:id="@+id/tvSyncingDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_m"
+                    android:gravity="center"
+                    android:text="24 locations and 2 photos are being sent to dispatch."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/text_body" />
+
+            </LinearLayout>
+
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
         </LinearLayout>
+
     </ViewFlipper>
+
 </LinearLayout>
