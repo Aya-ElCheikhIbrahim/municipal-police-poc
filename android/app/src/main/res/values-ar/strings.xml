@@ -19,6 +19,7 @@
     <string name="shift_off_duty_note">لا يُسجَّل موقعك خارج أوقات الدوام.</string>
     <string name="shift_elapsed_label">مدة الدوام</string>
     <string name="shift_missions_button">المهام</string>
+    <string name="shift_missions_button_with_count">المهام (جديد %d)</string>
     <string name="shift_panic_button">اضغط مطولًا ثانيتين للاستغاثة</string>
     <string name="shift_end_button">إنهاء الدوام</string>
     <string name="shift_last_synced">آخر مزامنة قبل %1$s</string>
