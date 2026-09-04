@@ -107,6 +107,46 @@
                 </FrameLayout>
             </LinearLayout>
 
+            <!-- WORKING OFFLINE NOTICE -->
+            <LinearLayout
+                android:id="@+id/groupOfflineNotice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_m"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="match_parent"
+                    android:background="@color/pending" />
+
+                <LinearLayout
+                    style="@style/CardSurface"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/shift_saved_on_phone"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold"
+                        android:textSize="@dimen/text_title" />
+
+                    <TextView
+                        android:id="@+id/tvSavedDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/space_s"
+                        android:text="@string/missions_error_body"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="@dimen/text_body" />
+                </LinearLayout>
+            </LinearLayout>
+
             <ViewFlipper
                 android:id="@+id/flipper"
                 android:layout_width="match_parent"

@@ -6,6 +6,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.format.DateFormat;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -23,6 +25,7 @@ import androidx.core.content.ContextCompat;
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
 import com.municipalpolice.officerapp.data.MissionRepository;
+import com.municipalpolice.officerapp.data.NetworkMonitor;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
@@ -51,6 +54,9 @@ public class MissionDetailActivity extends BaseActivity {
     private TextView tvAcknowledgedAt;
     private TextView tvStartedAt;
     private TextView tvPhotoProgress;
+    private TextView tvStatusPill;
+
+    private View groupOfflineNotice;
 
     private FrameLayout photoSlot1;
     private FrameLayout photoSlot2;
@@ -59,6 +65,11 @@ public class MissionDetailActivity extends BaseActivity {
     private String missionId;
     private Mission mission;
     private MissionRepository missionRepository;
+
+    private NetworkMonitor networkMonitor;
+
+    private final Handler handler =
+            new Handler(Looper.getMainLooper());
 
     private ActivityResultLauncher<Void> cameraLauncher;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
@@ -88,6 +99,9 @@ public class MissionDetailActivity extends BaseActivity {
         tvAcknowledgedAt = findViewById(R.id.tvAcknowledgedAt);
         tvStartedAt = findViewById(R.id.tvStartedAt);
         tvPhotoProgress = findViewById(R.id.tvPhotoProgress);
+        tvStatusPill = findViewById(R.id.tvStatusPill);
+
+        groupOfflineNotice = findViewById(R.id.groupOfflineNotice);
 
         photoSlot1 = findViewById(R.id.photoSlot1);
         photoSlot2 = findViewById(R.id.photoSlot2);
@@ -182,6 +196,48 @@ public class MissionDetailActivity extends BaseActivity {
                         }
                 );
 
+        // ---------------------------------------------------------
+        // NETWORK MONITOR
+        // ---------------------------------------------------------
+
+        networkMonitor =
+                new NetworkMonitor(
+                        this,
+                        new NetworkMonitor.Listener() {
+
+                            @Override
+                            public void onNetworkAvailable() {
+
+                                handler.post(() -> {
+
+                                    setOnlineStatus();
+
+                                    if (groupOfflineNotice != null) {
+                                        groupOfflineNotice.setVisibility(View.GONE);
+                                    }
+
+                                    // Reload mission if we didn't have it
+                                    if (mission == null) {
+                                        loadMission();
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onNetworkLost() {
+
+                                handler.post(() -> {
+
+                                    setOfflineStatus();
+
+                                    if (groupOfflineNotice != null) {
+                                        groupOfflineNotice.setVisibility(View.VISIBLE);
+                                    }
+                                });
+                            }
+                        }
+                );
+
         loadMission();
     }
 
@@ -244,6 +300,36 @@ public class MissionDetailActivity extends BaseActivity {
                         finish();
                     }
                 }
+        );
+    }
+
+    private void setOnlineStatus() {
+
+        if (tvStatusPill == null) {
+            return;
+        }
+
+        tvStatusPill.setText(
+                R.string.status_online
+        );
+
+        tvStatusPill.setBackgroundResource(
+                R.drawable.pill_active
+        );
+    }
+
+    private void setOfflineStatus() {
+
+        if (tvStatusPill == null) {
+            return;
+        }
+
+        tvStatusPill.setText(
+                R.string.status_no_signal
+        );
+
+        tvStatusPill.setBackgroundResource(
+                R.drawable.pill_offline
         );
     }
 
@@ -817,6 +903,38 @@ public class MissionDetailActivity extends BaseActivity {
                     }
                 }
         );
+    }
+
+    // ---------------------------------------------------------
+    // LIFECYCLE
+    // ---------------------------------------------------------
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (networkMonitor != null) {
+            networkMonitor.start();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (networkMonitor != null) {
+            networkMonitor.stop();
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+
+        handler.removeCallbacksAndMessages(null);
+
+        if (networkMonitor != null) {
+            networkMonitor.stop();
+        }
+
+        super.onDestroy();
     }
 
     @Override
