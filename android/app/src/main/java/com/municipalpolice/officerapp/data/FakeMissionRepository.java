@@ -44,7 +44,8 @@ public class FakeMissionRepository implements MissionRepository {
                 Priority.URGENT,
                 MissionStatus.NEW,
                 34.436700,
-                35.849700));
+                35.849700,
+                "Rue Tall, Tripoli"));
         missions.add(new Mission(
                 2,
                 "Noise complaint, residential",
@@ -52,7 +53,8 @@ public class FakeMissionRepository implements MissionRepository {
                 Priority.LOW,
                 MissionStatus.NEW,
                 34.446700,
-                35.859700));
+                35.859700,
+                "Dam & Farez, Tripoli"));
     }
 
     /** Lets the demo "Preview state" menu simulate an empty list. */

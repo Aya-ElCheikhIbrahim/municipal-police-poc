@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.Priority;
+import com.municipalpolice.officerapp.util.TimeFormat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,9 +46,11 @@ public class MissionAdapter extends RecyclerView.Adapter<MissionAdapter.ViewHold
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Mission mission = missions.get(position);
         holder.tvTitle.setText(mission.getTitle());
-        String location = mission.getAddress() != null ? mission.getAddress() : 
-                         (mission.getLatitude() + ", " + mission.getLongitude());
-        holder.tvSubtitle.setText(location);
+        
+        String location = mission.getLocationDisplay();
+        String timeStr = TimeFormat.relativeTime(mission.getAssignedAt() != null ? mission.getAssignedAt() : mission.getCreatedAt());
+        
+        holder.tvSubtitle.setText(location + " · " + timeStr);
 
         int pillRes;
         String priorityLabel;
