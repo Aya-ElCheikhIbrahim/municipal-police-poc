@@ -32,6 +32,9 @@ urlpatterns = [
     path("api/v1/", include("core.urls")),
     path("api/v1/", include("shifts.urls")),
     path("api/v1/", include("missions.urls")),
+  path("api/v1/", include("panic.urls")),
+  path("api/v1/notifications/", include("notifications.urls")),
+
 ]
 
 

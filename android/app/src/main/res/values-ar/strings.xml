@@ -11,6 +11,7 @@
     <string name="login_forgot_password_msg">يرجى الاتصال بمشرفك لإعادة تعيين كلمة المرور الخاصة بك.</string>
     <string name="login_footnote">الحسابات يُنشئها المشرف. لا يوجد تسجيل ذاتي.</string>
     <string name="login_error_required">أدخل اسم المستخدم وكلمة المرور</string>
+    <string name="login_error_incorrect">البيانات غير صحيحة، حاول مرة أخرى</string>
 
     <!-- الدوام -->
     <string name="shift_off_duty_subtitle">سيبدأ تتبع الموقع الآن</string>
@@ -18,6 +19,7 @@
     <string name="shift_off_duty_note">لا يُسجَّل موقعك خارج أوقات الدوام.</string>
     <string name="shift_elapsed_label">مدة الدوام</string>
     <string name="shift_missions_button">المهام</string>
+    <string name="shift_missions_button_with_count">المهام (جديد %d)</string>
     <string name="shift_panic_button">اضغط مطولًا ثانيتين للاستغاثة</string>
     <string name="shift_end_button">إنهاء الدوام</string>
     <string name="shift_last_synced">آخر مزامنة قبل %1$s</string>
@@ -104,6 +106,7 @@
 
     <string name="mission_completed_toast">تم تسجيل المهمة كمنجزة</string>
     <string name="mission_toast_acknowledged">تم استلام المهمة</string>
+    <string name="mission_location_permission_denied">تتبع الموقع مطلوب للمهام.</string>
     <string name="generic_back">رجوع</string>
     <string name="generic_apply">تطبيق</string>
     <string name="logout_error_active_shift">لا يمكنك تسجيل الخروج أثناء وجود دوام نشط. يرجى إنهاء دوامك أولاً.</string>

@@ -95,6 +95,12 @@ class Command(BaseCommand):
                 LocationPing.objects.bulk_create(
                     [w.step(now) for w in walkers], ignore_conflicts=True
                 )
+                # bulk_create bypasses services.ingest_pings, which is what
+                # normally persists the distance, so recompute it here the
+                # same way — otherwise every simulated officer reads as 0 m.
+                for walker in walkers:
+                    walker.shift.distance_m = services.shift_distance_m(walker.shift)
+                    walker.shift.save(update_fields=["distance_m"])
                 self.stdout.write(f"  {now:%H:%M:%S}  {len(walkers)} pings")
                 time.sleep(interval)
         except KeyboardInterrupt:

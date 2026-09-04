@@ -11,7 +11,7 @@
     <string name="login_forgot_password_msg">A supervisor will send you a code shortly.</string>
     <string name="login_footnote">Accounts are created by your supervisor. There is no self sign-up.</string>
     <string name="login_error_required">Enter your username and password</string>
-    <string name="login_error_incorrect">incorrect try aigain</string>
+    <string name="login_error_incorrect">Incorrect, try again</string>
 
     <!-- Shift / on-duty -->
     <string name="shift_off_duty_subtitle">Tracking begins now</string>
@@ -19,6 +19,7 @@
     <string name="shift_off_duty_note">Your location is not recorded while you are off duty.</string>
     <string name="shift_elapsed_label">Shift elapsed</string>
     <string name="shift_missions_button">Missions</string>
+    <string name="shift_missions_button_with_count">Missions (New %d)</string>
     <string name="shift_panic_button">Hold 2 seconds for panic</string>
     <string name="shift_end_button">End shift</string>
     <string name="shift_last_synced">Last synced %1$s ago</string>
@@ -105,12 +106,13 @@
 
     <string name="mission_completed_toast">Mission marked complete</string>
     <string name="mission_toast_acknowledged">Mission acknowledged</string>
+    <string name="mission_location_permission_denied">Location tracking is required for missions.</string>
     <string name="generic_back">Back</string>
     <string name="generic_apply">Apply</string>
     <string name="logout_error_active_shift">You cannot log out while a shift is active. Please end your shift first.</string>
-    <string name="logout_error_pending_missions">You have active missions. Please complete or cancel them before logging out.</string>
+    <string name="logout_error_pending_missions">You have active missions. Please complete them before logging out.</string>
     <string name="logout_validation_loading">Verifying duty status...</string>
-    <string name="end_shift_error_active_missions">You cannot end your shift while you have active missions. Please complete or cancel them first.</string>
+    <string name="end_shift_error_active_missions">You cannot end your shift while you have active missions. Please complete them first.</string>
     <string name="mission_acknowledge_warning_title">Acknowledge Mission</string>
     <string name="mission_acknowledge_warning_body">Are you sure you want to start this mission?</string>
     <string name="generic_proceed">Proceed</string>

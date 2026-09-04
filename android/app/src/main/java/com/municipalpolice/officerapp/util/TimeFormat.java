@@ -17,4 +17,20 @@ public final class TimeFormat {
     public static String minutesAgo(long minutes) {
         return minutes + " min";
     }
+
+    public static String relativeTime(String isoString) {
+        if (isoString == null) return "";
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date date = sdf.parse(isoString);
+            if (date == null) return "";
+
+            long now = System.currentTimeMillis();
+            long time = date.getTime();
+            return android.text.format.DateUtils.getRelativeTimeSpanString(time, now, android.text.format.DateUtils.MINUTE_IN_MILLIS).toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
 }
