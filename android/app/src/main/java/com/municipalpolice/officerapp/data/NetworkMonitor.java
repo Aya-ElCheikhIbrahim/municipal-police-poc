@@ -5,6 +5,8 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.os.Handler;
+import android.os.Looper;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -44,6 +46,15 @@ public class NetworkMonitor {
     private ConnectivityManager.NetworkCallback networkCallback;
 
     private boolean started = false;
+    private boolean backendReachable = false;
+
+    private final Handler handler =
+            new Handler(Looper.getMainLooper());
+
+    private final Runnable retryRunnable =
+            this::checkBackendAsync;
+
+    private static final long RETRY_INTERVAL_MS = 10000; // 10 seconds
 
     public NetworkMonitor(
             Context context,
@@ -137,6 +148,8 @@ public class NetworkMonitor {
             return;
         }
 
+        handler.removeCallbacks(retryRunnable);
+
         try {
 
             connectivityManager.unregisterNetworkCallback(
@@ -197,10 +210,14 @@ public class NetworkMonitor {
      */
     private void checkBackendAsync() {
 
+        handler.removeCallbacks(retryRunnable);
+
         executor.execute(() -> {
 
             boolean reachable =
                     isBackendReachable();
+
+            backendReachable = reachable;
 
             if (listener == null) {
                 return;
@@ -213,6 +230,14 @@ public class NetworkMonitor {
             } else {
 
                 listener.onNetworkLost();
+
+                // If still offline, try again in a few seconds.
+                if (started) {
+                    handler.postDelayed(
+                            retryRunnable,
+                            RETRY_INTERVAL_MS
+                    );
+                }
             }
         });
     }

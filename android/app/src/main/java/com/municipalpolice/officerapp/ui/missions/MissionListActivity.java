@@ -43,6 +43,7 @@ public class MissionListActivity extends BaseActivity {
     private ViewFlipper flipper;
     private SwipeRefreshLayout swipeRefresh;
     private TextView tvStatusPill;
+    private View groupOfflineNotice;
 
     private MissionAdapter adapter;
     private MissionRepository missionRepository;
@@ -90,6 +91,9 @@ public class MissionListActivity extends BaseActivity {
         tvStatusPill =
                 findViewById(R.id.tvStatusPill);
 
+        groupOfflineNotice =
+                findViewById(R.id.groupOfflineNotice);
+
         RecyclerView recyclerView =
                 findViewById(R.id.recyclerMissions);
 
@@ -127,6 +131,10 @@ public class MissionListActivity extends BaseActivity {
 
                                     setOnlineStatus();
 
+                                    if (groupOfflineNotice != null) {
+                                        groupOfflineNotice.setVisibility(View.GONE);
+                                    }
+
                                     /*
                                      * If Django has just returned,
                                      * reload missions automatically.
@@ -152,7 +160,17 @@ public class MissionListActivity extends BaseActivity {
 
                                     swipeRefresh.setRefreshing(false);
 
-                                    showErrorPage();
+                                    if (groupOfflineNotice != null) {
+                                        groupOfflineNotice.setVisibility(View.VISIBLE);
+                                    }
+
+                                    /*
+                                     * Only show full error page if we don't have
+                                     * any data to show yet.
+                                     */
+                                    if (allMissions.isEmpty()) {
+                                        showErrorPage();
+                                    }
                                 });
                             }
                         }
