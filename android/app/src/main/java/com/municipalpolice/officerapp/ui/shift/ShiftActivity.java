@@ -35,7 +35,13 @@ import com.municipalpolice.officerapp.ui.settings.SettingsActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
 import com.municipalpolice.officerapp.util.TimeFormat;
 
+import java.text.SimpleDateFormat;
+import java.text.SimpleDateFormat;
+import java.time.OffsetDateTime;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * Combines mockup screens "2 - Off duty", "3 - On duty", "Syncing" and the
@@ -49,6 +55,7 @@ public class ShiftActivity extends BaseActivity {
     private static final int PAGE_SYNCING = 2;
 
     private static final long PANIC_HOLD_MILLIS = 2000;
+    private static final long MISSION_REFRESH_INTERVAL = 10000; // 5 seconds
 
     private ViewFlipper flipper;
     private TextView tvTopBarTitle;
@@ -56,6 +63,7 @@ public class ShiftActivity extends BaseActivity {
     private TextView tvShiftTimer;
     private android.widget.LinearLayout groupOfflineNotice;
     private Button btnPanic;
+    private Button btnMissions;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private long shiftStartMillis;
@@ -70,8 +78,18 @@ public class ShiftActivity extends BaseActivity {
         public void run() {
             if (!onDuty) return;
             long elapsed = System.currentTimeMillis() - shiftStartMillis;
+            if (elapsed < 0) elapsed = 0;
             tvShiftTimer.setText(TimeFormat.hms(elapsed));
             handler.postDelayed(this, 1000);
+        }
+    };
+
+    private final Runnable missionRefreshTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!onDuty) return;
+            updateMissionCount();
+            handler.postDelayed(this, MISSION_REFRESH_INTERVAL);
         }
     };
 
@@ -91,6 +109,7 @@ public class ShiftActivity extends BaseActivity {
         tvShiftTimer = findViewById(R.id.tvShiftTimer);
         groupOfflineNotice = findViewById(R.id.groupOfflineNotice);
         btnPanic = findViewById(R.id.btnPanic);
+        btnMissions = findViewById(R.id.btnMissions);
 
         prefs = new PrefsManager(this);
         shiftRepository = new RetrofitShiftRepository(prefs, this);
@@ -102,7 +121,7 @@ public class ShiftActivity extends BaseActivity {
                 startActivity(new Intent(this, SettingsActivity.class)));
 
         findViewById(R.id.btnStartShift).setOnClickListener(v -> startShift());
-        findViewById(R.id.btnMissions).setOnClickListener(v ->
+        btnMissions.setOnClickListener(v ->
                 startActivity(new Intent(this, MissionListActivity.class)));
         findViewById(R.id.btnEndShift).setOnClickListener(v -> checkMissionsBeforeEndShift());
 
@@ -194,19 +213,45 @@ public class ShiftActivity extends BaseActivity {
                 onDuty = true;
                 prefs.setShiftActive(true);
                 try {
-                    // Simple ISO parser for the purpose of the POC
-                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
-                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-                    java.util.Date date = sdf.parse(result.getStartedAt());
-                    shiftStartMillis = date.getTime();
+                    // Use java.time for robust ISO 8601 parsing (available on modern Android/via desugaring)
+                    // The backend returns strings like "2026-09-04T19:36:25.923736+03:00"
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        shiftStartMillis = OffsetDateTime.parse(result.getStartedAt()).toInstant().toEpochMilli();
+                    } else {
+                        // Fallback for older devices: SimpleDateFormat with 'XXX' handles ISO 8601 offsets like +03:00
+                        // However, it doesn't handle microseconds (6 digits after dot) well, so we truncate them.
+                        String dateStr = result.getStartedAt();
+                        if (dateStr.contains(".")) {
+                            int dot = dateStr.indexOf(".");
+                            int sign = dateStr.indexOf("+", dot);
+                            if (sign == -1) sign = dateStr.indexOf("-", dot);
+                            if (sign == -1 && dateStr.endsWith("Z")) sign = dateStr.length() - 1;
+
+                            if (sign != -1) {
+                                dateStr = dateStr.substring(0, dot) + dateStr.substring(sign);
+                            }
+                        }
+
+                        SimpleDateFormat sdf;
+                        if (dateStr.endsWith("Z")) {
+                            sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+                            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                        } else {
+                            sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US);
+                        }
+                        shiftStartMillis = sdf.parse(dateStr).getTime();
+                    }
                 } catch (Exception e) {
+                    // Fallback to current time if parsing fails
                     shiftStartMillis = System.currentTimeMillis();
                 }
 
                 flipper.setDisplayedChild(PAGE_ON_DUTY);
                 groupOfflineNotice.setVisibility(simulatedOffline ? android.view.View.VISIBLE : android.view.View.GONE);
                 updateStatusPill();
+                updateMissionCount();
                 handler.post(timerTick);
+                handler.postDelayed(missionRefreshTick, MISSION_REFRESH_INTERVAL);
             }
 
             @Override
@@ -230,6 +275,47 @@ public class ShiftActivity extends BaseActivity {
             tvStatusPill.setText(R.string.status_online);
             tvStatusPill.setBackgroundResource(R.drawable.pill_active);
         }
+    }
+
+    private void updateMissionCount() {
+        missionRepository.fetchMissions(new Callback<List<Mission>>() {
+            @Override
+            public void onSuccess(List<Mission> result) {
+                int count = 0;
+                for (Mission m : result) {
+                    if (m.getStatus() == MissionStatus.NEW || m.getStatus() == MissionStatus.ASSIGNED) {
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    btnMissions.setText(ShiftActivity.this.getString(R.string.shift_missions_button_with_count, count));
+                } else {
+                    btnMissions.setText(R.string.shift_missions_button);
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                // Keep default text on error
+            }
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (onDuty) {
+            updateMissionCount();
+            handler.post(timerTick);
+            handler.postDelayed(missionRefreshTick, MISSION_REFRESH_INTERVAL);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        handler.removeCallbacks(timerTick);
+        handler.removeCallbacks(missionRefreshTick);
     }
 
     @Override
