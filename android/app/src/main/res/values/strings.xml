@@ -19,6 +19,7 @@
     <string name="shift_off_duty_note">Your location is not recorded while you are off duty.</string>
     <string name="shift_elapsed_label">Shift elapsed</string>
     <string name="shift_missions_button">Missions</string>
+    <string name="shift_missions_button_with_count">Missions (New %d)</string>
     <string name="shift_panic_button">Hold 2 seconds for panic</string>
     <string name="shift_end_button">End shift</string>
     <string name="shift_last_synced">Last synced %1$s ago</string>
