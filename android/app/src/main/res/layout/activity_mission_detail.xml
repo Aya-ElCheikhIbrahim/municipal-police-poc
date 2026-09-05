@@ -100,22 +100,15 @@
                         android:id="@+id/mapView"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent" />
-                </FrameLayout>
 
-                <TextView
-                    android:id="@+id/btnMapNavigate"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:layout_gravity="end"
-                    android:text="@string/mission_navigate_button"
-                    android:textColor="@color/brand"
-                    android:textStyle="bold"
-                    android:textSize="@dimen/text_caption"
-                    android:padding="8dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground" />
+                    <View
+                        android:id="@+id/mapClickOverlay"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackground" />
+                </FrameLayout>
             </LinearLayout>
 
             <!-- WORKING OFFLINE NOTICE -->

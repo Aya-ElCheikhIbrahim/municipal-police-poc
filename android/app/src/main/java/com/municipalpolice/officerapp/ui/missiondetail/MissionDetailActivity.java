@@ -136,7 +136,6 @@ public class MissionDetailActivity extends BaseActivity {
             }
         });
         findViewById(R.id.btnNavigate).setOnClickListener(v -> openNavigation());
-        findViewById(R.id.btnMapNavigate).setOnClickListener(v -> openNavigation());
         findViewById(R.id.btnTakePhoto).setOnClickListener(v -> takePhoto());
         findViewById(R.id.btnCompleteMission).setOnClickListener(v -> completeMission());
 
@@ -199,6 +198,17 @@ public class MissionDetailActivity extends BaseActivity {
         mapView.setTileSource(TileSourceFactory.MAPNIK);
         mapView.setMultiTouchControls(true);
         mapView.setBuiltInZoomControls(false);
+
+        // Add a click listener to the map's container to open navigation
+        View mapPreview = findViewById(R.id.mapPreview);
+        if (mapPreview != null) {
+            mapPreview.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    openNavigation();
+                }
+            });
+        }
     }
 
     private void checkLocationPermissions() {
