@@ -140,8 +140,8 @@ public class MissionListActivity extends BaseActivity {
                                      * reload missions automatically.
                                      */
                                     if (wasOffline
-                                            || flipper.getDisplayedChild()
-                                            == PAGE_ERROR) {
+                                            || flipper.getDisplayedChild() == PAGE_LOADING
+                                            || flipper.getDisplayedChild() == PAGE_ERROR) {
 
                                         loadMissions();
                                     }
@@ -241,6 +241,7 @@ public class MissionListActivity extends BaseActivity {
 
         // Start with loading UI.
         showLoading();
+        loadMissions();
     }
 
     // ---------------------------------------------------------
@@ -515,13 +516,9 @@ public class MissionListActivity extends BaseActivity {
         if (firstNetworkResultReceived
                 && backendOnline
                 && (
-                flipper.getDisplayedChild()
-                        == PAGE_CONTENT
-
-                        ||
-
-                        flipper.getDisplayedChild()
-                                == PAGE_EMPTY
+                flipper.getDisplayedChild() == PAGE_LOADING
+                        || flipper.getDisplayedChild() == PAGE_CONTENT
+                        || flipper.getDisplayedChild() == PAGE_EMPTY
         )) {
 
             loadMissions();
