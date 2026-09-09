@@ -13,6 +13,7 @@ import type { ActiveOfficer, OfficerStatus } from '../officers/types';
 export function LiveMapPage() {
   const { officers, isLoading, error, secondsSinceUpdate } = useActiveOfficers();
   const [selectedOfficerId, setSelectedOfficerId] = useState<number | null>(null);
+  const [showList, setShowList] = useState(true);
 
   const { containerRef, mapRef } = useLeafletMap();
 
@@ -26,11 +27,11 @@ export function LiveMapPage() {
   const selected = officers.find((o) => o.officer.id === selectedOfficerId) ?? null;
 
   return (
-    <div className="flex-1 flex w-full">
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col z-10 shadow-xs">
-        <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <span className="font-bold text-xs text-slate-700">On duty</span>
-          <span className="text-xs text-slate-400 font-medium">
+    <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_2fr_1fr] w-full min-h-0">
+      <aside className={`bg-white border-r border-slate-200 flex-col z-10 shadow-xs overflow-hidden lg:flex ${showList ? 'flex' : 'hidden'} max-h-64 lg:max-h-none`}>
+        <div className="p-4 lg:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <span className="font-bold text-lg lg:text-2xl text-slate-700">On duty</span>
+          <span className="text-sm lg:text-lg text-slate-400 font-medium">
             {isLoading ? '…' : `${officers.length} officers`}
           </span>
         </div>
@@ -53,10 +54,10 @@ export function LiveMapPage() {
             </div>
           ) : officers.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-xs font-semibold text-slate-700 mb-1">
+              <p className="text-sm font-semibold text-slate-700 mb-1">
                 No officers on duty
               </p>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 leading-relaxed">
                 Officers appear here once they start a shift from the mobile app.
               </p>
             </div>
@@ -66,26 +67,42 @@ export function LiveMapPage() {
                 key={entry.officer.id}
                 entry={entry}
                 isSelected={entry.officer.id === selectedOfficerId}
-                onSelect={() => setSelectedOfficerId(entry.officer.id)}
+                onSelect={() => {
+                  setSelectedOfficerId(entry.officer.id);
+                  setShowList(false);
+                }}
               />
             ))
           )}
         </div>
       </aside>
 
-      <main className="flex-1 relative">
+      <div className="lg:hidden flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200">
+        <button
+          onClick={() => setShowList(!showList)}
+          className="text-sm font-semibold text-[#1F3864] cursor-pointer"
+        >
+          {showList ? 'Hide officer list' : 'Show officer list'}
+        </button>
+      </div>
+
+      <main className="flex-1 relative min-h-[300px] lg:min-h-0">
         <div ref={containerRef} className="w-full h-full z-0" />
       </main>
 
-      <aside className="w-80 bg-white border-l border-slate-200 flex flex-col p-4 overflow-y-auto z-10 shadow-xs">
-        {selected ? (
-          <OfficerDetail entry={selected} />
-        ) : (
-          <p className="text-xs text-slate-400 text-center mt-8">
+      {selected && (
+        <aside className="bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col p-4 lg:p-6 overflow-y-auto z-10 shadow-xs max-h-80 lg:max-h-none">
+          <OfficerDetail entry={selected} onClose={() => setSelectedOfficerId(null)} />
+        </aside>
+      )}
+
+      {!selected && (
+        <aside className="hidden lg:flex bg-white border-l border-slate-200 flex-col p-6 overflow-y-auto z-10 shadow-xs">
+          <p className="text-base text-slate-400 text-center mt-8">
             Select an officer to see their shift details.
           </p>
-        )}
-      </aside>
+        </aside>
+      )}
     </div>
   );
 }
@@ -104,22 +121,22 @@ function OfficerRow({
   return (
     <div
       onClick={onSelect}
-      className={`p-3 transition-colors cursor-pointer ${
+      className={`p-4 lg:p-6 transition-colors cursor-pointer ${
         isSelected ? 'bg-slate-100 border-l-4 border-[#1F3864]' : 'hover:bg-[#f8fafc]'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-xs text-slate-900 truncate">
+        <span className="font-semibold text-base lg:text-xl text-slate-900 truncate">
           {entry.officer.full_name}
         </span>
         <StatusBadge status={entry.status} />
       </div>
-      <div className="text-[11px] text-slate-400 mt-0.5">
+      <div className="text-sm lg:text-base text-slate-400 mt-1">
         Badge {entry.officer.badge_number} ·{' '}
         {formatDuration(entry.shift_duration_seconds)}
       </div>
       {!hasPosition && (
-        <div className="text-[10px] text-amber-600 mt-1">No location yet</div>
+        <div className="text-xs text-amber-600 mt-1">No location yet</div>
       )}
     </div>
   );
@@ -134,26 +151,29 @@ function StatusBadge({ status }: { status: OfficerStatus }) {
 
   return (
     <span
-      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${styles[status]}`}
+      className={`text-sm lg:text-base font-semibold px-2.5 lg:px-3.5 py-1 lg:py-1.5 rounded-full shrink-0 ${styles[status]}`}
     >
       {statusLabel(status)}
     </span>
   );
 }
 
-function OfficerDetail({ entry }: { entry: ActiveOfficer }) {
+function OfficerDetail({ entry, onClose }: { entry: ActiveOfficer; onClose: () => void }) {
   const ping = entry.latest_ping;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between pb-3 border-b border-slate-100 gap-2">
-        <h3 className="font-bold text-slate-900 text-sm">{entry.officer.full_name}</h3>
-        <span className="text-xs text-slate-400 font-medium shrink-0">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex items-start justify-between pb-3 lg:pb-4 border-b border-slate-100 gap-2">
+        <h3 className="font-bold text-slate-900 text-xl lg:text-3xl">{entry.officer.full_name}</h3>
+        <button onClick={onClose} className="lg:hidden text-slate-400 text-sm cursor-pointer">
+          Close
+        </button>
+        <span className="hidden lg:inline text-lg text-slate-400 font-medium shrink-0">
           Badge {entry.officer.badge_number}
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <Stat
           value={formatDuration(entry.shift_duration_seconds)}
           label="On duty"
@@ -165,7 +185,7 @@ function OfficerDetail({ entry }: { entry: ActiveOfficer }) {
       </div>
 
       {ping && (
-        <div className="text-[11px] text-slate-500 space-y-1 pt-2 border-t border-slate-100">
+        <div className="text-sm lg:text-lg text-slate-500 space-y-2 lg:space-y-2.5 pt-3 lg:pt-4 border-t border-slate-100">
           <div>
             Last fix{' '}
             <span className="font-mono text-slate-700">
@@ -185,9 +205,9 @@ function OfficerDetail({ entry }: { entry: ActiveOfficer }) {
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-      <div className="text-lg font-bold text-slate-900">{value}</div>
-      <div className="text-[10px] text-slate-400 font-medium mt-0.5">{label}</div>
+    <div className="bg-slate-50 p-4 lg:p-6 rounded-lg border border-slate-100">
+      <div className="text-2xl lg:text-4xl font-bold text-slate-900">{value}</div>
+      <div className="text-sm lg:text-base text-slate-400 font-medium mt-1 lg:mt-1.5">{label}</div>
     </div>
   );
 }
