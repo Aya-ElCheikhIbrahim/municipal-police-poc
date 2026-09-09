@@ -11,8 +11,8 @@ section 4.9 triggers covered here:
   - mission not acknowledged    → all active dispatchers and supervisors
   - dispatcher message          → a named officer (section 4.9 marks this optional)
 
-Panic alerts are deliberately absent : the panic app has no model yet, and a
-notify_panic_triggered() that cannot be called is dead code.
+section 4.7:
+  - panic alert                 → all active dispatchers and supervisors
 """
 from users.models import Role
 from django.contrib.auth import get_user_model
@@ -108,7 +108,7 @@ def notify_mission_assigned(mission, officer):
 
 def notify_mission_cancelled(mission, officer, reason=""):
     """
-    Call from missions.services on cancel. Officer may be None — §4.4 allows
+    Call from missions.services on cancel. Officer may be None, section 4.4 allows
     cancelling a mission that was never assigned, and there is nobody to tell.
     """
     if officer is None:
@@ -136,7 +136,7 @@ def notify_dispatcher_message(officer, sender, message, mission=None):
 def notify_mission_unacknowledged(mission):
     """
     Call from the existing ack-sweep, which already guards on
-    ack_alert_sent_at — so this does not re-check it. Setting that field
+    ack_alert_sent_at, so this does not re-check it. Setting that field
     remains the sweep's job; doing it here would split one decision across
     two modules.
 
@@ -156,6 +156,41 @@ def notify_mission_unacknowledged(mission):
             title="Mission not acknowledged",
             body=f"{mission.title} has not been acknowledged.",
             related_mission=mission,
+        )
+        for user in recipients
+    ])
+
+
+@transaction.atomic
+def notify_panic_triggered(event):
+    """
+    section 4.7: a panic alert reaches every dispatcher and supervisor.
+
+    Call from panic.services.trigger_panic, on the created branch only: a
+    repeated tap or a phone retry returns the existing event, and re-alerting
+    every dispatcher for one emergency is exactly what the idempotent trigger
+    exists to prevent.
+
+    Same fan-out shape as notify_mission_unacknowledged: one row per
+    recipient, so each person's read state is their own.
+
+    The officer and the position are written into the body because
+    Notification has no FK to PanicEvent yet, the related_panic_event field
+    in models.py is still commented out, and wiring it needs a migration.
+    """
+    recipients = User.objects.filter(
+        role__in=[Role.DISPATCHER, Role.SUPERVISOR],
+        is_active=True,
+    )
+    return Notification.objects.bulk_create([
+        Notification(
+            recipient=user,
+            notification_type=NotificationType.PANIC_ALERT,
+            title="Panic alert",
+            body=(
+                f"{event.officer.full_name} ({event.officer.badge_number}) "
+                f"at {event.latitude}, {event.longitude}"
+            ),
         )
         for user in recipients
     ])
