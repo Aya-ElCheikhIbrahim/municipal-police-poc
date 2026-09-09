@@ -15,7 +15,11 @@ from django.db import transaction
 from django.utils import timezone
  
 from core.registry import get_setting
- 
+from notifications.services import (
+    notify_mission_assigned,
+    notify_mission_cancelled,
+    notify_mission_unacknowledged,
+)
 from .models import Mission, MissionEvent, MissionPhoto
  
  
@@ -131,6 +135,7 @@ def assign_mission(mission: Mission, *, officer, actor) -> Mission:
         officer_id=officer.id,
         badge_number=officer.badge_number,
     )
+    notify_mission_assigned(mission, officer)
     return mission
  
  
@@ -168,6 +173,7 @@ def reassign_mission(mission: Mission, *, officer, actor) -> Mission:
         previous_officer_id=previous.id if previous else None,
         previous_badge_number=previous.badge_number if previous else None,
     )
+    notify_mission_assigned(mission, officer)
     return mission
  
  
@@ -249,6 +255,7 @@ def cancel_mission(mission: Mission, *, actor, reason: str) -> Mission:
     mission.save(update_fields=["cancelled_at", "cancellation_reason", "status"])
  
     _log(mission, MissionEvent.EventType.CANCELLED, actor=actor, reason=reason)
+    notify_mission_cancelled(mission, mission.assigned_to, reason=reason)
     return mission
  
  
@@ -335,6 +342,7 @@ def flag_unacknowledged(now=None) -> list[Mission]:
                 actor=None,  # the system raised this, not a person
                 timeout_minutes=timeout,
             )
+            notify_mission_unacknowledged(mission)
         flagged.append(mission)
     return flagged
  

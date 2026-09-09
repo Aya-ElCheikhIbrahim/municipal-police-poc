@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from core.registry import get_setting
+from notifications.services import notify_panic_triggered
 from shifts.models import Shift
 
 from .models import PanicEvent
@@ -81,6 +82,7 @@ def trigger_panic(
                 accuracy_m=accuracy_m,
                 battery_level=battery_level,
             )
+            notify_panic_triggered(event)
         return event, True
     except IntegrityError:
         # Lost a race against unique_active_panic_per_officer; two taps
