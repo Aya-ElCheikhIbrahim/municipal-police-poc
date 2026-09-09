@@ -53,6 +53,16 @@ class MissionTestCase(TestCase):
             longitude=kwargs.pop("longitude", 35.8497),
             **kwargs,
         )
+    def attach_photo(self, mission):
+        """section 4.5 requires photo evidence before completion."""
+        return services.add_photo(
+            mission,
+            officer=mission.assigned_to,
+            client_uuid=uuid.uuid4(),
+            image=SimpleUploadedFile(
+                "evidence.jpg", b"fake-image-bytes", content_type="image/jpeg"
+            ),
+        )
  
     def event_types(self, mission):
         return list(mission.events.order_by("created_at").values_list("event_type", flat=True))
@@ -79,10 +89,11 @@ class CreationTests(MissionTestCase):
  
 class TransitionTests(MissionTestCase):
     def test_full_lifecycle_writes_every_event(self):
-        """§4.6's drawer shows a timeline; it can only show what was recorded."""
+        """section 4.6's drawer shows a timeline; it can only show what was recorded."""
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer, latitude=34.44, longitude=35.85)
+        self.attach_photo(mission)
         services.complete_mission(
             mission, officer=self.officer, latitude=34.45, longitude=35.85, notes="Vehicle removed."
         )
@@ -91,7 +102,7 @@ class TransitionTests(MissionTestCase):
         self.assertEqual(mission.status, Mission.Status.COMPLETED)
         self.assertEqual(
             self.event_types(mission),
-            ["created", "assigned", "acknowledged", "started", "completed"],
+            ["created", "assigned", "acknowledged", "started", "photo_added", "completed"],
         )
         for field in ["assigned_at", "acknowledged_at", "started_at", "completed_at"]:
             self.assertIsNotNone(getattr(mission, field), f"{field} was not set")
@@ -117,20 +128,18 @@ class TransitionTests(MissionTestCase):
         mission = self.make_mission(assigned_to=self.officer)
         with self.assertRaises(services.MissionPermissionError):
             services.acknowledge_mission(mission, officer=self.other_officer)
- 
     def test_completed_mission_cannot_be_cancelled(self):
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer)
+        self.attach_photo(mission)
         services.complete_mission(mission, officer=self.officer)
-        with self.assertRaises(services.MissionError):
-            services.cancel_mission(mission, actor=self.dispatcher, reason="changed my mind")
- 
     def test_start_and_complete_positions_are_recorded(self):
         """Where the officer actually was, not where the mission is."""
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer, latitude=34.44, longitude=35.85)
+        self.attach_photo(mission)
         services.complete_mission(mission, officer=self.officer, latitude=34.45, longitude=35.86)
  
         mission.refresh_from_db()

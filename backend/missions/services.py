@@ -216,6 +216,12 @@ def complete_mission(
     """Officer finished. Position recorded so the report can show where."""
     _require_status(mission, "complete")
     _require_assignee(mission, officer)
+
+    minimum = get_setting("mission_photo_min")
+    if mission.photos.count() < minimum:
+        raise MissionError(
+            f"At least {minimum} photo(s) required before completing a mission."
+        )
  
     mission.completed_at = timezone.now()
     mission.completed_latitude = _as_decimal(latitude)
@@ -285,6 +291,10 @@ def add_photo(
     existing = MissionPhoto.objects.filter(client_uuid=client_uuid).first()
     if existing is not None:
         return existing, False
+
+    maximum = get_setting("mission_photo_max")
+    if mission.photos.count() >= maximum:
+        raise MissionError(f"A mission may have at most {maximum} photos.")
  
     photo = MissionPhoto.objects.create(
         client_uuid=client_uuid,
