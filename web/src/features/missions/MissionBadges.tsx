@@ -11,7 +11,7 @@ const PRIORITY_STYLES: Record<MissionPriority, string> = {
 export function PriorityBadge({ priority }: { priority: MissionPriority }) {
   return (
     <span
-      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${PRIORITY_STYLES[priority]}`}
+      className={`px-3 py-1.5 rounded text-base font-bold uppercase ${PRIORITY_STYLES[priority]}`}
     >
       {priorityLabel(priority)}
     </span>
@@ -30,7 +30,7 @@ const STATUS_STYLES: Record<MissionStatus, string> = {
 export function StatusBadge({ status }: { status: MissionStatus }) {
   return (
     <span
-      className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[status]}`}
+      className={`px-3 py-1.5 rounded-full text-base font-medium ${STATUS_STYLES[status]}`}
     >
       {statusLabel(status)}
     </span>
