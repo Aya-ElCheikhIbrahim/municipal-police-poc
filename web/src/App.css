@@ -182,3 +182,25 @@
     border-right-color: var(--border);
   }
 }
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  #root {
+    padding: 0 12px;
+  }
+}
+.hero {
+  @media (max-width: 480px) {
+    .base { width: 120px; }
+  }
+}
+@media (max-width: 480px) {
+  #next-steps ul li {
+    flex: 1 1 100%;
+  }
+}
