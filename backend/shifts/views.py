@@ -126,6 +126,31 @@ class BulkLocationPingView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
+    serializer_class = BulkLocationPingSerializer
+
+    @extend_schema(
+        request=BulkLocationPingSerializer,
+        responses={201: IngestResultSerializer},
+        examples=[
+            OpenApiExample(
+                "One fix",
+                value={
+                    "pings": [
+                        {
+                            "client_uuid": "3f8a1c92-7d64-4e11-b0a5-9c2d81e4f7a3",
+                            "latitude": 34.451028,
+                            "longitude": 35.810472,
+                            "accuracy_m": 12.5,
+                            "battery_level": 78,
+                            "network_type": "mobile",
+                            "recorded_at": "2026-09-10T17:30:00+03:00"
+                        }
+                    ]
+                },
+                request_only=True,
+            )
+        ],
+    )
     def post(self, request):
         serializer = BulkLocationPingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -196,6 +221,23 @@ class ActiveShiftsView(APIView):
         for shift in shifts:
             ping = latest.get(shift.id)
             mission = missions.get(shift.officer_id)
+            if ping is not None:
+                position = LocationPingSerializer(ping).data
+                source = "ping"
+            elif shift.start_latitude is not None:
+                position = {
+                    "latitude": shift.start_latitude,
+                    "longitude": shift.start_longitude,
+                    "accuracy_m": None,
+                    "battery_level": None,
+                    "network_type": LocationPing.NetworkType.UNKNOWN,
+                    "recorded_at": shift.started_at,
+                    "received_at": shift.started_at,
+                    "is_offline_sync": False,
+                }
+                source = "shift_start"
+            else:
+                position, source = None, None
             payload.append(
                 {
                     "officer": {
@@ -207,7 +249,8 @@ class ActiveShiftsView(APIView):
                     "shift_started_at": shift.started_at,
                     "shift_duration_seconds": shift.duration_seconds,
                     "distance_covered_m": shift.distance_m,
-                    "latest_ping": LocationPingSerializer(ping).data if ping else None,
+                    "latest_ping": position,
+                    "position_source": source,
                     "current_mission": mission,
                 }
             )

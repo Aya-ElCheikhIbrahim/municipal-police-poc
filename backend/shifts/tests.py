@@ -253,6 +253,7 @@ class ActiveShiftsContractTests(TestCase):
                 "shift_duration_seconds",
                 "distance_covered_m",
                 "latest_ping",
+                "position_source",
                 "current_mission",
             },
         )
