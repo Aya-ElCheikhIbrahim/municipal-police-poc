@@ -1,191 +1,283 @@
-import { useState } from 'react';
-import { dailyOfficerData, type SeverityFilter, type FilterState } from './mockData';
+import { useMemo, useState } from 'react';
+import {
+  dailyOfficerData,
+  officerActivityData,
+  officerMissionData,
+  officerPeriodData,
+  officerProfiles,
+  type FilterState,
+} from './mockData';
+
+export type DailyViewMode = 'SUMMARY' | 'SNAPSHOT';
 
 interface DailyActivityProps {
   filters?: FilterState;
-  ignoreGlobalDate?: boolean;
+  mode?: DailyViewMode;
+  onOfficerSelect?: (officerName: string) => void;
 }
 
-type SortField = 'name' | 'dutyHours' | 'completed' | 'panic';
+type DailySortField = 'hours' | 'distance' | 'assigned' | 'completed' | 'cancelled' | 'panic';
 
-export function DailyActivity({ filters, ignoreGlobalDate = false }: DailyActivityProps) {
-  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('ALL');
-  const [dailyDate, setDailyDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortAsc, setSortAsc] = useState<boolean>(true);
+function distanceToNumber(value: string) {
+  return Number.parseFloat(value) || 0;
+}
 
-  const filteredData = dailyOfficerData.filter((row) => {
-    if (!ignoreGlobalDate && row.date !== dailyDate) return false;
-    if (!filters) return true;
+function formatMinutes(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+}
 
-    if (filters.officer !== 'ALL' && row.name !== filters.officer) return false;
-    if (filters.reportType !== 'ALL' && row.reportType !== filters.reportType) return false;
-    if (filters.priority !== 'ALL' && row.priority !== filters.priority) return false;
-    if (filters.shift !== 'ALL' && row.shift !== filters.shift) return false;
-    if (filters.location !== 'ALL' && row.location !== filters.location) return false;
-    if (filters.status !== 'ALL' && row.status !== filters.status) return false;
+function addMinutes(start: string, minutesToAdd: number) {
+  const [hours, minutes] = start.split(':').map(Number);
+  const total = hours * 60 + minutes + minutesToAdd;
+  const normalized = ((total % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
+}
 
-    return true;
-  });
+function defaultShiftStart(shift: string) {
+  if (shift === 'AFTERNOON') return '13:00';
+  if (shift === 'NIGHT') return '20:00';
+  return '08:00';
+}
 
-  const sortedData = [...filteredData].sort((a, b) => {
-    let valA: string | number = a[sortField] as string | number;
-    let valB: string | number = b[sortField] as string | number;
+function SortHeader({
+  label,
+  field,
+  currentField,
+  asc,
+  onSort,
+}: {
+  label: string;
+  field: DailySortField;
+  currentField: DailySortField;
+  asc: boolean;
+  onSort: (field: DailySortField) => void;
+}) {
+  return (
+    <th
+      className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100"
+      onClick={() => onSort(field)}
+    >
+      {label} <span className="text-[9px] text-slate-400">{currentField === field ? (asc ? '▲' : '▼') : '↕'}</span>
+    </th>
+  );
+}
 
-    if (sortField === 'completed') {
-      valA = a.completed[severityFilter];
-      valB = b.completed[severityFilter];
-    }
+export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: DailyActivityProps) {
+  const selectedDate = filters?.startDate || new Date().toISOString().slice(0, 10);
+  const officerFilter = filters?.officer ?? 'ALL';
+  const locationFilter = filters?.location ?? 'ALL';
+  const fromTime = filters?.fromTime ?? '';
+  const toTime = filters?.toTime ?? '';
 
-    if (valA < valB) return sortAsc ? -1 : 1;
-    if (valA > valB) return sortAsc ? 1 : -1;
-    return 0;
-  });
+  const [sortField, setSortField] = useState<DailySortField>('hours');
+  const [sortAsc, setSortAsc] = useState(false);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
+  const dailyRows = officerPeriodData
+    .filter((period) => period.date === selectedDate)
+    .filter((period) => officerFilter === 'ALL' || period.officerName === officerFilter)
+    .map((period) => {
+      const allDayMissions = officerMissionData.filter(
+        (mission) => mission.officerName === period.officerName && mission.date === selectedDate
+      );
+      const missions = allDayMissions.filter(
+        (mission) => locationFilter === 'ALL' || mission.location === locationFilter
+      );
+
+      // An area filter means "show officers with a mission in this area on this day".
+      // This prevents the same unfiltered daily totals from appearing under unrelated areas.
+      if (locationFilter !== 'ALL' && missions.length === 0) return null;
+
+      const todayRow = dailyOfficerData.find(
+        (row) => row.name === period.officerName && row.date === selectedDate
+      );
+      const profile = officerProfiles[period.officerName];
+      const shiftStart = todayRow?.shiftStart ?? defaultShiftStart(profile?.shift ?? 'MORNING');
+      const shiftEnd = todayRow?.shiftEnd ?? addMinutes(shiftStart, period.dutyMinutes);
+
+      return {
+        name: period.officerName,
+        date: selectedDate,
+        shiftStart,
+        shiftEnd,
+        dutyHours: formatMinutes(period.dutyMinutes),
+        distance: `${period.distanceKm.toFixed(1)} km`,
+        assigned: missions.length,
+        completed: missions.filter((mission) => mission.status === 'COMPLETED').length,
+        cancelled: missions.filter((mission) => mission.status === 'CANCELLED').length,
+        panic: period.panicEvents,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+
+  const sortedDailyRows = useMemo(() => {
+    const getValue = (row: (typeof dailyRows)[number]) => {
+      switch (sortField) {
+        case 'hours': {
+          const period = officerPeriodData.find((item) => item.officerName === row.name && item.date === row.date);
+          return period?.dutyMinutes ?? 0;
+        }
+        case 'distance': return distanceToNumber(row.distance);
+        case 'assigned': return row.assigned;
+        case 'completed': return row.completed;
+        case 'cancelled': return row.cancelled;
+        case 'panic': return row.panic;
+      }
+    };
+
+    return [...dailyRows].sort((a, b) => {
+      const diff = getValue(a) - getValue(b);
+      return sortAsc ? diff : -diff;
+    });
+  }, [dailyRows, sortField, sortAsc]);
+
+  const handleSort = (field: DailySortField) => {
+    if (field === sortField) setSortAsc((prev) => !prev);
+    else {
       setSortField(field);
-      setSortAsc(true);
+      setSortAsc(false);
     }
   };
 
-  const summaryAssigned = filteredData.reduce((acc, row) => acc + row.assigned[severityFilter], 0);
-  const summaryCompleted = filteredData.reduce((acc, row) => acc + row.completed[severityFilter], 0);
+  if (mode === 'SNAPSHOT') {
+    const activityRows = officerActivityData
+      .filter((event) => {
+        if (event.date !== selectedDate) return false;
+        if (officerFilter !== 'ALL' && event.officerName !== officerFilter) return false;
+        if (locationFilter !== 'ALL' && event.location !== locationFilter) return false;
+        if (fromTime && event.time < fromTime) return false;
+        if (toTime && event.time > toTime) return false;
+        return true;
+      })
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    let heading = 'Activity Lookup';
+    if (fromTime && toTime) heading = `Activity from ${fromTime} to ${toTime}`;
+    else if (fromTime) heading = `Activity from ${fromTime}`;
+    else if (toTime) heading = `Activity until ${toTime}`;
+
+    return (
+      <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-bold text-slate-800">{heading}</h3>
+          {locationFilter !== 'ALL' && <span className="text-xs font-semibold text-slate-500">{locationFilter}</span>}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-[780px]">
+            <thead>
+              <tr className="bg-slate-50/80 text-slate-500 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                <th className="px-4 py-3">Officer</th>
+                <th className="px-4 py-3">Time</th>
+                <th className="px-4 py-3">Location</th>
+                <th className="px-4 py-3">Activity</th>
+                <th className="px-4 py-3">Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {activityRows.map((event) => (
+                <tr key={event.id} className="hover:bg-slate-50/70 transition-colors">
+                  <td className="px-4 py-4">
+                    <button type="button" onClick={() => onOfficerSelect?.(event.officerName)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">
+                      {event.officerName}
+                    </button>
+                  </td>
+                  <td className="px-4 py-4 font-bold text-slate-800">{event.time}</td>
+                  <td className="px-4 py-4 text-slate-700">{event.location}</td>
+                  <td className="px-4 py-4 font-medium text-slate-800">{event.activity}</td>
+                  <td className="px-4 py-4 text-slate-600">{event.details}</td>
+                </tr>
+              ))}
+              {activityRows.length === 0 && (
+                <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400">No activity matches the selected filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-500">Click an officer’s name to view details.</div>
+      </div>
+    );
+  }
+
+  const totalAssigned = dailyRows.reduce((sum, row) => sum + row.assigned, 0);
+  const totalCompleted = dailyRows.reduce((sum, row) => sum + row.completed, 0);
+  const totalCancelled = dailyRows.reduce((sum, row) => sum + row.cancelled, 0);
+  const totalDutyMinutes = dailyRows.reduce((sum, row) => {
+    const period = officerPeriodData.find((item) => item.officerName === row.name && item.date === row.date);
+    return sum + (period?.dutyMinutes ?? 0);
+  }, 0);
+  const totalDistance = dailyRows.reduce((sum, row) => sum + distanceToNumber(row.distance), 0);
+  const totalPanic = dailyRows.reduce((sum, row) => sum + row.panic, 0);
 
   return (
     <div className="space-y-4">
-      {/* Local Daily Selector & Severity Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-white/70 p-2 rounded-md border border-slate-200/70 shadow-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-            Severity Filter:
-          </span>
-          {(['ALL', 'URGENT', 'HIGH', 'LOW'] as SeverityFilter[]).map((level) => (
-            <button
-              key={level}
-              onClick={() => setSeverityFilter(level)}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                severityFilter === level
-                  ? 'bg-[#1F3864] text-white shadow-xs'
-                  : 'bg-transparent text-slate-600 hover:bg-slate-200/50'
-              }`}
-            >
-              {level === 'ALL' ? 'All' : level.charAt(0) + level.slice(1).toLowerCase()}
-            </button>
-          ))}
-        </div>
-
-        {!ignoreGlobalDate && (
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] font-semibold text-slate-500 uppercase">Focus Day:</label>
-            <input
-              type="date"
-              value={dailyDate}
-              onChange={(e) => setDailyDate(e.target.value)}
-              className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs text-slate-700"
-            />
-          </div>
-        )}
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+        <SummaryCard value={dailyRows.length} label="Officers on duty" />
+        <SummaryCard value={formatMinutes(totalDutyMinutes)} label="Duty hours" />
+        <SummaryCard value={`${totalDistance.toFixed(1)} km`} label="Distance" />
+        <SummaryCard value={totalAssigned} label="Assigned" />
+        <SummaryCard value={totalCompleted} label="Completed" />
+        <SummaryCard value={totalCancelled} label="Cancelled" />
+        <SummaryCard value={totalPanic} label="Panic events" />
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
-          <div className="text-2xl font-bold text-slate-900">{filteredData.length}</div>
-          <div className="text-[11px] text-slate-500 font-medium mt-1">Officers on duty</div>
+      <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="text-sm font-bold text-slate-800">Officer Daily Activity</h3>
         </div>
-        <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
-          <div className="text-2xl font-bold text-slate-900">{summaryAssigned}</div>
-          <div className="text-[11px] text-slate-500 font-medium mt-1">
-            Missions assigned ({severityFilter.toLowerCase()})
-          </div>
-        </div>
-        <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
-          <div className="text-2xl font-bold text-slate-900">{summaryCompleted}</div>
-          <div className="text-[11px] text-slate-500 font-medium mt-1">Completed</div>
-        </div>
-        <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
-          <div className="text-2xl font-bold text-slate-900">
-            {filteredData.reduce((acc, row) => acc + row.panic, 0)}
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-1">Panic events</div>
-        </div>
-      </div>
 
-      {/* Sortable Officers Table */}
-      <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse min-w-[175px]">
-          <thead>
-            <tr className="bg-slate-50/70 text-slate-500 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-100">
-              <th className="p-3.5 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('name')}>
-                Officer {sortField === 'name' ? (sortAsc ? '▲' : '▼') : ''}
-              </th>
-              <th className="p-3.5">Shift</th>
-              <th className="p-3.5">Location</th>
-              <th className="p-3.5">Category</th>
-              <th className="p-3.5">Priority</th>
-              <th className="p-3.5">Status</th>
-              <th className="p-3.5 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('dutyHours')}>
-                Duty Hours {sortField === 'dutyHours' ? (sortAsc ? '▲' : '▼') : ''}
-              </th>
-              <th className="p-3.5 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('completed')}>
-                Completed {sortField === 'completed' ? (sortAsc ? '▲' : '▼') : ''}
-              </th>
-              <th className="p-3.5 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('panic')}>
-                Panic {sortField === 'panic' ? (sortAsc ? '▲' : '▼') : ''}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-700">
-            {sortedData.map((row, idx) => (
-              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                <td className="p-3.5 font-semibold text-slate-900">{row.name}</td>
-                <td className="p-3.5 capitalize">{row.shift.toLowerCase()}</td>
-                <td className="p-3.5">{row.location}</td>
-                <td className="p-3.5">{row.reportType}</td>
-                <td className="p-3.5">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      row.priority === 'URGENT'
-                        ? 'bg-rose-100 text-rose-800'
-                        : row.priority === 'HIGH'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {row.priority}
-                  </span>
-                </td>
-                <td className="p-3.5">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                      row.status === 'COMPLETED'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : row.status === 'IN_PROGRESS'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    {row.status.replace('_', ' ')}
-                  </span>
-                </td>
-                <td className="p-3.5">{row.dutyHours}</td>
-                <td className="p-3.5 font-bold">{row.completed[severityFilter]}</td>
-                <td className="p-3.5">{row.panic}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-[930px]">
+            <thead>
+              <tr className="bg-slate-50/80 text-slate-500 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                <th className="px-4 py-3">Officer</th>
+                <th className="px-4 py-3">Duty Period</th>
+                <SortHeader label="Hours" field="hours" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Distance" field="distance" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Assigned" field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Cancelled" field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Panic" field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
               </tr>
-            ))}
-            {sortedData.length === 0 && (
-              <tr>
-                <td colSpan={9} className="p-4 text-center text-slate-400">
-                  No records match the active parameters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100">
+              {sortedDailyRows.map((row) => (
+                <tr key={`${row.name}-${row.date}`} className="hover:bg-slate-50/70 transition-colors">
+                  <td className="px-4 py-4">
+                    <button type="button" onClick={() => onOfficerSelect?.(row.name)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">
+                      {row.name}
+                    </button>
+                  </td>
+                  <td className="px-4 py-4 font-semibold text-slate-800 whitespace-nowrap">{row.shiftStart} → {row.shiftEnd}</td>
+                  <td className="px-4 py-4 font-bold text-slate-800">{row.dutyHours}</td>
+                  <td className="px-4 py-4 text-slate-700">{row.distance}</td>
+                  <td className="px-4 py-4 font-semibold text-slate-800">{row.assigned}</td>
+                  <td className="px-4 py-4"><span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{row.completed}</span></td>
+                  <td className="px-4 py-4"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.cancelled}</span></td>
+                  <td className="px-4 py-4">{row.panic}</td>
+                </tr>
+              ))}
+
+              {sortedDailyRows.length === 0 && (
+                <tr><td colSpan={8} className="px-5 py-10 text-center text-slate-400">No officer activity found for the selected filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-500">Click an officer’s name to view details.</div>
       </div>
+    </div>
+  );
+}
+
+function SummaryCard({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
+      <div className="text-xl font-bold text-slate-900">{value}</div>
+      <div className="text-[10px] text-slate-500 font-medium mt-1">{label}</div>
     </div>
   );
 }

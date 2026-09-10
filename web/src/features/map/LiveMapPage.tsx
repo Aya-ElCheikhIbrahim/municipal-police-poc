@@ -7,6 +7,7 @@ import {
   formatDistance,
   statusLabel,
   pingToCoords,
+  displayOfficerStatus,
 } from '../officers/types';
 import type { ActiveOfficer, OfficerStatus } from '../officers/types';
 
@@ -129,7 +130,7 @@ function OfficerRow({
         <span className="font-semibold text-base lg:text-xl text-slate-900 truncate">
           {entry.officer.full_name}
         </span>
-        <StatusBadge status={entry.status} />
+        <StatusBadge status={displayOfficerStatus(entry)} />
       </div>
       <div className="text-sm lg:text-base text-slate-400 mt-1">
         Badge {entry.officer.badge_number} ·{' '}
