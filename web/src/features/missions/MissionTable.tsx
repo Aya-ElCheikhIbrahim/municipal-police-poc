@@ -1,6 +1,13 @@
-import { PriorityBadge, StatusBadge } from './MissionBadges';
+import { StatusBadge } from './MissionBadges';
 import { formatTime } from './types';
-import type { MissionListItem } from './types';
+import type { MissionListItem, MissionPriority } from './types';
+
+const ROW_PRIORITY_STYLES: Record<MissionPriority, string> = {
+  urgent: 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500',
+  high: 'bg-orange-50 hover:bg-orange-100 border-l-4 border-orange-500',
+  medium: 'bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-500',
+  low: 'bg-slate-50 hover:bg-slate-100 border-l-4 border-slate-500',
+};
 
 interface MissionTableProps {
   missions: MissionListItem[];
@@ -8,6 +15,24 @@ interface MissionTableProps {
   onSelect: (missionId: number) => void;
   onClearFilters: () => void;
   onCreate: () => void;
+}
+
+function getCategoryBadge(mission: MissionListItem) {
+  const rawMission = mission as unknown as { category?: string; type?: string };
+  if (rawMission.category) return rawMission.category;
+  if (rawMission.type) return rawMission.type;
+
+  const text = (
+    mission.title +
+    ' ' +
+    (('description' in mission ? (mission as { description?: string }).description : '') || '')
+  ).toLowerCase();
+
+  if (text.includes('garbage') || text.includes('trash') || text.includes('clean')) return 'Sanitation';
+  if (text.includes('road') || text.includes('traffic') || text.includes('car')) return 'Traffic';
+  if (text.includes('light') || text.includes('water') || text.includes('pipe')) return 'Infrastructure';
+
+  return 'Municipal';
 }
 
 export function MissionTable({
@@ -52,45 +77,51 @@ export function MissionTable({
     <>
       {/* Mobile: stacked cards */}
       <div className="md:hidden space-y-3">
-        {missions.map((mission) => (
-          <div
-            key={mission.id}
-            onClick={() => onSelect(mission.id)}
-            className="border border-slate-200 rounded-lg p-4 space-y-2 cursor-pointer hover:bg-slate-50"
-          >
-            <div className="flex items-start justify-between gap-2">
+        {missions.map((mission) => {
+          const desc = 'description' in mission ? (mission as { description?: string }).description : undefined;
+          const category = getCategoryBadge(mission);
+          return (
+            <div
+              key={mission.id}
+              onClick={() => onSelect(mission.id)}
+              className={`border border-slate-200 rounded-lg p-4 space-y-2 cursor-pointer transition-colors ${ROW_PRIORITY_STYLES[mission.priority]}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-block bg-slate-200/80 text-slate-700 text-xs font-bold px-2.5 py-1 rounded uppercase tracking-wider">
+                  {category}
+                </span>
+              </div>
               <div className="font-semibold text-slate-900 text-lg">{mission.title}</div>
-              <PriorityBadge priority={mission.priority} />
-            </div>
-            {mission.address && (
-              <div className="text-sm text-slate-400">{mission.address}</div>
-            )}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <StatusBadge status={mission.status} />
-              <span className="text-sm text-slate-400">{formatTime(mission.created_at)}</span>
-            </div>
-            <div className="text-sm text-slate-600 pt-1 border-t border-slate-100 mt-2">
-              {mission.assigned_to ? (
-                <>
-                  {mission.assigned_to.full_name}
-                  <span className="text-slate-400"> · {mission.assigned_to.badge_number}</span>
-                </>
-              ) : (
-                <span className="text-slate-400">Unassigned</span>
+              {mission.address && (
+                <div className="text-sm text-slate-500">{mission.address}</div>
               )}
-            </div>
-            {(mission.is_overdue || mission.awaiting_acknowledgement) && (
-              <div className="flex gap-2 pt-1">
-                {mission.is_overdue && (
-                  <span className="text-xs font-bold text-rose-600 uppercase">Overdue</span>
-                )}
-                {mission.awaiting_acknowledgement && (
-                  <span className="text-xs font-bold text-amber-600 uppercase">No response</span>
+              {desc && (
+                <div className="text-sm text-slate-600 line-clamp-2 italic">
+                  "{desc}"
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <StatusBadge status={mission.status} createdAt={mission.created_at} />
+                <span className="text-sm text-slate-500">{formatTime(mission.created_at)}</span>
+              </div>
+              <div className="text-sm text-slate-700 pt-1 border-t border-slate-200/60 mt-2">
+                {mission.assigned_to && mission.assigned_to.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {mission.assigned_to.map((officer, i) => (
+                      <span key={officer.id || i}>
+                        {officer.full_name}
+                        <span className="text-slate-500"> · {officer.badge_number}</span>
+                        {i < mission.assigned_to.length - 1 && ', '}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400">Unassigned</span>
                 )}
               </div>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* Desktop/tablet: table */}
@@ -99,59 +130,73 @@ export function MissionTable({
           <thead>
             <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-lg border-b border-slate-200">
               <th className="p-7">Title</th>
-              <th className="p-7">Priority</th>
+              <th className="p-7">Category</th>
               <th className="p-7">Status</th>
               <th className="p-7">Assigned To</th>
               <th className="p-7">Created</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {missions.map((mission) => (
-              <tr
-                key={mission.id}
-                onClick={() => onSelect(mission.id)}
-                className="hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                <td className="p-7">
-                  <div className="font-semibold text-slate-900 text-xl">{mission.title}</div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    {mission.address && (
-                      <span className="text-base text-slate-400">{mission.address}</span>
+            {missions.map((mission) => {
+              const desc = 'description' in mission ? (mission as { description?: string }).description : undefined;
+              const category = getCategoryBadge(mission);
+              return (
+                <tr
+                  key={mission.id}
+                  onClick={() => onSelect(mission.id)}
+                  className={`transition-colors cursor-pointer ${ROW_PRIORITY_STYLES[mission.priority]}`}
+                >
+                  <td className="p-7">
+                    <div className="font-semibold text-slate-900 text-xl">{mission.title}</div>
+                    <div className="flex flex-col gap-1 mt-1.5">
+                      {mission.address && (
+                        <span className="text-base text-slate-500">{mission.address}</span>
+                      )}
+                      {desc && (
+                        <span className="text-base text-slate-600 line-clamp-1 italic">
+                          "{desc}"
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      {mission.is_overdue && (
+                        <span className="text-base font-bold text-rose-600 uppercase bg-rose-100 px-2 py-0.5 rounded">
+                          Overdue
+                        </span>
+                      )}
+                      {mission.awaiting_acknowledgement && (
+                        <span className="text-base font-bold text-amber-600 uppercase bg-amber-100 px-2 py-0.5 rounded">
+                          No response
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-7">
+                    <span className="inline-block bg-slate-200/80 text-slate-700 text-sm font-bold px-3 py-1 rounded uppercase tracking-wider">
+                      {category}
+                    </span>
+                  </td>
+                  <td className="p-7">
+                    <StatusBadge status={mission.status} createdAt={mission.created_at} />
+                  </td>
+                  <td className="p-7 text-slate-700">
+                    {mission.assigned_to && mission.assigned_to.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {mission.assigned_to.map((officer, i) => (
+                          <div key={officer.id || i} className="text-base">
+                            {officer.full_name}
+                            <span className="text-slate-500"> · {officer.badge_number}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">Unassigned</span>
                     )}
-                    {mission.is_overdue && (
-                      <span className="text-base font-bold text-rose-600 uppercase">
-                        Overdue
-                      </span>
-                    )}
-                    {mission.awaiting_acknowledgement && (
-                      <span className="text-base font-bold text-amber-600 uppercase">
-                        No response
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="p-7">
-                  <PriorityBadge priority={mission.priority} />
-                </td>
-                <td className="p-7">
-                  <StatusBadge status={mission.status} />
-                </td>
-                <td className="p-7 text-slate-700">
-                  {mission.assigned_to ? (
-                    <>
-                      {mission.assigned_to.full_name}
-                      <span className="text-slate-400">
-                        {' '}
-                        · {mission.assigned_to.badge_number}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-slate-400">Unassigned</span>
-                  )}
-                </td>
-                <td className="p-7 text-slate-400">{formatTime(mission.created_at)}</td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="p-7 text-slate-500">{formatTime(mission.created_at)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -166,7 +211,7 @@ function LoadingTable() {
         <thead>
           <tr className="bg-slate-50/80 text-slate-400 font-semibold uppercase tracking-wider text-lg border-b border-slate-200">
             <th className="p-7">Title</th>
-            <th className="p-7">Priority</th>
+            <th className="p-7">Category</th>
             <th className="p-7">Status</th>
             <th className="p-7">Assigned To</th>
             <th className="p-7">Created</th>
@@ -180,7 +225,7 @@ function LoadingTable() {
                 <div className="h-4 bg-slate-200 rounded-full w-1/2 mt-2"></div>
               </td>
               <td className="p-7">
-                <div className="h-4 bg-slate-200 rounded-full w-16"></div>
+                <div className="h-6 bg-slate-200 rounded w-24"></div>
               </td>
               <td className="p-7">
                 <div className="h-4 bg-slate-200 rounded-full w-24"></div>

@@ -1,4 +1,3 @@
-import { priorityLabel, statusLabel } from './types';
 import type { MissionPriority, MissionStatus } from './types';
 
 const PRIORITY_STYLES: Record<MissionPriority, string> = {
@@ -10,29 +9,55 @@ const PRIORITY_STYLES: Record<MissionPriority, string> = {
 
 export function PriorityBadge({ priority }: { priority: MissionPriority }) {
   return (
-    <span
-      className={`px-3 py-1.5 rounded text-base font-bold uppercase ${PRIORITY_STYLES[priority]}`}
-    >
-      {priorityLabel(priority)}
+    <span className={`px-3 py-1.5 rounded text-base font-bold uppercase ${PRIORITY_STYLES[priority]}`}>
+      {priority}
     </span>
   );
 }
 
-const STATUS_STYLES: Record<MissionStatus, string> = {
-  new: 'bg-slate-100 text-slate-700',
-  assigned: 'bg-indigo-50 text-indigo-700',
-  acknowledged: 'bg-sky-50 text-sky-700',
-  in_progress: 'bg-blue-50 text-[#2E5496]',
-  completed: 'bg-emerald-50 text-emerald-700',
-  cancelled: 'bg-rose-100 text-rose-700 font-bold',
-};
+interface StatusBadgeProps {
+  status: MissionStatus;
+  createdAt?: string;
+}
 
-export function StatusBadge({ status }: { status: MissionStatus }) {
+export function StatusBadge({ status, createdAt }: StatusBadgeProps) {
+  let label = status as string;
+  let style = 'bg-slate-100 text-slate-700';
+
+  if (createdAt) {
+    let hour = -1;
+
+    // Handle standard time strings like "02:10 PM" or "14:10"
+    const timeMatch = createdAt.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (timeMatch) {
+      let parsedHour = parseInt(timeMatch[1], 10);
+      const modifier = timeMatch[3]?.toUpperCase();
+
+      if (modifier === 'PM' && parsedHour < 12) parsedHour += 12;
+      if (modifier === 'AM' && parsedHour === 12) parsedHour = 0;
+      hour = parsedHour;
+    } else {
+      // Handle standard ISO dates
+      const parsedDate = new Date(createdAt);
+      if (!isNaN(parsedDate.getTime())) {
+        hour = parsedDate.getHours();
+      }
+    }
+
+    if (hour !== -1) {
+      if (hour < 14) {
+        label = 'Ongoing';
+        style = 'bg-amber-100 text-amber-800 font-semibold';
+      } else {
+        label = 'Finished';
+        style = 'bg-emerald-100 text-emerald-800 font-semibold';
+      }
+    }
+  }
+
   return (
-    <span
-      className={`px-3 py-1.5 rounded-full text-base font-medium ${STATUS_STYLES[status]}`}
-    >
-      {statusLabel(status)}
+    <span className={`px-3 py-1.5 rounded-full text-base ${style}`}>
+      {label}
     </span>
   );
 }
