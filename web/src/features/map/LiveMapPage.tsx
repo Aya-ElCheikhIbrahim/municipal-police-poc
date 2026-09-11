@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useActiveOfficers } from '../officers/useOfficers';
 import { useLeafletMap } from './useLeafletMap';
 import { useOfficerMarkers } from './useOfficerMarkers';
+import { useOfficerTrail } from './useOfficerTrail';
+import type { ActiveOfficer, OfficerStatus, OfficerTrail } from '../officers/types';
 import {
   formatDuration,
   formatDistance,
@@ -9,7 +11,6 @@ import {
   pingToCoords,
   displayOfficerStatus,
 } from '../officers/types';
-import type { ActiveOfficer, OfficerStatus } from '../officers/types';
 
 export function LiveMapPage() {
   const { officers, isLoading, error, secondsSinceUpdate } = useActiveOfficers();
@@ -23,6 +24,11 @@ export function LiveMapPage() {
     officers,
     selectedOfficerId,
     onSelect: setSelectedOfficerId,
+  });
+
+  const { trail, isLoading: isTrailLoading, zoomToTrail } = useOfficerTrail({
+    mapRef,
+    officerId: selectedOfficerId,
   });
 
   const selected = officers.find((o) => o.officer.id === selectedOfficerId) ?? null;
@@ -93,7 +99,13 @@ export function LiveMapPage() {
 
       {selected && (
         <aside className="bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col p-4 lg:p-6 overflow-y-auto z-10 shadow-xs max-h-80 lg:max-h-none">
-          <OfficerDetail entry={selected} onClose={() => setSelectedOfficerId(null)} />
+          <OfficerDetail
+            entry={selected}
+            trail={trail}
+            isTrailLoading={isTrailLoading}
+            onZoomToTrail={zoomToTrail}
+            onClose={() => setSelectedOfficerId(null)}
+          />
         </aside>
       )}
 
@@ -159,7 +171,19 @@ function StatusBadge({ status }: { status: OfficerStatus }) {
   );
 }
 
-function OfficerDetail({ entry, onClose }: { entry: ActiveOfficer; onClose: () => void }) {
+function OfficerDetail({
+  entry,
+  trail,
+  isTrailLoading,
+  onZoomToTrail,
+  onClose,
+}: {
+  entry: ActiveOfficer;
+  trail: OfficerTrail | null;
+  isTrailLoading: boolean;
+  onZoomToTrail: () => void;
+  onClose: () => void;
+}) {
   const ping = entry.latest_ping;
 
   return (
@@ -200,6 +224,31 @@ function OfficerDetail({ entry, onClose }: { entry: ActiveOfficer; onClose: () =
           {ping.accuracy_m !== null && <div>Accuracy ±{Math.round(ping.accuracy_m)}m</div>}
         </div>
       )}
+
+      <div className="pt-3 lg:pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="text-sm lg:text-lg font-semibold text-slate-700">
+            Today&apos;s path
+          </span>
+          {trail && trail.point_count > 1 && (
+            <button
+              onClick={onZoomToTrail}
+              className="text-xs lg:text-sm font-semibold text-[#2E5496] hover:underline cursor-pointer"
+            >
+              Zoom to path
+            </button>
+          )}
+        </div>
+        {isTrailLoading ? (
+          <p className="text-sm text-slate-400">Loading path…</p>
+        ) : !trail || trail.point_count === 0 ? (
+          <p className="text-sm text-slate-400">No location history for today.</p>
+        ) : (
+          <p className="text-sm lg:text-lg text-slate-500">
+            {trail.point_count} points · {formatDistance(trail.distance_covered_m)}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

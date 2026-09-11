@@ -51,6 +51,13 @@ export interface ActiveOfficer {
  * truth for whether an officer is busy. This also tolerates the backend's
  * older `in_mission` string while the API contract is being aligned.
  */
+export interface OfficerTrail {
+  officer_id: number;
+  date: string;
+  point_count: number;
+  distance_covered_m: number;
+  points: LocationPing[];
+}
 export function displayOfficerStatus(entry: ActiveOfficer): OfficerStatus {
   const rawStatus = entry.status as string;
   if (rawStatus === 'panic') return 'panic';
