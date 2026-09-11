@@ -37,6 +37,7 @@ class MissionListSerializer(serializers.ModelSerializer):
     assigned_to = OfficerBriefSerializer(read_only=True)
     is_overdue = serializers.SerializerMethodField()
     awaiting_acknowledgement = serializers.SerializerMethodField()
+    duration_seconds = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = Mission
@@ -52,6 +53,7 @@ class MissionListSerializer(serializers.ModelSerializer):
             "deadline",
             "created_at",
             "assigned_at",
+            "duration_seconds",
             "is_overdue",
             "awaiting_acknowledgement",
         ]
