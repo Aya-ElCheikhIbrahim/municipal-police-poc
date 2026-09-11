@@ -1,5 +1,5 @@
 import { PriorityBadge, StatusBadge } from './MissionBadges';
-import { formatTime } from './types';
+import { formatTime, formatMissionDuration } from './types';
 import type { MissionListItem } from './types';
 
 interface MissionTableProps {
@@ -69,6 +69,11 @@ export function MissionTable({
               <StatusBadge status={mission.status} />
               <span className="text-sm text-slate-400">{formatTime(mission.created_at)}</span>
             </div>
+            {mission.duration_seconds !== null && (
+              <div className="text-sm text-slate-500">
+                {formatMissionDuration(mission.duration_seconds)} on mission
+              </div>
+            )}
             <div className="text-sm text-slate-600 pt-1 border-t border-slate-100 mt-2">
               {mission.assigned_to ? (
                 <>
@@ -101,6 +106,7 @@ export function MissionTable({
               <th className="p-7">Title</th>
               <th className="p-7">Priority</th>
               <th className="p-7">Status</th>
+              <th className="p-7">Duration</th>
               <th className="p-7">Assigned To</th>
               <th className="p-7">Created</th>
             </tr>
@@ -136,6 +142,9 @@ export function MissionTable({
                 <td className="p-7">
                   <StatusBadge status={mission.status} />
                 </td>
+                <td className="p-7 text-slate-600">
+                  {formatMissionDuration(mission.duration_seconds)}
+                </td>
                 <td className="p-7 text-slate-700">
                   {mission.assigned_to ? (
                     <>
@@ -168,6 +177,7 @@ function LoadingTable() {
             <th className="p-7">Title</th>
             <th className="p-7">Priority</th>
             <th className="p-7">Status</th>
+            <th className="p-7">Duration</th>
             <th className="p-7">Assigned To</th>
             <th className="p-7">Created</th>
           </tr>
@@ -184,6 +194,9 @@ function LoadingTable() {
               </td>
               <td className="p-7">
                 <div className="h-4 bg-slate-200 rounded-full w-24"></div>
+              </td>
+              <td className="p-7">
+                <div className="h-4 bg-slate-200 rounded-full w-16"></div>
               </td>
               <td className="p-7">
                 <div className="h-4 bg-slate-200 rounded-full w-52"></div>

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 def mission_photo_path(instance, filename: str) -> str:
@@ -102,6 +103,19 @@ class Mission(models.Model):
     @property
     def is_open(self) -> bool:
         return self.status not in {self.Status.COMPLETED, self.Status.CANCELLED}
+
+    @property
+    def duration_seconds(self) -> int | None:
+        """
+        Time actively spent on this mission: from `started_at` until it
+        finished (`completed_at`/`cancelled_at`), or now if still in
+        progress. None before work has started — new/assigned/acknowledged
+        missions have no duration yet.
+        """
+        if self.started_at is None:
+            return None
+        end = self.completed_at or self.cancelled_at or timezone.now()
+        return int((end - self.started_at).total_seconds())
 
 
 class MissionPhoto(models.Model):

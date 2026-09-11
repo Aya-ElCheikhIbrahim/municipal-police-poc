@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMissionDetail } from './useMissionDetail';
 import { MissionLifecycle } from './MissionLifecycle';
 import { PriorityBadge, StatusBadge } from './MissionBadges';
-import { canCancel, canReassign } from './types';
+import { canCancel, canReassign, formatMissionDuration } from './types';
 import { ApiError } from '../../shared/api/client';
 import type { ActiveOfficer } from '../officers/types';
 import { missionsApi } from './api';
@@ -92,6 +92,8 @@ export function MissionDetailPage({
               {mission.assigned_to
                 ? ` · ${mission.assigned_to.full_name}, badge ${mission.assigned_to.badge_number}`
                 : ' · Unassigned'}
+              {mission.duration_seconds !== null &&
+                ` · ${formatMissionDuration(mission.duration_seconds)} on mission`}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">

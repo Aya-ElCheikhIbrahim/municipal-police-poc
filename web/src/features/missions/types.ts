@@ -1,4 +1,5 @@
 import type { OfficerBrief } from '../officers/types';
+import { formatDuration } from '../officers/types';
 
 export type MissionStatus =
   | 'new'
@@ -53,6 +54,8 @@ export interface MissionListItem {
   deadline: string | null;
   created_at: string;
   assigned_at: string | null;
+  /** Seconds since started_at, frozen at completion/cancellation. Null until work starts. */
+  duration_seconds: number | null;
   is_overdue: boolean;
   awaiting_acknowledgement: boolean;
 }
@@ -147,4 +150,10 @@ export function canCancel(mission: MissionListItem): boolean {
 
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/** "—" before work has started; otherwise the shift-style "Xh 00m" duration. */
+export function formatMissionDuration(seconds: number | null): string {
+  if (seconds === null) return '—';
+  return formatDuration(seconds);
 }
