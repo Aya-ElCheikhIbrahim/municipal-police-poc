@@ -1,5 +1,5 @@
 import { StatusBadge } from './MissionBadges';
-import { formatTime } from './types';
+import { formatTime, formatMissionDuration } from './types';
 import type { MissionListItem, MissionPriority } from './types';
 
 const ROW_PRIORITY_STYLES: Record<MissionPriority, string> = {
@@ -104,6 +104,11 @@ export function MissionTable({
                 <StatusBadge status={mission.status} createdAt={mission.created_at} />
                 <span className="text-sm text-slate-500">{formatTime(mission.created_at)}</span>
               </div>
+              {mission.duration_seconds !== null && (
+                <div className="text-sm text-slate-500">
+                  {formatMissionDuration(mission.duration_seconds)} on mission
+                </div>
+              )}
               <div className="text-sm text-slate-700 pt-1 border-t border-slate-200/60 mt-2">
                 {mission.assigned_to && mission.assigned_to.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
@@ -132,6 +137,7 @@ export function MissionTable({
               <th className="p-7">Title</th>
               <th className="p-7">Category</th>
               <th className="p-7">Status</th>
+              <th className="p-7">Duration</th>
               <th className="p-7">Assigned To</th>
               <th className="p-7">Created</th>
             </tr>
@@ -179,6 +185,9 @@ export function MissionTable({
                   <td className="p-7">
                     <StatusBadge status={mission.status} createdAt={mission.created_at} />
                   </td>
+                  <td className="p-7 text-slate-600">
+                    {formatMissionDuration(mission.duration_seconds)}
+                  </td>
                   <td className="p-7 text-slate-700">
                     {mission.assigned_to && mission.assigned_to.length > 0 ? (
                       <div className="flex flex-col gap-0.5">
@@ -213,6 +222,7 @@ function LoadingTable() {
             <th className="p-7">Title</th>
             <th className="p-7">Category</th>
             <th className="p-7">Status</th>
+            <th className="p-7">Duration</th>
             <th className="p-7">Assigned To</th>
             <th className="p-7">Created</th>
           </tr>
@@ -229,6 +239,9 @@ function LoadingTable() {
               </td>
               <td className="p-7">
                 <div className="h-4 bg-slate-200 rounded-full w-24"></div>
+              </td>
+              <td className="p-7">
+                <div className="h-4 bg-slate-200 rounded-full w-16"></div>
               </td>
               <td className="p-7">
                 <div className="h-4 bg-slate-200 rounded-full w-52"></div>
