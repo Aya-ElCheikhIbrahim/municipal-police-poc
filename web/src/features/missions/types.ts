@@ -49,7 +49,7 @@ export interface MissionListItem {
   latitude: string;
   longitude: string;
   address: string;
-  assigned_to: OfficerBrief | null;
+  assigned_to: OfficerBrief[]; // Changed from OfficerBrief | null to an array
   deadline: string | null;
   created_at: string;
   assigned_at: string | null;
@@ -59,6 +59,7 @@ export interface MissionListItem {
 
 export interface MissionDetail extends MissionListItem {
   description: string;
+  category?: string;
   created_by: OfficerBrief | null;
   acknowledged_at: string | null;
   started_at: string | null;
@@ -79,13 +80,14 @@ export interface MissionDetail extends MissionListItem {
 export interface CreateMissionRequest {
   title: string;
   description?: string;
+  category?: string;
   latitude: number;
   longitude: number;
   address?: string;
   priority: MissionPriority;
   deadline?: string | null;
-  /** Officer id, not a name. */
-  assigned_to_id?: number | null;
+  /** Array of Officer IDs */
+  assigned_to_ids?: number[];
 }
 
 /** Query params supported by GET /missions/. All filtering is server-side. */

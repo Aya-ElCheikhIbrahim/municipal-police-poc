@@ -24,9 +24,10 @@ export function CreateMissionPage({
 }: CreateMissionPageProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Municipal');
   const [priority, setPriority] = useState<MissionPriority>('medium');
   const [address, setAddress] = useState('');
-  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [selectedOfficerIds, setSelectedOfficerIds] = useState<number[]>([]);
   const [deadline, setDeadline] = useState('');
   const [coords, setCoords] = useState<[number, number]>(TRIPOLI_CENTRE);
 
@@ -42,6 +43,12 @@ export function CreateMissionPage({
 
   useMissionPin({ mapRef, coords });
 
+  const toggleOfficer = (id: number) => {
+    setSelectedOfficerIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
@@ -51,11 +58,13 @@ export function CreateMissionPage({
       await onSubmit({
         title,
         description,
+        category,
         latitude: coords[0],
         longitude: coords[1],
         address,
         priority,
-        assigned_to_id: assigneeId ? Number(assigneeId) : null,
+        // Send array of assigned officer IDs
+        assigned_to_ids: selectedOfficerIds,
         deadline: deadline ? new Date(deadline).toISOString() : null,
       });
     } catch (err) {
@@ -120,6 +129,22 @@ export function CreateMissionPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
             <div>
               <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="Municipal">Municipal</option>
+                <option value="Sanitation">Sanitation</option>
+                <option value="Traffic">Traffic</option>
+                <option value="Infrastructure">Infrastructure</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
                 Priority
               </label>
               <select
@@ -134,27 +159,38 @@ export function CreateMissionPage({
                 ))}
               </select>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
-                Assign to
-              </label>
-              <select
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className={`${inputClass} bg-white`}
-              >
-                <option value="">Leave unassigned</option>
-                {officers.map((entry) => (
-                  <option key={entry.officer.id} value={String(entry.officer.id)}>
-                    {entry.officer.full_name} · {entry.officer.badge_number}
-                  </option>
-                ))}
-              </select>
-              {officers.length === 0 && (
-                <p className="text-xs sm:text-sm text-amber-600 mt-1.5">
+          {/* Multi-Officer Selection Area */}
+          <div>
+            <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+              Assign to ({selectedOfficerIds.length} selected)
+            </label>
+            <div className="border border-slate-200 rounded-md max-h-48 overflow-y-auto divide-y divide-slate-100 p-1 bg-white">
+              {officers.length === 0 ? (
+                <p className="p-3 text-xs sm:text-sm text-amber-600">
                   No officers on duty right now.
                 </p>
+              ) : (
+                officers.map((entry) => {
+                  const isChecked = selectedOfficerIds.includes(entry.officer.id);
+                  return (
+                    <label
+                      key={entry.officer.id}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer rounded-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleOfficer(entry.officer.id)}
+                        className="w-4 h-4 text-[#1F3864] rounded border-slate-300 focus:ring-[#1F3864]"
+                      />
+                      <span className="text-sm sm:text-base text-slate-700">
+                        {entry.officer.full_name} · {entry.officer.badge_number}
+                      </span>
+                    </label>
+                  );
+                })
               )}
             </div>
           </div>
@@ -212,7 +248,11 @@ export function CreateMissionPage({
               disabled={isSubmitting}
               className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-base sm:text-lg font-semibold px-5 sm:px-7 py-2.5 sm:py-3 rounded-md transition-colors cursor-pointer"
             >
-              {isSubmitting ? 'Creating…' : assigneeId ? 'Create and assign' : 'Create mission'}
+              {isSubmitting
+                ? 'Creating…'
+                : selectedOfficerIds.length > 0
+                ? `Create and assign (${selectedOfficerIds.length})`
+                : 'Create mission'}
             </button>
             <button
               type="button"
