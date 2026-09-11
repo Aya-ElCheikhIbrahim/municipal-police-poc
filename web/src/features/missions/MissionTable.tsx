@@ -137,7 +137,7 @@ export function MissionTable({
               <th className="p-7">Title</th>
               <th className="p-7">Category</th>
               <th className="p-7">Status</th>
-              <th className="p-7">Duration</th>
+              <th className="p-7">Mission Duration</th>
               <th className="p-7">Assigned To</th>
               <th className="p-7">Created</th>
             </tr>
@@ -222,7 +222,7 @@ function LoadingTable() {
             <th className="p-7">Title</th>
             <th className="p-7">Category</th>
             <th className="p-7">Status</th>
-            <th className="p-7">Duration</th>
+            <th className="p-7">Mission Duration</th>
             <th className="p-7">Assigned To</th>
             <th className="p-7">Created</th>
           </tr>
