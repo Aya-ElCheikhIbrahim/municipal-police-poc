@@ -78,13 +78,12 @@ class MissionListCreateView(APIView):
         responses=MissionListSerializer(many=True),
     )
     def get(self, request):
-        queryset = Mission.objects.select_related("assigned_to", "created_by")
- 
-        # §5 — an officer sees their own work, not the whole city's.
+        queryset = Mission.objects.select_related("created_by").prefetch_related("assigned_to")
+
         if request.user.role == "officer":
             queryset = queryset.filter(assigned_to=request.user)
         elif officer_id := request.query_params.get("officer_id"):
-            queryset = queryset.filter(assigned_to_id=officer_id)
+            queryset = queryset.filter(assigned_to__id=officer_id)
  
         if value := request.query_params.get("status"):
             queryset = queryset.filter(status=value)
@@ -120,7 +119,7 @@ class MissionListCreateView(APIView):
                     "longitude": 35.849700,
                     "address": "Al-Mina, Tripoli",
                     "priority": "high",
-                    "assigned_to_id": 4,
+                    "assigned_to_ids": [4, 7],
                 },
                 request_only=True,
             )
@@ -131,18 +130,17 @@ class MissionListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)
  
-        officer = None
-        if officer_id := data.pop("assigned_to_id", None):
-            officer = User.objects.filter(pk=officer_id, is_active=True).first()
-            if officer is None:
-                return Response(
-                    {"detail": "No active user with that id."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
- 
+        officer_ids = data.pop("assigned_to_ids", [])
+        officers = list(User.objects.filter(pk__in=officer_ids, is_active=True))
+        if len(officers) != len(set(officer_ids)):
+            return Response(
+                {"detail": "One or more officers are not active users."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             mission = services.create_mission(
-                created_by=request.user, assigned_to=officer, **data
+                created_by=request.user, officers=officers, **data
             )
         except services.MissionError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -161,14 +159,15 @@ class MissionDetailView(APIView, MissionActionMixin):
     @extend_schema(responses=MissionDetailSerializer)
     def get(self, request, mission_id: int):
         mission = get_object_or_404(
-            Mission.objects.select_related("assigned_to", "created_by").prefetch_related(
+            Mission.objects.select_related("created_by").prefetch_related(
+                "assigned_to",
                 Prefetch("events", queryset=MissionEvent.objects.select_related("actor")),
                 "photos",
             ),
             pk=mission_id,
         )
- 
-        if request.user.role == "officer" and mission.assigned_to_id != request.user.id:
+
+        if request.user.role == "officer" and not mission.assigned_to.filter(pk=request.user.id).exists():
             return Response(
                 {"detail": "This mission is not assigned to you."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -192,23 +191,22 @@ class MissionAssignView(APIView, MissionActionMixin):
         serializer.is_valid(raise_exception=True)
  
         mission = self.get_mission(mission_id)
-        officer = User.objects.filter(
-            pk=serializer.validated_data["officer_id"], is_active=True
-        ).first()
-        if officer is None:
+        officer_ids = serializer.validated_data["officer_ids"]
+        officers = list(User.objects.filter(pk__in=officer_ids, is_active=True))
+        if len(officers) != len(set(officer_ids)):
             return Response(
-                {"detail": "No active user with that id."},
+                {"detail": "One or more officers are not active users."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
- 
+
         # Same endpoint for both, because the caller is doing the same thing;
-        # which one it is depends on whether the mission already has an officer.
+        # which one it is depends on whether the mission already has officers.
         action = (
             services.reassign_mission
             if mission.status == Mission.Status.ASSIGNED
             else services.assign_mission
         )
-        return self.run(action, mission, officer=officer, actor=request.user)
+        return self.run(action, mission, officers=officers, actor=request.user)
  
  
 class MissionAcknowledgeView(APIView, MissionActionMixin):
@@ -299,7 +297,7 @@ class MissionNoteView(APIView, MissionActionMixin):
         serializer.is_valid(raise_exception=True)
  
         mission = self.get_mission(mission_id)
-        if request.user.role == "officer" and mission.assigned_to_id != request.user.id:
+        if request.user.role == "officer" and not mission.assigned_to.filter(pk=request.user.id).exists():
             return Response(
                 {"detail": "This mission is not assigned to you."},
                 status=status.HTTP_403_FORBIDDEN,

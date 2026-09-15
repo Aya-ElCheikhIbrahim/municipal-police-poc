@@ -199,23 +199,20 @@ class ActiveShiftsView(APIView):
                 .distinct("shift_id")
         }
 
-        # Same one-query shape for the mission each officer is on. ASSIGNED is
-        # excluded deliberately: an officer counts as busy only once they have
-        # acknowledged, because showing an unacknowledged officer as busy would
-        # hide a free officer from the dispatcher. DISTINCT ON keeps the most
-        # recently assigned mission when an officer somehow holds two.
+        Assignment = Mission.assigned_to.through
         missions = {
-            m.assigned_to_id: m
-            for m in Mission.objects
+            row.user_id: row.mission
+            for row in Assignment.objects
                 .filter(
-                    assigned_to_id__in=[s.officer_id for s in shifts],
-                    status__in=[
+                    user_id__in=[s.officer_id for s in shifts],
+                    mission__status__in=[
                         Mission.Status.ACKNOWLEDGED,
                         Mission.Status.IN_PROGRESS,
                     ],
                 )
-                .order_by("assigned_to_id", "-assigned_at")
-                .distinct("assigned_to_id")
+                .select_related("mission")
+                .order_by("user_id", "-mission__assigned_at")
+                .distinct("user_id")
         }
 
         # Same one-query shape again: which of these officers has an open

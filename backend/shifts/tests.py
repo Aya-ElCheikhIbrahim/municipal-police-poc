@@ -291,7 +291,7 @@ class ActiveShiftsMissionTests(TestCase):
             latitude=34.4367,
             longitude=35.8497,
             priority=priority,
-            assigned_to=self.officer,
+            officers=[self.officer],
         )
 
     def _row(self):

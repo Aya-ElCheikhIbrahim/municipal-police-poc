@@ -34,7 +34,7 @@ class MissionListSerializer(serializers.ModelSerializer):
     that response would grow without bound over a shift.
     """
 
-    assigned_to = OfficerBriefSerializer(read_only=True)
+    assigned_to = OfficerBriefSerializer(many=True, read_only=True)
     is_overdue = serializers.SerializerMethodField()
     awaiting_acknowledgement = serializers.SerializerMethodField()
     duration_seconds = serializers.IntegerField(read_only=True, allow_null=True)
@@ -107,13 +107,18 @@ class MissionCreateSerializer(serializers.Serializer):
         choices=Mission.Priority.choices, default=Mission.Priority.MEDIUM
     )
     deadline = serializers.DateTimeField(required=False, allow_null=True)
-    assigned_to_id = serializers.IntegerField(
-        required=False, allow_null=True, help_text="Officer to assign immediately. Optional."
+    assigned_to_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+        help_text="Officers to assign immediately. Optional.",
     )
 
 
 class AssignSerializer(serializers.Serializer):
-    officer_id = serializers.IntegerField()
+    officer_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False
+    )
 
 
 class CancelSerializer(serializers.Serializer):
