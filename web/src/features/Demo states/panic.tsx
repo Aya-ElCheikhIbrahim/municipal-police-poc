@@ -122,7 +122,7 @@ export function PanicOverlay({
               onClick={() => onClose(panic.id)}
               className="bg-rose-800 hover:bg-rose-900 text-white text-xs font-semibold px-3 py-1 rounded border border-rose-500 transition cursor-pointer"
             >
-              Dismiss
+              Resolve
             </button>
           </div>
         </div>

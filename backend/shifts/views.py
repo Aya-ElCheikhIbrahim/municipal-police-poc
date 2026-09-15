@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from core.permissions import IsDispatcherOrSupervisor, IsOfficer
 from missions.models import Mission
+from panic.models import PanicEvent
 
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -217,6 +218,18 @@ class ActiveShiftsView(APIView):
                 .distinct("assigned_to_id")
         }
 
+        # Same one-query shape again: which of these officers has an open
+        # panic alert right now. Checked ahead of mission/available so a
+        # panicking officer never gets outranked by "on a mission" — the red
+        # marker (§4.6) and the dashboard's panic banner both key off this
+        # same field, so this is the one place that has to get it right.
+        panicking_officer_ids = set(
+            PanicEvent.objects.filter(
+                officer_id__in=[s.officer_id for s in shifts],
+                status=PanicEvent.Status.ACTIVE,
+            ).values_list("officer_id", flat=True)
+        )
+
         payload = []
         for shift in shifts:
             ping = latest.get(shift.id)
@@ -245,7 +258,11 @@ class ActiveShiftsView(APIView):
                         "full_name": shift.officer.full_name,
                         "badge_number": shift.officer.badge_number,
                     },
-                    "status": "in_mission" if mission is not None else "available",
+                    "status": (
+                        "panic"
+                        if shift.officer_id in panicking_officer_ids
+                        else "in_mission" if mission is not None else "available"
+                    ),
                     "shift_started_at": shift.started_at,
                     "shift_duration_seconds": shift.duration_seconds,
                     "distance_covered_m": shift.distance_m,
