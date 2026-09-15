@@ -45,6 +45,8 @@ class NotificationTestCase(TestCase):
         self.supervisor = make_user("sup1", role=Role.SUPERVISOR)
 
     def make_mission(self, **kwargs):
+        # A many-to-many field cannot be passed to create(); set it afterwards.
+        assigned_to = kwargs.pop("assigned_to", None)
         defaults = {
             "title": "Illegal parking on Rue Tall",
             "description": "Vehicle blocking the junction.",
@@ -53,7 +55,10 @@ class NotificationTestCase(TestCase):
             "longitude": 35.85,
         }
         defaults.update(kwargs)
-        return Mission.objects.create(**defaults)
+        mission = Mission.objects.create(**defaults)
+        if assigned_to is not None:
+            mission.assigned_to.set([assigned_to])
+        return mission
 
     def make_notification(self, recipient=None, **kwargs):
         defaults = {

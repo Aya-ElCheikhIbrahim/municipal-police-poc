@@ -65,7 +65,7 @@ def _require_status(mission: Mission, action: str) -> None:
  
 def _require_assignee(mission: Mission, officer) -> None:
     """An officer acts on their own missions and nobody else's."""
-    if mission.assigned_to_id != officer.id:
+    if not mission.assigned_to.filter(pk=officer.id).exists():
         raise MissionPermissionError("This mission is not assigned to you.")
  
  
@@ -89,7 +89,7 @@ def create_mission(
     address: str = "",
     priority: str = Mission.Priority.MEDIUM,
     deadline=None,
-    assigned_to=None,
+    officers=(),
 ) -> Mission:
     """
     Create a mission, optionally assigning it in the same step.
@@ -110,37 +110,41 @@ def create_mission(
     )
     _log(mission, MissionEvent.EventType.CREATED, actor=created_by, title=title)
  
-    if assigned_to is not None:
-        assign_mission(mission, officer=assigned_to, actor=created_by)
+    if officers:
+        assign_mission(mission, officers=officers, actor=created_by)
         mission.refresh_from_db()
- 
+
     return mission
  
  
 @transaction.atomic
-def assign_mission(mission: Mission, *, officer, actor) -> Mission:
-    """Send a new mission to an officer."""
+def assign_mission(mission: Mission, *, officers, actor) -> Mission:
+    """Send a new mission to one or more officers."""
     _require_status(mission, "assign")
-    _require_officer_role(officer)
- 
-    mission.assigned_to = officer
+    if not officers:
+        raise MissionError("Choose at least one officer.")
+    for officer in officers:
+        _require_officer_role(officer)
+
+    mission.assigned_to.set(officers)
     mission.assigned_at = timezone.now()
     mission.status = Mission.Status.ASSIGNED
-    mission.save(update_fields=["assigned_to", "assigned_at", "status"])
- 
+    mission.save(update_fields=["assigned_at", "status"])
+
     _log(
         mission,
         MissionEvent.EventType.ASSIGNED,
         actor=actor,
-        officer_id=officer.id,
-        badge_number=officer.badge_number,
+        officer_ids=[o.id for o in officers],
+        badge_numbers=[o.badge_number for o in officers],
     )
-    notify_mission_assigned(mission, officer)
+    for officer in officers:
+        notify_mission_assigned(mission, officer)
     return mission
  
  
 @transaction.atomic
-def reassign_mission(mission: Mission, *, officer, actor) -> Mission:
+def reassign_mission(mission: Mission, *, officers, actor) -> Mission:
     """
     Move a mission to a different officer.
  
@@ -153,27 +157,33 @@ def reassign_mission(mission: Mission, *, officer, actor) -> Mission:
     event already records the previous officer either way.
     """
     _require_status(mission, "reassign")
-    _require_officer_role(officer)
- 
-    if mission.assigned_to_id == officer.id:
-        raise MissionError("That officer is already assigned to this mission.")
- 
-    previous = mission.assigned_to
-    mission.assigned_to = officer
+    if not officers:
+        raise MissionError("Choose at least one officer.")
+    for officer in officers:
+        _require_officer_role(officer)
+
+    previous = list(mission.assigned_to.all())
+    previous_ids = {o.id for o in previous}
+    if previous_ids == {o.id for o in officers}:
+        raise MissionError("Those officers are already assigned to this mission.")
+
+    mission.assigned_to.set(officers)
     mission.assigned_at = timezone.now()
-    mission.ack_alert_sent_at = None  # the new officer gets a fresh clock
-    mission.save(update_fields=["assigned_to", "assigned_at", "ack_alert_sent_at"])
- 
+    mission.ack_alert_sent_at = None  # the new officers get a fresh clock
+    mission.save(update_fields=["assigned_at", "ack_alert_sent_at"])
+
     _log(
         mission,
         MissionEvent.EventType.REASSIGNED,
         actor=actor,
-        officer_id=officer.id,
-        badge_number=officer.badge_number,
-        previous_officer_id=previous.id if previous else None,
-        previous_badge_number=previous.badge_number if previous else None,
+        officer_ids=[o.id for o in officers],
+        badge_numbers=[o.badge_number for o in officers],
+        previous_officer_ids=[o.id for o in previous],
+        previous_badge_numbers=[o.badge_number for o in previous],
     )
-    notify_mission_assigned(mission, officer)
+    for officer in officers:
+        if officer.id not in previous_ids:  # officers already on it were told before
+            notify_mission_assigned(mission, officer)
     return mission
  
  
@@ -261,7 +271,8 @@ def cancel_mission(mission: Mission, *, actor, reason: str) -> Mission:
     mission.save(update_fields=["cancelled_at", "cancellation_reason", "status"])
  
     _log(mission, MissionEvent.EventType.CANCELLED, actor=actor, reason=reason)
-    notify_mission_cancelled(mission, mission.assigned_to, reason=reason)
+    for officer in mission.assigned_to.all():
+        notify_mission_cancelled(mission, officer, reason=reason)
     return mission
  
  

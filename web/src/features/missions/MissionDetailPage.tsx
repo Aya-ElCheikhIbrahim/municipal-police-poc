@@ -26,6 +26,7 @@ export function MissionDetailPage({
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [isReassigning, setIsReassigning] = useState(false);
+  const [reassignIds, setReassignIds] = useState<number[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
@@ -89,8 +90,10 @@ export function MissionDetailPage({
             <h2 className="text-xl font-bold text-slate-900">{mission.title}</h2>
             <p className="text-xs text-slate-500 mt-1">
               {mission.address || 'No address given'}
-              {mission.assigned_to
-                ? ` · ${mission.assigned_to.full_name}, badge ${mission.assigned_to.badge_number}`
+              {mission.assigned_to.length > 0
+                ? ` · ${mission.assigned_to
+                    .map((officer) => `${officer.full_name}, badge ${officer.badge_number}`)
+                    .join('; ')}`
                 : ' · Unassigned'}
               {mission.duration_seconds !== null &&
                 ` · ${formatMissionDuration(mission.duration_seconds)} on mission`}
@@ -165,7 +168,10 @@ export function MissionDetailPage({
         <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
           {canReassign(mission) && (
             <button
-              onClick={() => setIsReassigning(!isReassigning)}
+              onClick={() => {
+                setReassignIds(mission.assigned_to.map((officer) => officer.id));
+                setIsReassigning(!isReassigning);
+              }}
               className="bg-white border border-slate-200 text-slate-800 text-xs font-semibold px-4 py-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Reassign
@@ -182,31 +188,45 @@ export function MissionDetailPage({
           )}
         </div>
 
-        {isReassigning && (
+                {isReassigning && (
           <div className="border border-slate-200 rounded-md p-4 space-y-3 max-w-md">
             <label className="block text-xs font-semibold text-slate-600">
-              Reassign to
+              Assign to
             </label>
             {officers.length === 0 ? (
               <p className="text-xs text-slate-500">No officers are on duty.</p>
             ) : (
               <div className="space-y-2">
-                {officers.map((entry) => (
-                  <button
-                    key={entry.officer.id}
-                    disabled={isBusy}
-                    onClick={() => run(() => missionsApi.assign(mission.id, entry.officer.id))
-
-                                        }
-                    className="w-full text-left px-3 py-2 text-xs border border-slate-200 rounded hover:bg-slate-50 cursor-pointer"
-                  >
-                    {entry.officer.full_name}
-                    <span className="text-slate-400">
-                      {' '}
-                      · Badge {entry.officer.badge_number}
-                    </span>
-                  </button>
-                ))}
+                {officers.map((entry) => {
+                  const id = entry.officer.id;
+                  const checked = reassignIds.includes(id);
+                  return (
+                    <label
+                      key={id}
+                      className="flex items-center gap-2 px-3 py-2 text-xs border border-slate-200 rounded hover:bg-slate-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={isBusy}
+                        onChange={() =>
+                          setReassignIds((prev) =>
+                            checked ? prev.filter((item) => item !== id) : [...prev, id]
+                          )
+                        }
+                      />
+                      {entry.officer.full_name}
+                      <span className="text-slate-400">· Badge {entry.officer.badge_number}</span>
+                    </label>
+                  );
+                })}
+                <button
+                  disabled={isBusy || reassignIds.length === 0}
+                  onClick={() => run(() => missionsApi.assign(mission.id, reassignIds))}
+                  className="bg-[#1F3864] hover:bg-[#2E5496] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer"
+                >
+                  Save officers
+                </button>
               </div>
             )}
           </div>

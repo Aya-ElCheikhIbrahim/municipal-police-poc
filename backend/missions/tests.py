@@ -46,18 +46,22 @@ class MissionTestCase(TestCase):
         self.other_officer = make_user("off2")
  
     def make_mission(self, **kwargs):
+        # Tests pass one officer as assigned_to=...; the service takes a list.
+        assigned_to = kwargs.pop("assigned_to", None)
         return services.create_mission(
             created_by=kwargs.pop("created_by", self.dispatcher),
             title=kwargs.pop("title", "Traffic obstruction"),
             latitude=kwargs.pop("latitude", 34.4367),
             longitude=kwargs.pop("longitude", 35.8497),
+            officers=[assigned_to] if assigned_to is not None else [],
             **kwargs,
         )
+
     def attach_photo(self, mission):
         """section 4.5 requires photo evidence before completion."""
         return services.add_photo(
             mission,
-            officer=mission.assigned_to,
+            officer=mission.assigned_to.first(),
             client_uuid=uuid.uuid4(),
             image=SimpleUploadedFile(
                 "evidence.jpg", b"fake-image-bytes", content_type="image/jpeg"
@@ -72,7 +76,7 @@ class CreationTests(MissionTestCase):
     def test_created_unassigned(self):
         mission = self.make_mission()
         self.assertEqual(mission.status, Mission.Status.NEW)
-        self.assertIsNone(mission.assigned_to)
+        self.assertFalse(mission.assigned_to.exists())
         self.assertEqual(self.event_types(mission), ["created"])
  
     def test_created_and_assigned_in_one_step(self):
@@ -151,34 +155,34 @@ class TransitionTests(MissionTestCase):
 class ReassignmentTests(MissionTestCase):
     def test_reassign_before_acknowledgement_is_allowed(self):
         mission = self.make_mission(assigned_to=self.officer)
-        services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+        services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
  
         mission.refresh_from_db()
-        self.assertEqual(mission.assigned_to, self.other_officer)
+        self.assertEqual(list(mission.assigned_to.all()), [self.other_officer])
         self.assertEqual(self.event_types(mission), ["created", "assigned", "reassigned"])
  
     def test_reassignment_records_the_previous_officer(self):
         """Otherwise the trail cannot answer who it was taken from."""
         mission = self.make_mission(assigned_to=self.officer)
-        services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+        services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
  
         event = mission.events.get(event_type="reassigned")
-        self.assertEqual(event.metadata["previous_officer_id"], self.officer.id)
-        self.assertEqual(event.metadata["officer_id"], self.other_officer.id)
+        self.assertEqual(event.metadata["previous_officer_ids"], [self.officer.id])
+        self.assertEqual(event.metadata["officer_ids"], [self.other_officer.id])
  
     def test_reassign_after_acknowledgement_is_refused(self):
         """The officer may already be driving to it. Cancel with a reason instead."""
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         with self.assertRaises(services.MissionError):
-            services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+            services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
  
     def test_reassignment_resets_the_acknowledgement_clock(self):
         mission = self.make_mission(assigned_to=self.officer)
         mission.ack_alert_sent_at = timezone.now()
         mission.save(update_fields=["ack_alert_sent_at"])
  
-        services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+        services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
         mission.refresh_from_db()
         self.assertIsNone(mission.ack_alert_sent_at)
  
@@ -323,7 +327,7 @@ class ApiPermissionTests(MissionTestCase):
         self.client.force_authenticate(self.officer)
         rows = self.client.get("/api/v1/missions/").json()
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["assigned_to"]["id"], self.officer.id)
+        self.assertEqual(rows[0]["assigned_to"][0]["id"], self.officer.id)
  
     def test_dispatcher_list_shows_everything(self):
         self.make_mission(assigned_to=self.officer)
@@ -375,7 +379,7 @@ class DetailContractTests(MissionTestCase):
         for key in ["events", "photos", "created_by", "assigned_to", "cancellation_reason"]:
             self.assertIn(key, body)
         self.assertEqual([e["event_type"] for e in body["events"]], ["created", "assigned", "acknowledged"])
-        self.assertEqual(set(body["assigned_to"]), {"id", "full_name", "badge_number"})
+        self.assertEqual(set(body["assigned_to"][0]), {"id", "full_name", "badge_number"})
  
     def test_list_row_flags_overdue_missions(self):
         self.make_mission(
@@ -384,4 +388,55 @@ class DetailContractTests(MissionTestCase):
         client = APIClient()
         client.force_authenticate(self.dispatcher)
         self.assertTrue(client.get("/api/v1/missions/").json()[0]["is_overdue"])
+
+
+        
+
+class MultiOfficerTests(MissionTestCase):
+    """A mission can go to several officers; they share one status."""
+
+    def make_shared_mission(self):
+        return services.create_mission(
+            created_by=self.dispatcher,
+            title="Crowd control",
+            latitude=34.4367,
+            longitude=35.8497,
+            officers=[self.officer, self.other_officer],
+        )
+
+    def test_a_mission_can_be_assigned_to_several_officers(self):
+        mission = self.make_shared_mission()
+        self.assertEqual(
+            set(mission.assigned_to.values_list("id", flat=True)),
+            {self.officer.id, self.other_officer.id},
+        )
+
+    def test_any_assigned_officer_can_act_on_a_shared_mission(self):
+        mission = self.make_shared_mission()
+        services.acknowledge_mission(mission, officer=self.other_officer)
+        mission.refresh_from_db()
+        self.assertEqual(mission.status, Mission.Status.ACKNOWLEDGED)
+
+    def test_an_unassigned_officer_still_cannot_act(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        with self.assertRaises(services.MissionPermissionError):
+            services.acknowledge_mission(mission, officer=self.other_officer)
+
+    def test_every_assigned_officer_is_notified(self):
+        from notifications.models import Notification, NotificationType
+
+        self.make_shared_mission()
+        recipients = set(
+            Notification.objects.filter(
+                notification_type=NotificationType.MISSION_ASSIGNED
+            ).values_list("recipient_id", flat=True)
+        )
+        self.assertEqual(recipients, {self.officer.id, self.other_officer.id})
+
+    def test_reassigning_to_the_same_officers_is_refused(self):
+        mission = self.make_shared_mission()
+        with self.assertRaises(services.MissionError):
+            services.reassign_mission(
+                mission, officers=[self.other_officer, self.officer], actor=self.dispatcher
+            )
  

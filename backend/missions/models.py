@@ -45,11 +45,9 @@ class Mission(models.Model):
         on_delete=models.PROTECT,  # mission history is retained
         related_name="missions_created",
     )
-    assigned_to = models.ForeignKey(
+    assigned_to = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
         related_name="missions_assigned",
-        null=True,
         blank=True,
     )
     deadline = models.DateTimeField(null=True, blank=True)
@@ -84,16 +82,9 @@ class Mission(models.Model):
                 condition=~models.Q(status="cancelled") | ~models.Q(cancellation_reason=""),
                 name="cancelled_mission_has_a_reason",
             ),
-            # Anything past "new" has an officer on it.
-            models.CheckConstraint(
-                condition=models.Q(status__in=["new", "cancelled"])
-                | models.Q(assigned_to__isnull=False),
-                name="active_mission_has_an_assignee",
-            ),
         ]
         indexes = [
             models.Index(fields=["status", "-created_at"]),
-            models.Index(fields=["assigned_to", "status"]),
             models.Index(fields=["priority", "status"]),
         ]
 

@@ -10,7 +10,7 @@ interface UseMissionsResult {
   refresh: () => Promise<void>;
   createMission: (payload: CreateMissionRequest) => Promise<MissionListItem>;
   cancelMission: (id: number, reason: string) => Promise<void>;
-  assignMission: (id: number, officerId: number) => Promise<void>;
+  assignMission: (id: number, officerIds: number[]) => Promise<void>;
 }
 
 export function useMissions(filters: MissionFilters = {}): UseMissionsResult {
@@ -48,8 +48,8 @@ export function useMissions(filters: MissionFilters = {}): UseMissionsResult {
     await refresh();
   }
 
-  async function assignMission(id: number, officerId: number) {
-    await missionsApi.assign(id, officerId);
+  async function assignMission(id: number, officerIds: number[]) {
+    await missionsApi.assign(id, officerIds);
     await refresh();
   }
 
