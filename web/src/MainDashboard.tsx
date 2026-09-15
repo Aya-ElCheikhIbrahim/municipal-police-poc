@@ -6,11 +6,8 @@ import { UsersPage } from './features/users/UsersPage';
 import { LiveMapPage } from './features/map/LiveMapPage';
 import { MissionsPage } from './features/missions/MissionsPage';
 import { ReportsPage } from './features/reports/ReportsPage';
-import {
-  ConnectionOverlay,
-  PanicOverlay,
-  type PanicAlert,
-} from './features/Demo states/panic';
+import { ConnectionOverlay, PanicOverlay } from './features/Demo states/panic';
+import { usePanicAlerts } from './features/panic/usePanicAlerts';
 
 // Type Definitions
 type TabType = 'Live map' | 'Missions' | 'Reports' | 'Users';
@@ -27,66 +24,12 @@ export default function MainDashboard() {
   const [forceEmptyState, setForceEmptyState] = useState<boolean>(false);
   const [isConnectionLost, setIsConnectionLost] = useState<boolean>(false);
 
-  // Panic Demo State
-  const [panics, setPanics] = useState<PanicAlert[]>([]);
+  // Panic — real alerts from the backend, §4.6/§4.7.
+  const { alerts: panics, error: panicError, resolve: resolvePanic } = usePanicAlerts();
   const [panicMenuOpen, setPanicMenuOpen] = useState<boolean>(false);
-  const [panicMessage, setPanicMessage] = useState<string>('');
 
-  const showPanicMessage = (message: string) => {
-    setPanicMessage(message);
-
-    setTimeout(() => {
-      setPanicMessage('');
-    }, 3000);
-  };
-
-  const triggerPanic = () => {
-    const id = Date.now();
-    const officerNumber = panics.length + 1;
-
-    const newPanic: PanicAlert = {
-      id,
-      officer: {
-        id,
-        full_name: `Officer ${officerNumber}`,
-        badge_number: `${100 + officerNumber}`,
-      },
-      shift: 1,
-      latitude: '34.4333',
-      longitude: '35.8333',
-      accuracy_m: 5,
-      battery_level: 80,
-      triggered_at: new Date().toISOString(),
-    };
-
-    setPanics((prev) => [...prev, newPanic]);
-
-    setIsLoading(false);
-    setForceEmptyState(false);
-    setIsConnectionLost(false);
-    setPanicMenuOpen(false);
-  };
-
-const officerCancelPanic = (id: number) => {
-  const panicToCancel = panics.find((panic) => panic.id === id);
-
-  if (!panicToCancel) return;
-
-  setPanics((prev) =>
-    prev.filter((panic) => panic.id !== id)
-  );
-
-  showPanicMessage(
-    `${panicToCancel.officer.full_name} cancelled the emergency alert.`
-  );
-
-  setPanicMenuOpen(false);
-};
-
-  const clearAllPanics = () => {
-    if (panics.length === 0) return;
-
-    setPanics([]);
+  const resolvePanicFromMenu = (id: number) => {
+    resolvePanic(id);
     setPanicMenuOpen(false);
   };
 
@@ -148,53 +91,38 @@ const officerCancelPanic = (id: number) => {
         </button>
 
         {panicMenuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-56 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[100]">
-            <button
-              onClick={triggerPanic}
-              className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
-            >
-              {' '}
-              {panics.length > 0
-                ? 'Trigger another panic'
-                : 'Trigger panic'}
-            </button>
+          <div className="absolute right-0 top-full mt-2 w-64 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[100]">
+            <div className="px-4 py-2.5 text-sm font-semibold text-slate-500">
+              Active panic alerts
+            </div>
 
-            <div className="border-t border-slate-100">
-              <div className="px-4 py-2.5 text-sm font-semibold text-slate-500">
-                Officer cancelled panic
+            {panicError ? (
+              <div className="px-4 pb-2.5 text-xs text-amber-600">{panicError}</div>
+            ) : panics.length === 0 ? (
+              <div className="px-4 pb-2.5 text-xs text-slate-300">
+                No active panic alerts
               </div>
-
-              {panics.length === 0 ? (
-                <div className="px-4 pb-2.5 text-xs text-slate-300">
-                  No active panic alerts
-                </div>
-              ) : (
-                panics.map((panic) => (
-                  <button
-                    key={panic.id}
-                    onClick={() => officerCancelPanic(panic.id)}
-                    className="w-full text-left px-5 py-2 text-sm hover:bg-amber-50 hover:text-amber-700 cursor-pointer"
-                  >
+            ) : (
+              panics.map((panic) => (
+                <div
+                  key={panic.id}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-rose-50 flex items-center justify-between gap-2"
+                >
+                  <span>
                     {panic.officer.full_name}
                     <span className="text-xs text-slate-400 ml-2">
                       Badge {panic.officer.badge_number}
                     </span>
+                  </span>
+                  <button
+                    onClick={() => resolvePanicFromMenu(panic.id)}
+                    className="text-xs font-bold text-rose-700 hover:text-rose-900 cursor-pointer shrink-0"
+                  >
+                    Resolve
                   </button>
-                ))
-              )}
-            </div>
-
-            <button
-              onClick={clearAllPanics}
-              disabled={panics.length === 0}
-              className={`w-full text-left px-4 py-2.5 text-sm border-t border-slate-100 ${
-                panics.length === 0
-                  ? 'text-slate-300 cursor-not-allowed'
-                  : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
-              }`}
-            >
-              Clear all panics
-            </button>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -204,7 +132,6 @@ const officerCancelPanic = (id: number) => {
           setIsLoading(!isLoading);
           if (!isLoading) {
             setForceEmptyState(false);
-            setPanics([]);
           }
         }}
         className={`px-2 sm:px-4 py-1 sm:py-2 rounded text-[10px] sm:text-sm font-medium transition-colors cursor-pointer ${
@@ -221,7 +148,6 @@ const officerCancelPanic = (id: number) => {
           setForceEmptyState(!forceEmptyState);
           if (!forceEmptyState) {
             setIsLoading(false);
-            setPanics([]);
           }
         }}
         className={`px-2 sm:px-4 py-1 sm:py-2 rounded text-[10px] sm:text-sm font-medium transition-colors cursor-pointer ${
@@ -236,9 +162,6 @@ const officerCancelPanic = (id: number) => {
       <button
         onClick={() => {
           setIsConnectionLost(!isConnectionLost);
-          if (!isConnectionLost) {
-            setPanics([]);
-          }
         }}
         className={`px-2 sm:px-4 py-1 sm:py-2 rounded text-[10px] sm:text-sm font-medium transition-colors cursor-pointer ${
           isConnectionLost
@@ -267,13 +190,6 @@ const officerCancelPanic = (id: number) => {
   </div>
 </header>
 
-      {/* Officer Cancel Message */}
-      {panicMessage && (
-        <div className="fixed top-20 right-5 z-[200] bg-slate-900 text-white px-4 py-3.5 rounded-lg shadow-xl text-xs font-medium">
-          {panicMessage}
-        </div>
-      )}
-
       {/* Main Content Body */}
       <div className="flex-1 flex overflow-hidden relative">
         {isConnectionLost ? (
@@ -291,11 +207,7 @@ const officerCancelPanic = (id: number) => {
 
         <PanicOverlay
           panics={panics}
-          onClose={(id) =>
-            setPanics((prev) =>
-              prev.filter((panic) => panic.id !== id)
-            )
-          }
+          onClose={(id) => resolvePanic(id)}
           onLocate={() => setActiveTab('Live map')}
         />
       </div>
