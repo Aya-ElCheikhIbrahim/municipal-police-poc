@@ -88,6 +88,7 @@ def create_mission(
     description: str = "",
     address: str = "",
     priority: str = Mission.Priority.MEDIUM,
+    category: str = Mission.Category.MUNICIPAL,
     deadline=None,
     officers=(),
 ) -> Mission:
@@ -102,6 +103,7 @@ def create_mission(
         title=title,
         description=description,
         priority=priority,
+        category=category,
         latitude=_as_decimal(latitude),
         longitude=_as_decimal(longitude),
         address=address,
