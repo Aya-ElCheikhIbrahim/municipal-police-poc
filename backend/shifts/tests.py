@@ -26,7 +26,7 @@ from missions.models import Mission
 
 from . import services
 from .models import LocationPing, Shift
-
+from panic import services as panic_services
 User = get_user_model()
 
 
@@ -522,3 +522,45 @@ class StartShiftRaceRecoveryTests(TestCase):
         self.assertFalse(created)
         self.assertEqual(shift.pk, winner.pk)
         self.assertEqual(Shift.objects.filter(officer=officer).count(), 1)
+
+
+class ActiveShiftsPanicTests(TestCase):
+    def setUp(self):
+        self.officer = make_user("panic_officer")
+        services.start_shift(self.officer)
+        self.client = APIClient()
+        self.client.force_authenticate(make_user("panic_dispatcher", role="dispatcher"))
+
+    def _row(self):
+        response = self.client.get("/api/v1/shifts/active/")
+        self.assertEqual(response.status_code, 200)
+        return response.json()[0]
+
+    def test_panic_without_pings_puts_the_officer_on_the_map(self):
+        panic_services.trigger_panic(self.officer, latitude=34.4367, longitude=35.8497)
+
+        row = self._row()
+        self.assertEqual(row["status"], "panic")
+        self.assertEqual(row["position_source"], "panic")
+        self.assertEqual(Decimal(row["latest_ping"]["latitude"]), Decimal("34.436700"))
+
+    def test_a_newer_ping_wins_over_the_panic_position(self):
+        panic_services.trigger_panic(self.officer, latitude=34.4367, longitude=35.8497)
+        services.ingest_pings(
+            self.officer,
+            [ping_row(34.4400, 35.8500, timezone.now() + timedelta(seconds=30))],
+        )
+
+        row = self._row()
+        self.assertEqual(row["status"], "panic")
+        self.assertEqual(row["position_source"], "ping")
+
+    def test_resolved_panic_no_longer_turns_the_marker_red(self):
+        event, _ = panic_services.trigger_panic(
+            self.officer, latitude=34.4367, longitude=35.8497
+        )
+        panic_services.resolve_panic(event, make_user("panic_supervisor", role="supervisor"))
+
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertNotEqual(row["position_source"], "panic")

@@ -223,18 +223,33 @@ class ActiveShiftsView(APIView):
         # panicking officer never gets outranked by "on a mission" — the red
         # marker (§4.6) and the dashboard's panic banner both key off this
         # same field, so this is the one place that has to get it right.
-        panicking_officer_ids = set(
-            PanicEvent.objects.filter(
+        active_panics = {
+            p.officer_id: p
+            for p in PanicEvent.objects.filter(
                 officer_id__in=[s.officer_id for s in shifts],
                 status=PanicEvent.Status.ACTIVE,
-            ).values_list("officer_id", flat=True)
-        )
+            )
+        }
+        panicking_officer_ids = set(active_panics)
 
         payload = []
         for shift in shifts:
             ping = latest.get(shift.id)
             mission = missions.get(shift.officer_id)
-            if ping is not None:
+            panic = active_panics.get(shift.officer_id)
+            if panic is not None and (ping is None or panic.triggered_at > ping.recorded_at):
+                position = {
+                    "latitude": panic.latitude,
+                    "longitude": panic.longitude,
+                    "accuracy_m": panic.accuracy_m,
+                    "battery_level": panic.battery_level,
+                    "network_type": LocationPing.NetworkType.UNKNOWN,
+                    "recorded_at": panic.triggered_at,
+                    "received_at": panic.triggered_at,
+                    "is_offline_sync": False,
+                }
+                source = "panic"
+            elif ping is not None:
                 position = LocationPingSerializer(ping).data
                 source = "ping"
             elif shift.start_latitude is not None:
