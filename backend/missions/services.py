@@ -38,7 +38,7 @@ ALLOWED_FROM = {
     "assign": {Mission.Status.NEW},
     "reassign": {Mission.Status.ASSIGNED},
     "acknowledge": {Mission.Status.ASSIGNED},
-    "start": {Mission.Status.ACKNOWLEDGED},
+    "start": {Mission.Status.ASSIGNED, Mission.Status.ACKNOWLEDGED},
     "complete": {Mission.Status.IN_PROGRESS},
     "cancel": {
         Mission.Status.NEW,
@@ -203,7 +203,6 @@ def acknowledge_mission(mission: Mission, *, officer) -> Mission:
  
 @transaction.atomic
 def start_mission(mission: Mission, *, officer, latitude=None, longitude=None) -> Mission:
-    """Officer is on scene or on the way. Records where they actually were."""
     _require_status(mission, "start")
     _require_assignee(mission, officer)
  

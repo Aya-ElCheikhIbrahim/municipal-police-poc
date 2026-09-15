@@ -205,13 +205,10 @@ class ActiveShiftsView(APIView):
             for row in Assignment.objects
                 .filter(
                     user_id__in=[s.officer_id for s in shifts],
-                    mission__status__in=[
-                        Mission.Status.ACKNOWLEDGED,
-                        Mission.Status.IN_PROGRESS,
-                    ],
+                    mission__status=Mission.Status.IN_PROGRESS,
                 )
                 .select_related("mission")
-                .order_by("user_id", "-mission__assigned_at")
+                .order_by("user_id", "-mission__started_at")
                 .distinct("user_id")
         }
 

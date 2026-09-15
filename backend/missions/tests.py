@@ -111,10 +111,37 @@ class TransitionTests(MissionTestCase):
         for field in ["assigned_at", "acknowledged_at", "started_at", "completed_at"]:
             self.assertIsNotNone(getattr(mission, field), f"{field} was not set")
  
-    def test_cannot_start_before_acknowledging(self):
+    def test_can_start_without_acknowledging(self):
+        """Acknowledging is optional; an officer may start straight away."""
         mission = self.make_mission(assigned_to=self.officer)
+        services.start_mission(mission, officer=self.officer)
+
+        mission.refresh_from_db()
+        self.assertEqual(mission.status, Mission.Status.IN_PROGRESS)
+        self.assertIsNotNone(mission.started_at)
+        self.assertIsNone(mission.acknowledged_at)
+        self.assertEqual(self.event_types(mission), ["created", "assigned", "started"])
+
+    def test_acknowledging_then_starting_still_works(self):
+        """Existing app builds acknowledge first; that path must keep working."""
+        mission = self.make_mission(assigned_to=self.officer)
+        services.acknowledge_mission(mission, officer=self.officer)
+        services.start_mission(mission, officer=self.officer)
+
+        mission.refresh_from_db()
+        self.assertEqual(mission.status, Mission.Status.IN_PROGRESS)
+        self.assertIsNotNone(mission.acknowledged_at)
+
+    def test_cannot_acknowledge_after_starting(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        services.start_mission(mission, officer=self.officer)
         with self.assertRaises(services.MissionError):
-            services.start_mission(mission, officer=self.officer)
+            services.acknowledge_mission(mission, officer=self.officer)
+
+    def test_another_officer_cannot_start_it(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        with self.assertRaises(services.MissionPermissionError):
+            services.start_mission(mission, officer=self.other_officer)
  
     def test_cannot_complete_before_starting(self):
         mission = self.make_mission(assigned_to=self.officer)
@@ -353,8 +380,15 @@ class ApiPermissionTests(MissionTestCase):
     def test_illegal_transition_returns_400_not_500(self):
         mission = self.make_mission(assigned_to=self.officer)
         self.client.force_authenticate(self.officer)
-        response = self.client.post(f"/api/v1/missions/{mission.pk}/start/", {}, format="json")
+        response = self.client.post(f"/api/v1/missions/{mission.pk}/complete/", {}, format="json")
         self.assertEqual(response.status_code, 400)
+
+    def test_officer_can_start_an_assigned_mission_through_the_api(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        self.client.force_authenticate(self.officer)
+        response = self.client.post(f"/api/v1/missions/{mission.pk}/start/", {}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "in_progress")
  
     def test_acting_on_another_officers_mission_returns_403(self):
         mission = self.make_mission(assigned_to=self.other_officer)

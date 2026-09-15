@@ -272,11 +272,6 @@ class ActiveShiftsContractTests(TestCase):
 
 
 class ActiveShiftsMissionTests(TestCase):
-    """
-    §4.6 marker colour. The contract counts an officer as busy only once they
-    have acknowledged, so ASSIGNED must still read as available.
-    """
-
     def setUp(self):
         self.officer = make_user("mission_officer")
         self.dispatcher = make_user("mission_dispatcher", role="dispatcher")
@@ -299,9 +294,9 @@ class ActiveShiftsMissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         return response.json()[0]
 
-    def test_acknowledged_mission_makes_the_officer_in_mission(self):
+    def test_started_mission_makes_the_officer_in_mission(self):
         mission = self._assign("Traffic obstruction on Al-Mina road")
-        mission_services.acknowledge_mission(mission, officer=self.officer)
+        mission_services.start_mission(mission, officer=self.officer)
 
         row = self._row()
         self.assertEqual(row["status"], "in_mission")
@@ -312,37 +307,54 @@ class ActiveShiftsMissionTests(TestCase):
                 "id": mission.id,
                 "title": "Traffic obstruction on Al-Mina road",
                 "priority": "high",
-                "status": "acknowledged",
+                "status": "in_progress",
             },
         )
 
-    def test_assigned_but_unacknowledged_officer_is_still_available(self):
+    def test_assigned_but_not_started_officer_is_still_available(self):
         """Showing them as busy would hide a free officer from the dispatcher."""
-        self._assign("Sent but not yet seen")
+        self._assign("Sent but not yet started")
 
         row = self._row()
         self.assertEqual(row["status"], "available")
         self.assertIsNone(row["current_mission"])
 
-    def test_two_open_missions_show_the_most_recently_assigned(self):
-        older = self._assign("Assigned an hour ago")
-        mission_services.acknowledge_mission(older, officer=self.officer)
-        newer = self._assign("Assigned just now")
-        mission_services.acknowledge_mission(newer, officer=self.officer)
+    def test_acknowledged_but_not_started_officer_is_still_available(self):
+        mission = self._assign("Seen but not yet started")
+        mission_services.acknowledge_mission(mission, officer=self.officer)
 
-        # Both were assigned in the same test tick; space them out so the
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+
+    def test_completed_mission_makes_the_officer_available_again(self):
+        mission = self._assign("Finished job")
+        mission_services.start_mission(mission, officer=self.officer)
+        Mission.objects.filter(pk=mission.pk).update(
+            status=Mission.Status.COMPLETED, completed_at=timezone.now()
+        )
+
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+
+    def test_two_started_missions_show_the_most_recently_started(self):
+        older = self._assign("Started an hour ago")
+        mission_services.start_mission(older, officer=self.officer)
+        newer = self._assign("Started just now")
+        mission_services.start_mission(newer, officer=self.officer)
+
+        # Both were started in the same test tick; space them out so the
         # ordering under test is the one being asserted, not clock luck.
         now = timezone.now()
         Mission.objects.filter(pk=older.pk).update(
-            assigned_at=now - timezone.timedelta(hours=1)
+            started_at=now - timezone.timedelta(hours=1)
         )
-        Mission.objects.filter(pk=newer.pk).update(assigned_at=now)
+        Mission.objects.filter(pk=newer.pk).update(started_at=now)
 
         row = self._row()
         self.assertEqual(row["status"], "in_mission")
         self.assertEqual(row["current_mission"]["id"], newer.id)
-
-
 class DistanceCachingTests(TestCase):
     """shift.distance_m is now the read path; ingest is what keeps it correct."""
 
