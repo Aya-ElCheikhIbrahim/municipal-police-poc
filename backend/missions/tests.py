@@ -473,4 +473,55 @@ class MultiOfficerTests(MissionTestCase):
             services.reassign_mission(
                 mission, officers=[self.other_officer, self.officer], actor=self.dispatcher
             )
+
+
  
+
+class CategoryTests(MissionTestCase):
+    """Mission category: stored as the dashboard form sends it, Municipal by default."""
+
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient()
+        self.client.force_authenticate(self.dispatcher)
+
+    def create_through_api(self, **extra):
+        body = {"title": "Blocked drain", "latitude": 34.4367, "longitude": 35.8497, **extra}
+        return self.client.post("/api/v1/missions/", body, format="json")
+
+    def test_defaults_to_municipal(self):
+        mission = self.make_mission()
+        self.assertEqual(mission.category, Mission.Category.MUNICIPAL)
+
+    def test_service_stores_the_given_category(self):
+        mission = self.make_mission(category=Mission.Category.SANITATION)
+        mission.refresh_from_db()
+        self.assertEqual(mission.category, "Sanitation")
+
+    def test_api_saves_the_category_the_form_sends(self):
+        response = self.create_through_api(category="Traffic")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["category"], "Traffic")
+        self.assertEqual(Mission.objects.get(pk=response.json()["id"]).category, "Traffic")
+
+    def test_api_without_a_category_saves_municipal(self):
+        response = self.create_through_api()
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["category"], "Municipal")
+
+    def test_unknown_category_is_a_400(self):
+        response = self.create_through_api(category="traffic")  # wrong capitalisation
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("category", response.json())
+
+    def test_list_rows_carry_the_category(self):
+        self.make_mission(category=Mission.Category.INFRASTRUCTURE)
+        rows = self.client.get("/api/v1/missions/").json()
+        self.assertEqual(rows[0]["category"], "Infrastructure")
+
+    def test_list_can_be_filtered_by_category(self):
+        self.make_mission(title="Streetlight out", category=Mission.Category.INFRASTRUCTURE)
+        self.make_mission(title="Double parking", category=Mission.Category.TRAFFIC)
+
+        rows = self.client.get("/api/v1/missions/?category=Traffic").json()
+        self.assertEqual([row["title"] for row in rows], ["Double parking"])

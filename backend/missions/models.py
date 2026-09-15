@@ -31,9 +31,18 @@ class Mission(models.Model):
         HIGH = "high", "High"
         URGENT = "urgent", "Urgent"
 
+    class Category(models.TextChoices):
+        MUNICIPAL = "Municipal", "Municipal"
+        SANITATION = "Sanitation", "Sanitation"
+        TRAFFIC = "Traffic", "Traffic"
+        INFRASTRUCTURE = "Infrastructure", "Infrastructure"
+
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     priority = models.CharField(max_length=8, choices=Priority.choices, default=Priority.MEDIUM)
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.MUNICIPAL
+    )
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.NEW)
 
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
@@ -86,6 +95,7 @@ class Mission(models.Model):
         indexes = [
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["priority", "status"]),
+            models.Index(fields=["category", "status"]),
         ]
 
     def __str__(self) -> str:

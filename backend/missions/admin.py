@@ -24,11 +24,11 @@ class MissionPhotoInline(admin.TabularInline):
  
 @admin.register(Mission)
 class MissionAdmin(admin.ModelAdmin):
-    list_display = ["id", "title", "priority", "status", "officers", "created_at", "deadline"]
+    list_display = ["id", "title", "category", "priority", "status", "officers", "created_at", "deadline"]
     @admin.display(description="Assigned to")
     def officers(self, obj):
         return ", ".join(o.badge_number for o in obj.assigned_to.all()) or "—"
-    list_filter = ["status", "priority"]
+    list_filter = ["status", "priority", "category"]
     search_fields = ["title", "address"]
     date_hierarchy = "created_at"
     inlines = [MissionEventInline, MissionPhotoInline]

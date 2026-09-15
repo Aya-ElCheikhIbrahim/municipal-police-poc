@@ -71,6 +71,7 @@ class MissionListCreateView(APIView):
         parameters=[
             OpenApiParameter("status", description="new, assigned, acknowledged, in_progress, completed, cancelled"),
             OpenApiParameter("priority", description="low, medium, high, urgent"),
+            OpenApiParameter("category", description="Municipal, Sanitation, Traffic, Infrastructure"),
             OpenApiParameter("officer_id", description="Filter by assigned officer.", type=int),
             OpenApiParameter("date", description="Missions created on this day, YYYY-MM-DD."),
             OpenApiParameter("open", description="true for missions not yet closed."),
@@ -89,6 +90,8 @@ class MissionListCreateView(APIView):
             queryset = queryset.filter(status=value)
         if value := request.query_params.get("priority"):
             queryset = queryset.filter(priority=value)
+        if value := request.query_params.get("category"):
+            queryset = queryset.filter(category=value)
         if request.query_params.get("open") == "true":
             queryset = queryset.exclude(
                 status__in=[Mission.Status.COMPLETED, Mission.Status.CANCELLED]

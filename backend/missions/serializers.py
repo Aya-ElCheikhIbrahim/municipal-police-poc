@@ -45,6 +45,7 @@ class MissionListSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "priority",
+            "category",
             "status",
             "latitude",
             "longitude",
@@ -105,6 +106,11 @@ class MissionCreateSerializer(serializers.Serializer):
     address = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
     priority = serializers.ChoiceField(
         choices=Mission.Priority.choices, default=Mission.Priority.MEDIUM
+    )
+    category = serializers.ChoiceField(
+        choices=Mission.Category.choices,
+        default=Mission.Category.MUNICIPAL,
+        help_text="Municipal, Sanitation, Traffic, or Infrastructure. Optional.",
     )
     deadline = serializers.DateTimeField(required=False, allow_null=True)
     assigned_to_ids = serializers.ListField(
