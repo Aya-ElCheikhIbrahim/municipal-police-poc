@@ -4,7 +4,7 @@ import { officersApi } from './api';
 import type { ActiveOfficer } from './types';
 
 
-const POLL_INTERVAL_MS = 15_000;
+const POLL_INTERVAL_MS = 5_000;
 
 interface UseActiveOfficersResult {
   officers: ActiveOfficer[];
@@ -43,6 +43,22 @@ export function useActiveOfficers(enabled = true): UseActiveOfficersResult {
 
     const timer = setInterval(refresh, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
+  }, [enabled, refresh]);
+
+  // Browsers throttle timers in background tabs; catch up the moment the
+  // dispatcher looks at the dashboard again.
+  useEffect(() => {
+    if (!enabled) return;
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [enabled, refresh]);
 
   // Tick the staleness counter once a second.

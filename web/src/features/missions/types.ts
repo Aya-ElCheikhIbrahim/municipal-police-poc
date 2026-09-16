@@ -1,5 +1,4 @@
 import type { OfficerBrief } from '../officers/types';
-import { formatDuration } from '../officers/types';
 
 export type MissionStatus =
   | 'new'
@@ -154,8 +153,12 @@ export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-/** "—" before work has started; otherwise the shift-style "Xh 00m" duration. */
 export function formatMissionDuration(seconds: number | null): string {
-  if (seconds === null) return '—';
-  return formatDuration(seconds);
+  if (seconds === null) return ';';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  if (minutes > 0) return `${minutes}m ${String(secs).padStart(2, '0')}s`;
+  return `${secs}s`;
 }
