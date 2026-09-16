@@ -1,4 +1,4 @@
-##API contract - users
+# API contract - users
 
 users/tests/test_users.py, test_auth.py, test_serializers.py, test_permissions.py
 

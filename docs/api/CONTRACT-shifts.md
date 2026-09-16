@@ -1,4 +1,4 @@
-##API contract - shifts
+# API contract - shifts
 
 shifts/tests.py::HaversineTests, ShiftLifecycleTests, LocationIngestTests, PermissionTests, ActiveShiftsContractTests, ActiveShiftsMissionTests, DistanceCachingTests, ActiveShiftsQueryCountTests, TrailDayBoundaryTests, StartShiftRaceRecoveryTests
 
