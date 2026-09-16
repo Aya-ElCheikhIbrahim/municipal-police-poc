@@ -48,3 +48,8 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=True)
+    device_token = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="This phone's FCM token. Sent at logout so the device stops receiving push notifications.",
+    )

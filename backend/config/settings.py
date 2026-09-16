@@ -180,3 +180,5 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS", default="http://localhost:5173,http://localhost:3000"
 ).split(",")
+
+FCM_CREDENTIALS_FILE = config("FCM_CREDENTIALS_FILE", default="")

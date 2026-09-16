@@ -13,15 +13,32 @@ section 4.9 triggers covered here:
 
 section 4.7:
   - panic alert                 → all active dispatchers and supervisors
+  and supervisors
+
+  Officer notifications (Assigned, cancelled, dispatcher message) are also pushed to the officer's phone through FCM, see push.py. The sorted row stays the source of truth, the push is best effort
 """
 from users.models import Role
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
+from . import push
 from .models import Notification, NotificationType
 
 User = get_user_model()
+
+def _push_after_commit(notification):
+    data = {
+        "type": notification.notification_type,
+        "notification_id": notification.id,
+    }
+    if notification.related_mission_id:
+        data["mission_id"] = notification.related_mission_id
+
+    recipient = notification.recipient
+    transaction.on_commit(
+        lambda: push.send_push(recipient, notification.title, notification.body, data)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -97,13 +114,15 @@ def mark_all_read(user):
 
 def notify_mission_assigned(mission, officer):
     """Call from missions.services on assign and on reassign-before-ack."""
-    return Notification.objects.create(
+    notification = Notification.objects.create(
         recipient=officer,
         notification_type=NotificationType.MISSION_ASSIGNED,
         title="New mission assigned",
         body=mission.title,
         related_mission=mission,
     )
+    _push_after_commit(notification)
+    return notification
 
 
 def notify_mission_cancelled(mission, officer, reason=""):
@@ -113,23 +132,27 @@ def notify_mission_cancelled(mission, officer, reason=""):
     """
     if officer is None:
         return None
-    return Notification.objects.create(
+    notification = Notification.objects.create(
         recipient=officer,
         notification_type=NotificationType.MISSION_CANCELLED,
         title="Mission cancelled",
         body=f"{mission.title} — {reason}" if reason else mission.title,
         related_mission=mission,
     )
+    _push_after_commit(notification)
+    return notification
 
 
 def notify_dispatcher_message(officer, sender, message, mission=None):
-    return Notification.objects.create(
+    notification = Notification.objects.create(
         recipient=officer,
         notification_type=NotificationType.DISPATCHER_MESSAGE,
         title=f"Message from {sender.full_name}",
         body=message,
         related_mission=mission,
     )
+    _push_after_commit(notification)
+    return notification
 
 
 @transaction.atomic
