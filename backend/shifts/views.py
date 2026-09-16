@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import IsDispatcherOrSupervisor, IsOfficer
-from missions.models import Mission
+from missions.models import MissionWork
 from panic.models import PanicEvent
 
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
@@ -199,17 +199,14 @@ class ActiveShiftsView(APIView):
                 .distinct("shift_id")
         }
 
-        Assignment = Mission.assigned_to.through
         missions = {
-            row.user_id: row.mission
-            for row in Assignment.objects
+            work.officer_id: work.mission
+            for work in MissionWork.objects
                 .filter(
-                    user_id__in=[s.officer_id for s in shifts],
-                    mission__status=Mission.Status.IN_PROGRESS,
+                    officer_id__in=[s.officer_id for s in shifts],
+                    ended_at__isnull=True,
                 )
                 .select_related("mission")
-                .order_by("user_id", "-mission__started_at")
-                .distinct("user_id")
         }
 
         # Same one-query shape again: which of these officers has an open

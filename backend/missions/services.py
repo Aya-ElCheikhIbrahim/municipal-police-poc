@@ -11,7 +11,7 @@ from __future__ import annotations
  
 from decimal import Decimal
  
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
  
 from core.registry import get_setting
@@ -20,8 +20,7 @@ from notifications.services import (
     notify_mission_cancelled,
     notify_mission_unacknowledged,
 )
-from .models import Mission, MissionEvent, MissionPhoto
- 
+from .models import Mission, MissionEvent, MissionPhoto, MissionWork 
  
 class MissionError(Exception):
     """A rule violation the API reports as 400."""
@@ -38,13 +37,19 @@ ALLOWED_FROM = {
     "assign": {Mission.Status.NEW},
     "reassign": {Mission.Status.ASSIGNED},
     "acknowledge": {Mission.Status.ASSIGNED},
-    "start": {Mission.Status.ASSIGNED, Mission.Status.ACKNOWLEDGED},
+    "start": {
+        Mission.Status.ASSIGNED,
+        Mission.Status.ACKNOWLEDGED,
+        Mission.Status.IN_PROGRESS,
+        Mission.Status.PAUSED,
+    },
     "complete": {Mission.Status.IN_PROGRESS},
     "cancel": {
         Mission.Status.NEW,
         Mission.Status.ASSIGNED,
         Mission.Status.ACKNOWLEDGED,
         Mission.Status.IN_PROGRESS,
+        Mission.Status.PAUSED,
     },
 }
  
@@ -78,6 +83,72 @@ def _log(mission: Mission, event_type: str, actor=None, **metadata) -> MissionEv
     )
  
  
+def _close_running_period(mission: Mission, now) -> None:
+    """Fold the running work period into worked_seconds. The caller saves."""
+    if mission.resumed_at is not None:
+        mission.worked_seconds += max(0, int((now - mission.resumed_at).total_seconds()))
+        mission.resumed_at = None
+
+
+def _interrupt(work: MissionWork, now, *, officer, by_mission: Mission) -> None:
+    """
+    End an officer's work on their current mission because an urgent mission
+    takes over. The mission pauses only if nobody else is still working it.
+    """
+    work.ended_at = now
+    work.save(update_fields=["ended_at"])
+
+    current = Mission.objects.select_for_update().get(pk=work.mission_id)
+    someone_still_working = MissionWork.objects.filter(
+        mission=current, ended_at__isnull=True
+    ).exists()
+    if someone_still_working or current.status != Mission.Status.IN_PROGRESS:
+        return
+
+    _close_running_period(current, now)
+    current.status = Mission.Status.PAUSED
+    current.save(update_fields=["status", "worked_seconds", "resumed_at"])
+    _log(
+        current,
+        MissionEvent.EventType.PAUSED,
+        actor=officer,
+        interrupted_by_mission_id=by_mission.id,
+    )
+
+
+def _close_running_period(mission: Mission, now) -> None:
+    """Fold the running work period into worked_seconds. The caller saves."""
+    if mission.resumed_at is not None:
+        mission.worked_seconds += max(0, int((now - mission.resumed_at).total_seconds()))
+        mission.resumed_at = None
+
+
+def _interrupt(work: MissionWork, now, *, officer, by_mission: Mission) -> None:
+    """
+    End an officer's work on their current mission because an urgent mission
+    takes over. The mission pauses only if nobody else is still working it.
+    """
+    work.ended_at = now
+    work.save(update_fields=["ended_at"])
+
+    current = Mission.objects.select_for_update().get(pk=work.mission_id)
+    someone_still_working = MissionWork.objects.filter(
+        mission=current, ended_at__isnull=True
+    ).exists()
+    if someone_still_working or current.status != Mission.Status.IN_PROGRESS:
+        return
+
+    _close_running_period(current, now)
+    current.status = Mission.Status.PAUSED
+    current.save(update_fields=["status", "worked_seconds", "resumed_at"])
+    _log(
+        current,
+        MissionEvent.EventType.PAUSED,
+        actor=officer,
+        interrupted_by_mission_id=by_mission.id,
+    )
+
+
 @transaction.atomic
 def create_mission(
     *,
@@ -205,18 +276,69 @@ def acknowledge_mission(mission: Mission, *, officer) -> Mission:
  
 @transaction.atomic
 def start_mission(mission: Mission, *, officer, latitude=None, longitude=None) -> Mission:
+    """
+    The officer starts working on a mission: the first start, resuming a paused
+    mission, or joining a shared mission another officer already started.
+
+    One mission at a time. If the officer is already working on another
+    mission, only an URGENT mission may interrupt it; the interrupted mission
+    pauses unless another assigned officer is still working it.
+    """
+    Mission.objects.select_for_update().filter(pk=mission.pk).first()
+    mission.refresh_from_db()
     _require_status(mission, "start")
     _require_assignee(mission, officer)
- 
-    mission.started_at = timezone.now()
-    mission.started_latitude = _as_decimal(latitude)
-    mission.started_longitude = _as_decimal(longitude)
+
+    now = timezone.now()
+    current = (
+        MissionWork.objects.select_for_update()
+        .filter(officer=officer, ended_at__isnull=True)
+        .first()
+    )
+    if current is not None:
+        if current.mission_id == mission.id:
+            raise MissionError("You are already working on this mission.")
+        if mission.priority != Mission.Priority.URGENT:
+            raise MissionError(
+                f"You are already working on mission #{current.mission_id}. "
+                "Complete it first; only urgent missions can interrupt it."
+            )
+        _interrupt(current, now, officer=officer, by_mission=mission)
+
+    first_start = mission.started_at is None
+    was_paused = mission.status == Mission.Status.PAUSED
+
+    if first_start:
+        mission.started_at = now
+        mission.started_latitude = _as_decimal(latitude)
+        mission.started_longitude = _as_decimal(longitude)
+    if mission.resumed_at is None:
+        mission.resumed_at = now
     mission.status = Mission.Status.IN_PROGRESS
     mission.save(
-        update_fields=["started_at", "started_latitude", "started_longitude", "status"]
+        update_fields=[
+            "started_at",
+            "started_latitude",
+            "started_longitude",
+            "resumed_at",
+            "status",
+        ]
     )
- 
-    _log(mission, MissionEvent.EventType.STARTED, actor=officer)
+
+    try:
+        # Savepoint: two taps racing past the check above hit the database's
+        # one-open-period rule instead of creating a second running mission.
+        with transaction.atomic():
+            MissionWork.objects.create(mission=mission, officer=officer, started_at=now)
+    except IntegrityError:
+        raise MissionError("You are already working on another mission.")
+
+    if first_start:
+        _log(mission, MissionEvent.EventType.STARTED, actor=officer)
+    elif was_paused:
+        _log(mission, MissionEvent.EventType.RESUMED, actor=officer)
+    else:
+        _log(mission, MissionEvent.EventType.STARTED, actor=officer, joined=True)
     return mission
  
  
@@ -234,12 +356,14 @@ def complete_mission(
             f"At least {minimum} photo(s) required before completing a mission."
         )
  
-    mission.completed_at = timezone.now()
+    now = timezone.now()
+    mission.completed_at = now
     mission.completed_latitude = _as_decimal(latitude)
     mission.completed_longitude = _as_decimal(longitude)
     mission.status = Mission.Status.COMPLETED
     if notes:
         mission.notes = notes
+    _close_running_period(mission, now)
     mission.save(
         update_fields=[
             "completed_at",
@@ -247,8 +371,12 @@ def complete_mission(
             "completed_longitude",
             "status",
             "notes",
+            "worked_seconds",
+            "resumed_at",
         ]
     )
+    # Everyone working on it is free again.
+    MissionWork.objects.filter(mission=mission, ended_at__isnull=True).update(ended_at=now)
  
     _log(mission, MissionEvent.EventType.COMPLETED, actor=officer)
     return mission
@@ -266,10 +394,22 @@ def cancel_mission(mission: Mission, *, actor, reason: str) -> Mission:
     if not reason:
         raise MissionError("A cancellation reason is required.")
  
-    mission.cancelled_at = timezone.now()
+    now = timezone.now()
+    mission.cancelled_at = now
     mission.cancellation_reason = reason
     mission.status = Mission.Status.CANCELLED
-    mission.save(update_fields=["cancelled_at", "cancellation_reason", "status"])
+    _close_running_period(mission, now)
+    mission.save(
+        update_fields=[
+            "cancelled_at",
+            "cancellation_reason",
+            "status",
+            "worked_seconds",
+            "resumed_at",
+        ]
+    )
+    # Everyone working on it is free again.
+    MissionWork.objects.filter(mission=mission, ended_at__isnull=True).update(ended_at=now)
  
     _log(mission, MissionEvent.EventType.CANCELLED, actor=actor, reason=reason)
     for officer in mission.assigned_to.all():

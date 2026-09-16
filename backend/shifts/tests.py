@@ -22,7 +22,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from missions import services as mission_services
-from missions.models import Mission
+from missions.models import Mission, MissionWork
 
 from . import services
 from .models import LocationPing, Shift
@@ -327,34 +327,36 @@ class ActiveShiftsMissionTests(TestCase):
         self.assertEqual(row["status"], "available")
         self.assertIsNone(row["current_mission"])
 
-    def test_completed_mission_makes_the_officer_available_again(self):
+    def test_cancelled_mission_makes_the_officer_available_again(self):
         mission = self._assign("Finished job")
         mission_services.start_mission(mission, officer=self.officer)
-        Mission.objects.filter(pk=mission.pk).update(
-            status=Mission.Status.COMPLETED, completed_at=timezone.now()
-        )
+        mission_services.cancel_mission(mission, actor=self.dispatcher, reason="Done elsewhere.")
 
         row = self._row()
         self.assertEqual(row["status"], "available")
         self.assertIsNone(row["current_mission"])
 
-    def test_two_started_missions_show_the_most_recently_started(self):
-        older = self._assign("Started an hour ago")
-        mission_services.start_mission(older, officer=self.officer)
-        newer = self._assign("Started just now")
-        mission_services.start_mission(newer, officer=self.officer)
-
-        # Both were started in the same test tick; space them out so the
-        # ordering under test is the one being asserted, not clock luck.
-        now = timezone.now()
-        Mission.objects.filter(pk=older.pk).update(
-            started_at=now - timezone.timedelta(hours=1)
-        )
-        Mission.objects.filter(pk=newer.pk).update(started_at=now)
+    def test_an_urgent_mission_takes_over_the_marker(self):
+        routine = self._assign("Routine patrol", priority=Mission.Priority.LOW)
+        mission_services.start_mission(routine, officer=self.officer)
+        urgent = self._assign("Officer down", priority=Mission.Priority.URGENT)
+        mission_services.start_mission(urgent, officer=self.officer)
 
         row = self._row()
         self.assertEqual(row["status"], "in_mission")
-        self.assertEqual(row["current_mission"]["id"], newer.id)
+        self.assertEqual(row["current_mission"]["id"], urgent.id)
+
+    def test_officer_on_a_paused_mission_is_available(self):
+        routine = self._assign("Routine patrol", priority=Mission.Priority.LOW)
+        mission_services.start_mission(routine, officer=self.officer)
+        urgent = self._assign("Officer down", priority=Mission.Priority.URGENT)
+        mission_services.start_mission(urgent, officer=self.officer)
+        mission_services.cancel_mission(urgent, actor=self.dispatcher, reason="False alarm.")
+
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+        self.assertFalse(MissionWork.objects.filter(officer=self.officer, ended_at__isnull=True).exists())
 class DistanceCachingTests(TestCase):
     """shift.distance_m is now the read path; ingest is what keeps it correct."""
 

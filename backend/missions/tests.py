@@ -22,8 +22,7 @@ from rest_framework.test import APIClient
 from core.registry import set_settings
  
 from . import services
-from .models import Mission, MissionEvent, MissionPhoto
- 
+from .models import Mission, MissionEvent, MissionPhoto, MissionWork 
 User = get_user_model()
  
  
@@ -525,3 +524,123 @@ class CategoryTests(MissionTestCase):
 
         rows = self.client.get("/api/v1/missions/?category=Traffic").json()
         self.assertEqual([row["title"] for row in rows], ["Double parking"])
+
+
+
+
+
+class OneMissionAtATimeTests(MissionTestCase):
+    """An officer works one mission at a time; only urgent missions interrupt."""
+
+    def mission(self, title, priority=Mission.Priority.MEDIUM, officers=None):
+        return services.create_mission(
+            created_by=self.dispatcher,
+            title=title,
+            latitude=34.4367,
+            longitude=35.8497,
+            priority=priority,
+            officers=officers or [self.officer],
+        )
+
+    def open_work(self, officer):
+        return MissionWork.objects.filter(officer=officer, ended_at__isnull=True)
+
+    def test_a_second_non_urgent_mission_is_refused(self):
+        first = self.mission("Patrol")
+        services.start_mission(first, officer=self.officer)
+        second = self.mission("Parking", priority=Mission.Priority.HIGH)
+
+        with self.assertRaises(services.MissionError):
+            services.start_mission(second, officer=self.officer)
+
+        second.refresh_from_db()
+        self.assertEqual(second.status, Mission.Status.ASSIGNED)
+        self.assertEqual(self.open_work(self.officer).get().mission_id, first.id)
+
+    def test_starting_the_same_mission_twice_is_refused(self):
+        mission = self.mission("Patrol")
+        services.start_mission(mission, officer=self.officer)
+        with self.assertRaises(services.MissionError):
+            services.start_mission(mission, officer=self.officer)
+
+    def test_an_urgent_mission_pauses_the_current_one(self):
+        routine = self.mission("Patrol")
+        services.start_mission(routine, officer=self.officer)
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+
+        services.start_mission(urgent, officer=self.officer)
+
+        routine.refresh_from_db()
+        self.assertEqual(routine.status, Mission.Status.PAUSED)
+        self.assertIsNone(routine.resumed_at)
+        self.assertEqual(urgent.status, Mission.Status.IN_PROGRESS)
+        self.assertEqual(self.open_work(self.officer).get().mission_id, urgent.id)
+        paused = routine.events.get(event_type="paused")
+        self.assertEqual(paused.metadata["interrupted_by_mission_id"], urgent.id)
+
+    def test_a_shared_mission_keeps_going_when_one_officer_leaves(self):
+        shared = self.mission("Crowd control", officers=[self.officer, self.other_officer])
+        services.start_mission(shared, officer=self.officer)
+        services.start_mission(shared, officer=self.other_officer)  # joins
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+
+        services.start_mission(urgent, officer=self.officer)
+
+        shared.refresh_from_db()
+        self.assertEqual(shared.status, Mission.Status.IN_PROGRESS)
+        self.assertEqual(self.open_work(self.other_officer).get().mission_id, shared.id)
+
+    def test_resuming_continues_the_clock_without_counting_the_pause(self):
+        routine = self.mission("Patrol")
+        services.start_mission(routine, officer=self.officer)
+        # Pretend the officer had been working it for ten minutes.
+        Mission.objects.filter(pk=routine.pk).update(
+            resumed_at=timezone.now() - timezone.timedelta(minutes=10)
+        )
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+        services.start_mission(urgent, officer=self.officer)
+        services.cancel_mission(urgent, actor=self.dispatcher, reason="False alarm.")
+
+        routine.refresh_from_db()
+        worked_before_pause = routine.worked_seconds
+        self.assertGreaterEqual(worked_before_pause, 600)
+
+        services.start_mission(routine, officer=self.officer)  # resume
+
+        routine.refresh_from_db()
+        self.assertEqual(routine.status, Mission.Status.IN_PROGRESS)
+        self.assertEqual(self.event_types(routine)[-1], "resumed")
+        self.assertLess(routine.duration_seconds - worked_before_pause, 5)
+
+    def test_completing_frees_the_officer(self):
+        mission = self.mission("Patrol")
+        services.start_mission(mission, officer=self.officer)
+        self.attach_photo(mission)
+        services.complete_mission(mission, officer=self.officer)
+
+        self.assertFalse(self.open_work(self.officer).exists())
+        next_one = self.mission("Next patrol")
+        services.start_mission(next_one, officer=self.officer)
+        self.assertEqual(next_one.status, Mission.Status.IN_PROGRESS)
+
+    def test_a_paused_mission_can_be_cancelled(self):
+        routine = self.mission("Patrol")
+        services.start_mission(routine, officer=self.officer)
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+        services.start_mission(urgent, officer=self.officer)
+
+        routine.refresh_from_db()
+        services.cancel_mission(routine, actor=self.dispatcher, reason="No longer needed.")
+        self.assertEqual(routine.status, Mission.Status.CANCELLED)
+
+    def test_the_api_explains_why_a_start_is_refused(self):
+        first = self.mission("Patrol")
+        services.start_mission(first, officer=self.officer)
+        second = self.mission("Parking")
+
+        client = APIClient()
+        client.force_authenticate(self.officer)
+        response = client.post(f"/api/v1/missions/{second.pk}/start/", {}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("only urgent missions can interrupt", response.json()["detail"])
