@@ -22,6 +22,7 @@ class Mission(models.Model):
         ASSIGNED = "assigned", "Assigned"  # sent to an officer, not yet seen
         ACKNOWLEDGED = "acknowledged", "Acknowledged"  # officer confirmed receipt
         IN_PROGRESS = "in_progress", "In progress"  # officer is on it
+        PAUSED = "paused", "Paused"  # interrupted by an urgent mission, resumable
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
 
@@ -68,6 +69,8 @@ class Mission(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    worked_seconds = models.PositiveIntegerField(default=0)
+    resumed_at = models.DateTimeField(null=True, blank=True)
 
     started_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     started_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -108,16 +111,17 @@ class Mission(models.Model):
     @property
     def duration_seconds(self) -> int | None:
         """
-        Time actively spent on this mission: from `started_at` until it
-        finished (`completed_at`/`cancelled_at`), or now if still in
-        progress. None before work has started — new/assigned/acknowledged
-        missions have no duration yet.
+        Time actively worked on this mission, pauses excluded: the finished
+        periods (`worked_seconds`) plus the one running now, if any. None
+        before work has started — new/assigned/acknowledged missions have no
+        duration yet.
         """
         if self.started_at is None:
             return None
-        end = self.completed_at or self.cancelled_at or timezone.now()
-        return int((end - self.started_at).total_seconds())
-
+        running = 0
+        if self.resumed_at is not None:
+            running = int((timezone.now() - self.resumed_at).total_seconds())
+        return self.worked_seconds + running
 
 class MissionPhoto(models.Model):
     """Evidence attached on completion. Deduped the same way as location pings."""
@@ -163,6 +167,8 @@ class MissionEvent(models.Model):
         REASSIGNED = "reassigned", "Reassigned"
         ACKNOWLEDGED = "acknowledged", "Acknowledged"
         STARTED = "started", "Started"
+        PAUSED = "paused", "Paused"
+        RESUMED = "resumed", "Resumed"
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
         PHOTO_ADDED = "photo_added", "Photo added"
@@ -195,3 +201,48 @@ class MissionEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.event_type} on mission {self.mission_id}"
+
+
+
+
+class MissionWork(models.Model):
+    """
+    One officer's working period on a mission: from pressing Start until they
+    complete it, it is cancelled, or an urgent mission interrupts them.
+
+    An officer has at most one open period (ended_at empty). The database
+    enforces it, like one active shift per officer, so "one mission at a time"
+    cannot be broken by a double tap, a retry or a shell edit.
+    """
+
+    mission = models.ForeignKey(
+        Mission, on_delete=models.CASCADE, related_name="work_periods"
+    )
+    officer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,  # work history is retained, like mission events
+        related_name="mission_work_periods",
+    )
+    started_at = models.DateTimeField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "missions_missionwork"
+        ordering = ["started_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["officer"],
+                condition=models.Q(ended_at__isnull=True),
+                name="one_open_mission_work_per_officer",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(ended_at__isnull=True)
+                | models.Q(ended_at__gte=models.F("started_at")),
+                name="mission_work_ends_after_it_starts",
+            ),
+        ]
+        indexes = [models.Index(fields=["mission", "ended_at"])]
+
+    def __str__(self) -> str:
+        state = "working" if self.ended_at is None else "ended"
+        return f"officer {self.officer_id} on mission {self.mission_id} ({state})"

@@ -5,6 +5,7 @@ export type MissionStatus =
   | 'assigned'
   | 'acknowledged'
   | 'in_progress'
+  | 'paused'
   | 'completed'
   | 'cancelled';
 
@@ -16,6 +17,8 @@ export type MissionEventType =
   | 'reassigned'
   | 'acknowledged'
   | 'started'
+  | 'paused'
+  | 'resumed'
   | 'completed'
   | 'cancelled'
   | 'photo_added'
@@ -108,6 +111,7 @@ export const MISSION_STATUSES: MissionStatus[] = [
   'assigned',
   'acknowledged',
   'in_progress',
+  'paused',
   'completed',
   'cancelled',
 ];
@@ -131,6 +135,8 @@ export function eventLabel(type: MissionEventType): string {
     reassigned: 'Reassigned',
     acknowledged: 'Acknowledged',
     started: 'Started',
+    paused: 'Paused (urgent mission)',
+    resumed: 'Resumed',
     completed: 'Completed',
     cancelled: 'Cancelled',
     photo_added: 'Photo added',
