@@ -1,4 +1,4 @@
-##API contract - panic
+# API contract - panic
 
 panic/tests.py::TriggerTests, CancelTests, GraceWindowSettingTests, ResolveTests, ConstraintTests, ActiveFeedTests
 

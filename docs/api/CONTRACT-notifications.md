@@ -1,4 +1,4 @@
-##API contract - notifications
+# API contract - notifications
 
 notifications/tests.py::CreationTests, ReadStateTests, ScopingTests, ApiTests
 
