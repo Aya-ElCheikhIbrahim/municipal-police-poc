@@ -101,7 +101,7 @@ export function MissionTable({
                 </div>
               )}
               <div className="flex items-center justify-between gap-2 pt-1">
-                <StatusBadge status={mission.status} createdAt={mission.created_at} />
+                <StatusBadge status={mission.status} />
                 <span className="text-sm text-slate-500">{formatTime(mission.created_at)}</span>
               </div>
               {mission.duration_seconds !== null && (
@@ -183,7 +183,7 @@ export function MissionTable({
                     </span>
                   </td>
                   <td className="p-7">
-                    <StatusBadge status={mission.status} createdAt={mission.created_at} />
+                    <StatusBadge status={mission.status} />
                   </td>
                   <td className="p-7 text-slate-600">
                     {formatMissionDuration(mission.duration_seconds)}
