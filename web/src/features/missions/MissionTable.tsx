@@ -129,17 +129,18 @@ export function MissionTable({
         })}
       </div>
 
-      {/* Desktop/tablet: table */}
-      <div className="hidden md:block border border-slate-200 rounded-md overflow-hidden overflow-x-auto">
-        <table className="w-full text-left text-xl border-collapse">
+      {/* Desktop/tablet: table. The box shrinks to the space left and scrolls itself,
+          so the column names (sticky cells below) stay visible. */}
+      <div className="hidden md:block min-h-0 border border-slate-200 rounded-md overflow-auto">
+                <table className="w-full text-left text-sm lg:text-base border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-lg border-b border-slate-200">
-              <th className="p-7">Title</th>
-              <th className="p-7">Category</th>
-              <th className="p-7">Status</th>
-              <th className="p-7">Mission Duration</th>
-              <th className="p-7">Assigned To</th>
-              <th className="p-7">Created</th>
+            <tr className="text-slate-500 font-bold uppercase tracking-wider text-xs lg:text-sm *:sticky *:top-0 *:z-10 *:bg-slate-50 *:shadow-[inset_0_-1px_0_var(--color-slate-200)]">
+              <th className="px-4 py-3">Title</th>
+              <th className="px-4 py-3">Category</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Mission Duration</th>
+              <th className="px-4 py-3">Assigned To</th>
+              <th className="px-4 py-3">Created</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -152,47 +153,47 @@ export function MissionTable({
                   onClick={() => onSelect(mission.id)}
                   className={`transition-colors cursor-pointer ${ROW_PRIORITY_STYLES[mission.priority]}`}
                 >
-                  <td className="p-7">
-                    <div className="font-semibold text-slate-900 text-xl">{mission.title}</div>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-slate-900 text-base">{mission.title}</div>
                     <div className="flex flex-col gap-1 mt-1.5">
                       {mission.address && (
-                        <span className="text-base text-slate-500">{mission.address}</span>
+                        <span className="text-sm text-slate-500">{mission.address}</span>
                       )}
                       {desc && (
-                        <span className="text-base text-slate-600 line-clamp-1 italic">
+                        <span className="text-sm text-slate-600 line-clamp-1 italic">
                           "{desc}"
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-2">
                       {mission.is_overdue && (
-                        <span className="text-base font-bold text-rose-600 uppercase bg-rose-100 px-2 py-0.5 rounded">
+                        <span className="text-xs font-bold text-rose-600 uppercase bg-rose-100 px-2 py-0.5 rounded">
                           Overdue
                         </span>
                       )}
                       {mission.awaiting_acknowledgement && (
-                        <span className="text-base font-bold text-amber-600 uppercase bg-amber-100 px-2 py-0.5 rounded">
+                        <span className="text-xs font-bold text-amber-600 uppercase bg-amber-100 px-2 py-0.5 rounded">
                           No response
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="p-7">
-                    <span className="inline-block bg-slate-200/80 text-slate-700 text-sm font-bold px-3 py-1 rounded uppercase tracking-wider">
+                  <td className="px-4 py-3">
+                    <span className="inline-block bg-slate-200/80 text-slate-700 text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">
                       {category}
                     </span>
                   </td>
-                  <td className="p-7">
+                  <td className="px-4 py-3">
                     <StatusBadge status={mission.status} />
                   </td>
-                  <td className="p-7 text-slate-600">
+                  <td className="px-4 py-3 text-slate-600">
                     {formatMissionDuration(mission.duration_seconds)}
                   </td>
-                  <td className="p-7 text-slate-700">
+                  <td className="px-4 py-3 text-slate-700">
                     {mission.assigned_to && mission.assigned_to.length > 0 ? (
                       <div className="flex flex-col gap-0.5">
                         {mission.assigned_to.map((officer, i) => (
-                          <div key={officer.id || i} className="text-base">
+                          <div key={officer.id || i} className="text-sm">
                             {officer.full_name}
                             <span className="text-slate-500"> · {officer.badge_number}</span>
                           </div>
@@ -202,7 +203,7 @@ export function MissionTable({
                       <span className="text-slate-400">Unassigned</span>
                     )}
                   </td>
-                  <td className="p-7 text-slate-500">{formatTime(mission.created_at)}</td>
+                  <td className="px-4 py-3 text-slate-500">{formatTime(mission.created_at)}</td>
                 </tr>
               );
             })}
@@ -215,38 +216,38 @@ export function MissionTable({
 
 function LoadingTable() {
   return (
-    <div className="hidden md:block border border-slate-200 rounded-md overflow-hidden">
-      <table className="w-full text-left text-xl border-collapse">
+    <div className="hidden md:block shrink-0 border border-slate-200 rounded-md overflow-hidden">
+            <table className="w-full text-left text-sm lg:text-base border-collapse">
         <thead>
-          <tr className="bg-slate-50/80 text-slate-400 font-semibold uppercase tracking-wider text-lg border-b border-slate-200">
-            <th className="p-7">Title</th>
-            <th className="p-7">Category</th>
-            <th className="p-7">Status</th>
-            <th className="p-7">Mission Duration</th>
-            <th className="p-7">Assigned To</th>
-            <th className="p-7">Created</th>
+          <tr className="bg-slate-50/80 text-slate-400 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-200">
+            <th className="px-4 py-3">Title</th>
+            <th className="px-4 py-3">Category</th>
+            <th className="px-4 py-3">Status</th>
+            <th className="px-4 py-3">Mission Duration</th>
+            <th className="px-4 py-3">Assigned To</th>
+            <th className="px-4 py-3">Created</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {[1, 2, 3].map((row) => (
             <tr key={row} className="animate-pulse">
-              <td className="p-7">
+              <td className="px-4 py-3">
                 <div className="h-4 bg-slate-200 rounded-full w-3/4"></div>
                 <div className="h-4 bg-slate-200 rounded-full w-1/2 mt-2"></div>
               </td>
-              <td className="p-7">
+              <td className="px-4 py-3">
                 <div className="h-6 bg-slate-200 rounded w-24"></div>
               </td>
-              <td className="p-7">
+              <td className="px-4 py-3">
                 <div className="h-4 bg-slate-200 rounded-full w-24"></div>
               </td>
-              <td className="p-7">
+              <td className="px-4 py-3">
                 <div className="h-4 bg-slate-200 rounded-full w-16"></div>
               </td>
-              <td className="p-7">
+              <td className="px-4 py-3">
                 <div className="h-4 bg-slate-200 rounded-full w-52"></div>
               </td>
-              <td className="p-7">
+              <td className="px-4 py-3">
                 <div className="h-4 bg-slate-200 rounded-full w-16"></div>
               </td>
             </tr>

@@ -85,14 +85,14 @@ export function CreateMissionPage({
   }
 
   const inputClass =
-    'w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-lg border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864]';
+    'w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864]';
 
   return (
     <div className="flex-1 bg-white flex flex-col lg:flex-row w-full overflow-y-auto lg:overflow-hidden">
-      <div className="w-full lg:w-1/2 p-4 sm:p-8 overflow-y-auto space-y-5 sm:space-y-7">
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-900">New mission</h2>
+      <div className="w-full lg:w-1/2 p-4 lg:p-5 flex flex-col gap-2 lg:gap-3 lg:min-h-0 lg:overflow-hidden">
+        <h2 className="text-base lg:text-lg font-bold text-slate-900">New mission</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 lg:gap-2.5 lg:flex-1 lg:min-h-0">
           {errors.detail && (
             <div className="text-sm sm:text-base text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 sm:px-4 py-2 sm:py-3">
               {errors.detail}
@@ -100,7 +100,7 @@ export function CreateMissionPage({
           )}
 
           <div>
-            <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+            <label className="block text-xs font-medium text-slate-500 mb-0.5">
               Title
             </label>
             <input
@@ -115,20 +115,20 @@ export function CreateMissionPage({
           </div>
 
           <div>
-            <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+            <label className="block text-xs font-medium text-slate-500 mb-0.5">
               Description
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className={`${inputClass} resize-none`}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Category
               </label>
               <select
@@ -144,7 +144,7 @@ export function CreateMissionPage({
             </div>
 
             <div>
-              <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Priority
               </label>
               <select
@@ -162,11 +162,11 @@ export function CreateMissionPage({
           </div>
 
           {/* Multi-Officer Selection Area */}
-          <div>
-            <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+          <div className="flex flex-col lg:flex-1 lg:min-h-0">
+            <label className="block text-xs font-medium text-slate-500 mb-0.5">
               Assign to ({selectedOfficerIds.length} selected)
             </label>
-            <div className="border border-slate-200 rounded-md max-h-48 overflow-y-auto divide-y divide-slate-100 p-1 bg-white">
+            <div className="border border-slate-200 rounded-md max-h-32 lg:max-h-none lg:flex-1 lg:min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 p-1 bg-white">
               {officers.length === 0 ? (
                 <p className="p-3 text-xs sm:text-sm text-amber-600">
                   No officers on duty right now.
@@ -177,7 +177,7 @@ export function CreateMissionPage({
                   return (
                     <label
                       key={entry.officer.id}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer rounded-sm"
+                      className="flex items-center gap-2 px-2.5 py-1 hover:bg-slate-50 cursor-pointer rounded-sm"
                     >
                       <input
                         type="checkbox"
@@ -185,7 +185,7 @@ export function CreateMissionPage({
                         onChange={() => toggleOfficer(entry.officer.id)}
                         className="w-4 h-4 text-[#1F3864] rounded border-slate-300 focus:ring-[#1F3864]"
                       />
-                      <span className="text-sm sm:text-base text-slate-700">
+                      <span className="text-sm text-slate-700">
                         {entry.officer.full_name} · {entry.officer.badge_number}
                       </span>
                     </label>
@@ -195,9 +195,9 @@ export function CreateMissionPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="relative">
-              <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Address
               </label>
               <input
@@ -230,7 +230,7 @@ export function CreateMissionPage({
             </div>
 
             <div>
-              <label className="block text-sm sm:text-base font-medium text-slate-500 mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Deadline — optional
               </label>
               <input
@@ -242,11 +242,11 @@ export function CreateMissionPage({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4 pt-3 sm:pt-5">
+          <div className="flex items-center gap-2 pt-1 shrink-0">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-base sm:text-lg font-semibold px-5 sm:px-7 py-2.5 sm:py-3 rounded-md transition-colors cursor-pointer"
+              className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-sm font-semibold px-4 py-1.5 rounded-md transition-colors cursor-pointer"
             >
               {isSubmitting
                 ? 'Creating…'
@@ -257,7 +257,7 @@ export function CreateMissionPage({
             <button
               type="button"
               onClick={onCancel}
-              className="bg-white border border-slate-200 text-slate-700 text-base sm:text-lg font-semibold px-5 sm:px-7 py-2.5 sm:py-3 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
+              className="bg-white border border-slate-200 text-slate-700 text-sm font-semibold px-4 py-1.5 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Cancel
             </button>

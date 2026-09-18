@@ -57,20 +57,20 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
   }
 
   const inputClass =
-    'w-full px-4 py-3 text-lg border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864]';
+    'w-full px-3 py-2 text-sm lg:text-base border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864]';
 
   return (
-<div className="bg-white rounded-lg border border-slate-200/80 shadow-xs p-10 mt-2">
-      <h2 className="text-2xl font-bold text-slate-900 mb-8">Add user</h2>
+<div className="bg-white rounded-lg border border-slate-200/80 shadow-xs p-5 lg:p-6 mt-2">
+      <h2 className="text-lg lg:text-xl font-bold text-slate-900 mb-5">Add user</h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {errors.detail && (
-          <div className="text-base text-rose-700 bg-rose-50 border border-rose-200 rounded px-4 py-3">
+          <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded px-4 py-2">
             {errors.detail}
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-7">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Full name" error={errors.full_name}>
             <input
               type="text"
@@ -94,7 +94,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-7">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Phone" error={errors.phone}>
             <input
               type="text"
@@ -118,7 +118,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-7">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Username" error={errors.username}>
             <input
               type="text"
@@ -143,7 +143,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-7">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Preferred language" error={errors.preferred_language}>
             <select
               value={language}
@@ -156,18 +156,18 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
           </Field>
         </div>
 
-        <div className="flex items-center gap-4 pt-4">
+        <div className="flex items-center gap-3 pt-2">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-lg font-semibold px-7 py-3.5 rounded-md transition-colors shadow-xs cursor-pointer"
+            className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-sm lg:text-base font-semibold px-5 py-2 rounded-md transition-colors shadow-xs cursor-pointer"
           >
             {isSubmitting ? 'Creating…' : 'Create user'}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="bg-white border border-slate-200 text-slate-700 text-lg font-semibold px-7 py-3.5 rounded-md hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+            className="bg-white border border-slate-200 text-slate-700 text-sm lg:text-base font-semibold px-5 py-2 rounded-md hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
           >
             Cancel
           </button>
@@ -188,9 +188,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-base font-semibold text-slate-600 mb-2">{label}</label>
+      <label className="block text-xs lg:text-sm font-semibold text-slate-600 mb-1">{label}</label>
       {children}
-      {error && <p className="text-sm text-rose-600 mt-1.5">{error}</p>}
+      {error && <p className="text-xs lg:text-sm text-rose-600 mt-1">{error}</p>}
     </div>
   );
 }

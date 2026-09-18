@@ -25,28 +25,29 @@ export function UsersPage() {
   }
 
   return (
-    <div className="flex-1 bg-slate-50 p-4 sm:p-6 overflow-y-auto">
-      <div className="space-y-5 sm:space-y-7">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <FilterButton active={!showActiveOnly} onClick={() => setShowActiveOnly(false)}>
-              All roles
-            </FilterButton>
-            <FilterButton active={showActiveOnly} onClick={() => setShowActiveOnly(true)}>
-              Active only
-            </FilterButton>
-          </div>
-
-          <button
-            onClick={() => setIsAddingUser(true)}
-            className="bg-[#1F3864] hover:bg-[#182c50] text-white text-sm sm:text-xl font-semibold px-4 sm:px-7 py-2 sm:py-3.5 rounded-md transition-colors shadow-xs cursor-pointer"
-          >
-            Add user
-          </button>
+    <div className="flex-1 bg-slate-50 flex flex-col min-h-0">
+      {/* Filters bar stays fixed at the top; only the user list below scrolls. */}
+      <div className="shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <FilterButton active={!showActiveOnly} onClick={() => setShowActiveOnly(false)}>
+            All roles
+          </FilterButton>
+          <FilterButton active={showActiveOnly} onClick={() => setShowActiveOnly(true)}>
+            Active only
+          </FilterButton>
         </div>
 
+        <button
+          onClick={() => setIsAddingUser(true)}
+          className="bg-[#1F3864] hover:bg-[#182c50] text-white text-sm lg:text-base font-semibold px-4 lg:px-5 py-2 rounded-md transition-colors shadow-xs cursor-pointer"
+        >
+          Add user
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pt-4 pb-4 sm:pb-6 flex flex-col space-y-4 lg:space-y-5">
         {error && (
-          <div className="text-base text-rose-700 bg-rose-50 border border-rose-200 rounded px-4 py-3">
+          <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded px-4 py-2">
             {error}
           </div>
         )}
@@ -92,17 +93,18 @@ export function UsersPage() {
           )}
         </div>
 
-        {/* Tablet/desktop: table */}
-        <div className="hidden sm:block bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden overflow-x-auto">
-          <table className="w-full text-left text-xl border-collapse">
+        {/* Tablet/desktop: table. The box shrinks to the space left and scrolls itself,
+            so the column names (sticky cells below) stay visible. */}
+        <div className="hidden sm:block min-h-0 bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-auto">
+          <table className="w-full text-left text-sm lg:text-base border-collapse">
             <thead>
-              <tr className="bg-slate-50/70 text-slate-400 font-semibold uppercase tracking-wider text-lg border-b border-slate-200/80">
-                <th className="p-7">NAME</th>
-                <th className="p-7">BADGE</th>
-                <th className="p-7">ROLE</th>
-                <th className="p-7">PHONE</th>
-                <th className="p-7">STATUS</th>
-                <th className="p-7 text-right"></th>
+              <tr className="text-slate-400 font-semibold uppercase tracking-wider text-xs lg:text-sm *:sticky *:top-0 *:z-10 *:bg-slate-50 *:shadow-[inset_0_-1px_0_var(--color-slate-200)]">
+                <th className="px-4 py-3">NAME</th>
+                <th className="px-4 py-3">BADGE</th>
+                <th className="px-4 py-3">ROLE</th>
+                <th className="px-4 py-3">PHONE</th>
+                <th className="px-4 py-3">STATUS</th>
+                <th className="px-4 py-3 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -110,20 +112,20 @@ export function UsersPage() {
                 <SkeletonRows />
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm lg:text-base text-slate-500">
                     No users match this filter.
                   </td>
                 </tr>
               ) : (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-7 font-semibold text-slate-900">{user.full_name}</td>
-                    <td className="p-7 text-slate-600">{user.badge_number}</td>
-                    <td className="p-7 text-slate-600">{roleLabel(user.role)}</td>
-                    <td className="p-7 text-slate-600 font-mono">{user.phone || '—'}</td>
-                    <td className="p-7">
+                    <td className="px-4 py-3 font-semibold text-slate-900">{user.full_name}</td>
+                    <td className="px-4 py-3 text-slate-600">{user.badge_number}</td>
+                    <td className="px-4 py-3 text-slate-600">{roleLabel(user.role)}</td>
+                    <td className="px-4 py-3 text-slate-600 font-mono">{user.phone || '—'}</td>
+                    <td className="px-4 py-3">
                       <span
-                        className={`px-5 py-2 rounded-full text-lg font-semibold ${
+                        className={`px-3 py-1 rounded-full text-xs lg:text-sm font-semibold ${
                           user.is_active
                             ? 'bg-emerald-100/70 text-emerald-700'
                             : 'bg-slate-100 text-slate-400'
@@ -132,10 +134,10 @@ export function UsersPage() {
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="p-7 text-right">
+                    <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => setActive(user.id, !user.is_active)}
-                        className="text-indigo-600 hover:text-indigo-800 font-semibold text-xl cursor-pointer"
+                        className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm lg:text-base cursor-pointer"
                       >
                         {user.is_active ? 'Deactivate' : 'Activate'}
                       </button>
@@ -163,7 +165,7 @@ function FilterButton({
   return (
     <button
       onClick={onClick}
-      className={`px-3 sm:px-6 py-1.5 sm:py-3 rounded-md text-sm sm:text-xl font-semibold border transition-all cursor-pointer ${
+      className={`px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold border transition-all cursor-pointer ${
         active
           ? 'bg-white text-slate-800 border-slate-300 shadow-xs'
           : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
@@ -180,7 +182,7 @@ function SkeletonRows() {
       {[1, 2, 3].map((row) => (
         <tr key={row} className="animate-pulse">
           {[1, 2, 3, 4, 5, 6].map((cell) => (
-            <td key={cell} className="p-7">
+            <td key={cell} className="px-4 py-3">
               <div className="h-4 bg-slate-200 rounded-full w-3/4"></div>
             </td>
           ))}
