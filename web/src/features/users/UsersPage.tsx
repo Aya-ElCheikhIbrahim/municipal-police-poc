@@ -25,26 +25,27 @@ export function UsersPage() {
   }
 
   return (
-    <div className="flex-1 bg-slate-50 p-4 sm:p-6 overflow-y-auto">
-      <div className="space-y-4 lg:space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <FilterButton active={!showActiveOnly} onClick={() => setShowActiveOnly(false)}>
-              All roles
-            </FilterButton>
-            <FilterButton active={showActiveOnly} onClick={() => setShowActiveOnly(true)}>
-              Active only
-            </FilterButton>
-          </div>
-
-          <button
-            onClick={() => setIsAddingUser(true)}
-            className="bg-[#1F3864] hover:bg-[#182c50] text-white text-sm lg:text-base font-semibold px-4 lg:px-5 py-2 rounded-md transition-colors shadow-xs cursor-pointer"
-          >
-            Add user
-          </button>
+    <div className="flex-1 bg-slate-50 flex flex-col min-h-0">
+      {/* Filters bar stays fixed at the top; only the user list below scrolls. */}
+      <div className="shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <FilterButton active={!showActiveOnly} onClick={() => setShowActiveOnly(false)}>
+            All roles
+          </FilterButton>
+          <FilterButton active={showActiveOnly} onClick={() => setShowActiveOnly(true)}>
+            Active only
+          </FilterButton>
         </div>
 
+        <button
+          onClick={() => setIsAddingUser(true)}
+          className="bg-[#1F3864] hover:bg-[#182c50] text-white text-sm lg:text-base font-semibold px-4 lg:px-5 py-2 rounded-md transition-colors shadow-xs cursor-pointer"
+        >
+          Add user
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pt-4 pb-4 sm:pb-6 flex flex-col space-y-4 lg:space-y-5">
         {error && (
           <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded px-4 py-2">
             {error}
@@ -92,11 +93,12 @@ export function UsersPage() {
           )}
         </div>
 
-        {/* Tablet/desktop: table */}
-        <div className="hidden sm:block bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden overflow-x-auto">
+        {/* Tablet/desktop: table. The box shrinks to the space left and scrolls itself,
+            so the column names (sticky cells below) stay visible. */}
+        <div className="hidden sm:block min-h-0 bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-auto">
           <table className="w-full text-left text-sm lg:text-base border-collapse">
             <thead>
-              <tr className="bg-slate-50/70 text-slate-400 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-200/80">
+              <tr className="text-slate-400 font-semibold uppercase tracking-wider text-xs lg:text-sm *:sticky *:top-0 *:z-10 *:bg-slate-50 *:shadow-[inset_0_-1px_0_var(--color-slate-200)]">
                 <th className="px-4 py-3">NAME</th>
                 <th className="px-4 py-3">BADGE</th>
                 <th className="px-4 py-3">ROLE</th>
