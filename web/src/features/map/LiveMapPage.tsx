@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useActiveOfficers } from '../officers/useOfficers';
 import { useLeafletMap } from './useLeafletMap';
 import { useOfficerMarkers } from './useOfficerMarkers';
@@ -12,10 +12,28 @@ import {
   displayOfficerStatus,
 } from '../officers/types';
 
-export function LiveMapPage() {
+/** A request to zoom in on an officer, e.g. from "Locate on Map" on a panic banner. */
+export interface MapFocus {
+  officerId: number;
+  latitude: number;
+  longitude: number;
+  /** Changes on every click, so asking for the same officer again zooms again. */
+  requestedAt: number;
+}
+
+const FOCUS_ZOOM = 17;
+
+export function LiveMapPage({ focus = null }: { focus?: MapFocus | null }) {
   const { officers, isLoading, error, secondsSinceUpdate } = useActiveOfficers();
-  const [selectedOfficerId, setSelectedOfficerId] = useState<number | null>(null);
+  const [selectedOfficerId, setSelectedOfficerId] = useState<number | null>(focus?.officerId ?? null);
   const [showList, setShowList] = useState(true);
+
+  // A new focus selects that officer, so their details and path show on the right.
+  const [handledFocus, setHandledFocus] = useState<MapFocus | null>(focus);
+  if (focus !== handledFocus) {
+    setHandledFocus(focus);
+    if (focus) setSelectedOfficerId(focus.officerId);
+  }
 
   const { containerRef, mapRef } = useLeafletMap();
 
@@ -31,7 +49,20 @@ export function LiveMapPage() {
     officerId: selectedOfficerId,
   });
 
+  // Zoom in on the focused spot. Declared after useOfficerMarkers so it runs after
+  // its pan-to-selected effect and is not cut short by it.
+  useEffect(() => {
+    if (!focus) return;
+    mapRef.current?.flyTo([focus.latitude, focus.longitude], FOCUS_ZOOM);
+  }, [focus, mapRef]);
+
   const selected = officers.find((o) => o.officer.id === selectedOfficerId) ?? null;
+
+  // Officers in panic go to the top of the list; everyone else keeps the backend order.
+  const listedOfficers = [...officers].sort(
+    (a, b) =>
+      Number(displayOfficerStatus(b) === 'panic') - Number(displayOfficerStatus(a) === 'panic'),
+  );
 
   return (
     <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_2fr_1fr] lg:grid-rows-[minmax(0,1fr)] w-full min-h-0 overflow-y-auto lg:overflow-hidden">
@@ -69,7 +100,7 @@ export function LiveMapPage() {
               </p>
             </div>
           ) : (
-            officers.map((entry) => (
+            listedOfficers.map((entry) => (
               <OfficerRow
                 key={entry.officer.id}
                 entry={entry}

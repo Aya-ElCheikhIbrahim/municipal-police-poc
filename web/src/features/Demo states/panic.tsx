@@ -73,7 +73,7 @@ export function ConnectionOverlay({
 interface PanicOverlayProps {
   panics: PanicAlert[];
   onClose: (id: number) => void;
-  onLocate: (latitude: string, longitude: string) => void;
+  onLocate: (panic: PanicAlert) => void;
 }
 
 export function PanicOverlay({
@@ -98,7 +98,7 @@ export function PanicOverlay({
 
             <div className="flex flex-col">
               <span className="font-extrabold text-xs uppercase tracking-wider">
-                🚨 {panic.officer.full_name} — PANIC ALERT
+                {panic.officer.full_name} — PANIC ALERT
               </span>
 
               <span className="text-xs text-rose-100">
@@ -110,9 +110,7 @@ export function PanicOverlay({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() =>
-                onLocate(panic.latitude, panic.longitude)
-              }
+              onClick={() => onLocate(panic)}
               className="bg-white text-rose-700 hover:bg-rose-50 text-xs font-bold px-3 py-1 rounded transition shadow-xs cursor-pointer"
             >
               Locate on Map
