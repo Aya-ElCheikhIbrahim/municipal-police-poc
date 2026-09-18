@@ -129,11 +129,12 @@ export function MissionTable({
         })}
       </div>
 
-      {/* Desktop/tablet: table */}
-      <div className="hidden md:block shrink-0 border border-slate-200 rounded-md overflow-hidden overflow-x-auto">
+      {/* Desktop/tablet: table. The box shrinks to the space left and scrolls itself,
+          so the column names (sticky cells below) stay visible. */}
+      <div className="hidden md:block min-h-0 border border-slate-200 rounded-md overflow-auto">
                 <table className="w-full text-left text-sm lg:text-base border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-200">
+            <tr className="text-slate-500 font-bold uppercase tracking-wider text-xs lg:text-sm *:sticky *:top-0 *:z-10 *:bg-slate-50 *:shadow-[inset_0_-1px_0_var(--color-slate-200)]">
               <th className="px-4 py-3">Title</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Status</th>
