@@ -34,11 +34,11 @@ export function LiveMapPage() {
   const selected = officers.find((o) => o.officer.id === selectedOfficerId) ?? null;
 
   return (
-    <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_2fr_1fr] w-full min-h-0">
-      <aside className={`bg-white border-r border-slate-200 flex-col z-10 shadow-xs overflow-hidden lg:flex ${showList ? 'flex' : 'hidden'} max-h-64 lg:max-h-none`}>
-        <div className="p-4 lg:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <span className="font-bold text-lg lg:text-2xl text-slate-700">On duty</span>
-          <span className="text-sm lg:text-lg text-slate-400 font-medium">
+    <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_2fr_1fr] lg:grid-rows-[minmax(0,1fr)] w-full min-h-0 overflow-y-auto lg:overflow-hidden">
+            <aside className={`bg-white border-r border-slate-200 flex-col z-10 shadow-xs overflow-hidden lg:flex ${showList ? 'flex' : 'hidden'} max-h-64 lg:max-h-none lg:min-h-0`}>
+        <div className="p-4 lg:p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <span className="font-bold text-lg lg:text-xl text-slate-700">On duty</span>
+          <span className="text-sm lg:text-base text-slate-400 font-medium">
             {isLoading ? '…' : `${officers.length} officers`}
           </span>
         </div>
@@ -111,7 +111,7 @@ export function LiveMapPage() {
 
       {!selected && (
         <aside className="hidden lg:flex bg-white border-l border-slate-200 flex-col p-6 overflow-y-auto z-10 shadow-xs">
-          <p className="text-base text-slate-400 text-center mt-8">
+          <p className="text-sm lg:text-base text-slate-400 text-center mt-8">
             Select an officer to see their shift details.
           </p>
         </aside>
@@ -134,17 +134,17 @@ function OfficerRow({
   return (
     <div
       onClick={onSelect}
-      className={`p-4 lg:p-6 transition-colors cursor-pointer ${
+      className={`p-4 lg:p-5 transition-colors cursor-pointer ${
         isSelected ? 'bg-slate-100 border-l-4 border-[#1F3864]' : 'hover:bg-[#f8fafc]'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-base lg:text-xl text-slate-900 truncate">
+        <span className="font-semibold text-base lg:text-lg text-slate-900 truncate">
           {entry.officer.full_name}
         </span>
         <StatusBadge status={displayOfficerStatus(entry)} />
       </div>
-      <div className="text-sm lg:text-base text-slate-400 mt-1">
+      <div className="text-sm text-slate-400 mt-1">
         Badge {entry.officer.badge_number} ·{' '}
         {formatDuration(entry.shift_duration_seconds)}
       </div>
@@ -164,7 +164,7 @@ function StatusBadge({ status }: { status: OfficerStatus }) {
 
   return (
     <span
-      className={`text-sm lg:text-base font-semibold px-2.5 lg:px-3.5 py-1 lg:py-1.5 rounded-full shrink-0 ${styles[status]}`}
+      className={`text-xs lg:text-sm font-semibold px-2.5 lg:px-3 py-1 rounded-full shrink-0 ${styles[status]}`}
     >
       {statusLabel(status)}
     </span>
@@ -189,11 +189,11 @@ function OfficerDetail({
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="flex items-start justify-between pb-3 lg:pb-4 border-b border-slate-100 gap-2">
-        <h3 className="font-bold text-slate-900 text-xl lg:text-3xl">{entry.officer.full_name}</h3>
+        <h3 className="font-bold text-slate-900 text-xl lg:text-2xl">{entry.officer.full_name}</h3>
         <button onClick={onClose} className="lg:hidden text-slate-400 text-sm cursor-pointer">
           Close
         </button>
-        <span className="hidden lg:inline text-lg text-slate-400 font-medium shrink-0">
+        <span className="hidden lg:inline text-base text-slate-400 font-medium shrink-0">
           Badge {entry.officer.badge_number}
         </span>
       </div>
@@ -210,7 +210,7 @@ function OfficerDetail({
       </div>
 
       {ping && (
-        <div className="text-sm lg:text-lg text-slate-500 space-y-2 lg:space-y-2.5 pt-3 lg:pt-4 border-t border-slate-100">
+        <div className="text-sm lg:text-base text-slate-500 space-y-2 pt-3 lg:pt-4 border-t border-slate-100">
           <div>
             Last fix{' '}
             <span className="font-mono text-slate-700">
@@ -227,7 +227,7 @@ function OfficerDetail({
 
       <div className="pt-3 lg:pt-4 border-t border-slate-100">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="text-sm lg:text-lg font-semibold text-slate-700">
+          <span className="text-sm lg:text-base font-semibold text-slate-700">
             Today&apos;s path
           </span>
           {trail && trail.point_count > 1 && (
@@ -244,7 +244,7 @@ function OfficerDetail({
         ) : !trail || trail.point_count === 0 ? (
           <p className="text-sm text-slate-400">No location history for today.</p>
         ) : (
-          <p className="text-sm lg:text-lg text-slate-500">
+          <p className="text-sm lg:text-base text-slate-500">
             {trail.point_count} points · {formatDistance(trail.distance_covered_m)}
           </p>
         )}
@@ -255,9 +255,9 @@ function OfficerDetail({
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="bg-slate-50 p-4 lg:p-6 rounded-lg border border-slate-100">
-      <div className="text-2xl lg:text-4xl font-bold text-slate-900">{value}</div>
-      <div className="text-sm lg:text-base text-slate-400 font-medium mt-1 lg:mt-1.5">{label}</div>
+    <div className="bg-slate-50 p-4 lg:p-5 rounded-lg border border-slate-100">
+      <div className="text-2xl lg:text-3xl font-bold text-slate-900">{value}</div>
+      <div className="text-xs lg:text-sm text-slate-400 font-medium mt-1">{label}</div>
     </div>
   );
 }

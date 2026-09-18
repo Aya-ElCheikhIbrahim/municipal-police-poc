@@ -20,9 +20,10 @@ export default function MainDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('Live map');
 
   // Network & UI Demo States
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [forceEmptyState, setForceEmptyState] = useState<boolean>(false);
-  const [isConnectionLost, setIsConnectionLost] = useState<boolean>(false);
+  // Disabled demo toggles, kept for later (see the commented buttons in the header).
+  // const [isLoading, setIsLoading] = useState<boolean>(false);
+  // const [forceEmptyState, setForceEmptyState] = useState<boolean>(false);
+  const [isConnectionLost /*, setIsConnectionLost */] = useState<boolean>(false);
 
   // Panic — real alerts from the backend, §4.6/§4.7.
   const { alerts: panics, error: panicError, resolve: resolvePanic } = usePanicAlerts();
@@ -38,27 +39,26 @@ export default function MainDashboard() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800">
+<div className="h-screen bg-slate-100 flex flex-col font-sans text-slate-800">      {/* Top Header Navigation */}
       {/* Top Header Navigation */}
-      {/* Top Header Navigation */}
-<header className="sticky top-0 z-50 bg-[#1F3864] text-white px-3 sm:px-6 py-3 sm:py-4 flex flex-col gap-2 sm:gap-0 sm:flex-row sm:items-center sm:justify-between shadow-md">
-    <div className="flex items-center gap-3 sm:gap-8 flex-wrap">
+<header className="sticky top-0 z-50 bg-[#1F3864] text-white px-3 lg:px-6 py-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-6 shadow-md">
+    <div className="flex items-center gap-3 lg:gap-5 flex-wrap lg:flex-nowrap">
     <div className="flex items-center">
       <img
         src={municipalPoliceLogo}
         alt="Municipal Police Logo"
-        className="w-10 h-10 sm:w-16 sm:h-16 min-w-8 min-h-8 object-contain"
+        className="w-9 h-9 lg:w-11 lg:h-11 shrink-0 object-contain"
       />
     </div>
 
-    <nav className="flex items-center gap-1 bg-slate-800/40 p-1 sm:p-2 rounded-md text-sm sm:text-lg overflow-x-auto">
+    <nav className="flex items-center gap-1 bg-slate-800/40 p-1 rounded-md text-sm lg:text-base overflow-x-auto">
       {(
         ['Live map', 'Missions', 'Reports', 'Users'] as TabType[]
       ).map((tab) => (
         <button
           key={tab}
           onClick={() => setActiveTab(tab)}
-          className={`px-2.5 sm:px-6 py-1.5 sm:py-3 rounded transition-all font-medium cursor-pointer whitespace-nowrap ${
+          className={`px-3 lg:px-4 py-1.5 rounded transition-all font-medium cursor-pointer whitespace-nowrap ${
             activeTab === tab
               ? 'bg-[#2E5496] text-white shadow-sm'
               : 'text-slate-300 hover:text-white hover:bg-white/5'
@@ -70,18 +70,13 @@ export default function MainDashboard() {
     </nav>
   </div>
 
-  {/* Demo State Controls & User Info — wraps to its own row on mobile */}
-  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-    <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 bg-slate-800/60 border border-slate-700 rounded-md px-2 sm:px-3 py-1.5 sm:py-2">
-      <span className="text-[10px] sm:text-sm text-slate-400 font-semibold mr-1">
-        DEMO STATES:
-      </span>
-
+  {/* Panic alerts & user info — wraps to its own row on mobile */}
+  <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 lg:gap-3 text-xs">
       {/* Panic Dropdown */}
       <div className="relative">
         <button
           onClick={() => setPanicMenuOpen((prev) => !prev)}
-          className={`px-2 sm:px-4 py-1 sm:py-2 rounded text-[10px] sm:text-sm font-bold transition-colors cursor-pointer ${
+          className={`px-3 py-1.5 rounded text-xs lg:text-sm font-bold transition-colors cursor-pointer ${
             panics.length > 0
               ? 'bg-rose-600 text-white animate-pulse'
               : 'bg-rose-500/20 text-rose-300 hover:bg-rose-600 hover:text-white'
@@ -127,6 +122,7 @@ export default function MainDashboard() {
         )}
       </div>
 
+      {/* Demo toggles disabled for now; uncomment (and their state above) to bring them back.
       <button
         onClick={() => {
           setIsLoading(!isLoading);
@@ -171,10 +167,10 @@ export default function MainDashboard() {
       >
         Connection Lost
       </button>
-    </div>
+      */}
 
     <div className="flex items-center gap-2 sm:gap-3">
-      <span className="text-slate-200 font-medium text-xs sm:text-lg truncate max-w-[100px] sm:max-w-none">
+      <span className="text-slate-200 font-medium text-xs lg:text-sm truncate max-w-[140px] lg:max-w-[240px]">
         {user
           ? `${user.full_name} · ${roleLabel(user.role)}`
           : ''}
@@ -182,7 +178,7 @@ export default function MainDashboard() {
 
       <button
         onClick={logout}
-        className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded text-xs sm:text-lg font-medium transition-colors ml-1 cursor-pointer"
+        className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-3 py-1.5 rounded text-xs lg:text-sm font-medium transition-colors ml-1 cursor-pointer"
       >
         Log out
       </button>
@@ -191,8 +187,7 @@ export default function MainDashboard() {
 </header>
 
       {/* Main Content Body */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {isConnectionLost ? (
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">        {isConnectionLost ? (
           <ConnectionOverlay
             isConnectionLost={isConnectionLost}
           />
