@@ -23,6 +23,12 @@
     <color name="skeleton">#E7E9EC</color>
     <color name="overlay_scrim">#99000000</color>
 
+    <color name="priority_high_bg">#FF8A80</color>
+    <color name="priority_medium_bg">#FFD54F</color>
+    <color name="priority_low_bg">#C8E6C9</color>
+    <color name="priority_other_bg">#FFE082</color>
+
     <color name="white">#FFFFFF</color>
+
     <color name="black">#000000</color>
 </resources>

@@ -179,9 +179,16 @@ public class RealLocationTracker implements LocationTracker {
                         false
                 );
 
-        new Thread(() ->
-                locationPingDao.insert(entity)
-        ).start();
+        new Thread(() -> {
+            locationPingDao.insert(entity);
+            new LocationSyncRepository(context).syncPending(new Callback<>() {
+                @Override
+                public void onSuccess(BulkLocationPingResponse result) {}
+
+                @Override
+                public void onError(Throwable error) {}
+            });
+        }).start();
     }
 
     private String toUtcIso8601(
