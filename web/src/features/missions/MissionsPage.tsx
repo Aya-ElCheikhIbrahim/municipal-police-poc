@@ -50,7 +50,7 @@ export function MissionsPage() {
   return (
     <div className="flex-1 bg-white flex flex-col min-h-0">
       {/* Filters bar stays fixed at the top; only the list below scrolls. */}
-      <div className="shrink-0 relative z-10 px-6 pt-6 border-b border-slate-100">
+      <div className="shrink-0 relative z-20 px-6 pt-6 border-b border-slate-100">
         <MissionFilters
           filters={filters}
           onChange={setFilters}

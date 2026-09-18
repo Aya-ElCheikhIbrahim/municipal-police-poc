@@ -3,7 +3,7 @@ import municipalPoliceLogo from './assets/policelogo.png';
 import { roleLabel } from './features/auth/types';
 import { useAuth } from './features/auth/AuthContext';
 import { UsersPage } from './features/users/UsersPage';
-import { LiveMapPage } from './features/map/LiveMapPage';
+import { LiveMapPage, type MapFocus } from './features/map/LiveMapPage';
 import { MissionsPage } from './features/missions/MissionsPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { ConnectionOverlay, PanicOverlay } from './features/Demo states/panic';
@@ -34,6 +34,9 @@ export default function MainDashboard() {
     setPanicMenuOpen(false);
   };
 
+  // "Locate on Map" on a panic banner: open the live map zoomed in on that officer.
+  const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
+
   // ---------------------------------------------------------------------------
   // MAIN DASHBOARD VIEW
   // ---------------------------------------------------------------------------
@@ -57,7 +60,11 @@ export default function MainDashboard() {
       ).map((tab) => (
         <button
           key={tab}
-          onClick={() => setActiveTab(tab)}
+          onClick={() => {
+            setActiveTab(tab);
+            // Coming back to the map later should not jump to an old panic.
+            setMapFocus(null);
+          }}
           className={`px-3 lg:px-4 py-1.5 rounded transition-all font-medium cursor-pointer whitespace-nowrap ${
             activeTab === tab
               ? 'bg-[#2E5496] text-white shadow-sm'
@@ -195,7 +202,7 @@ export default function MainDashboard() {
           <>
             {activeTab === 'Users' && <UsersPage />}
             {activeTab === 'Reports' && <ReportsPage />}
-            {activeTab === 'Live map' && <LiveMapPage />}
+            {activeTab === 'Live map' && <LiveMapPage focus={mapFocus} />}
             {activeTab === 'Missions' && <MissionsPage />}
           </>
         )}
@@ -203,7 +210,16 @@ export default function MainDashboard() {
         <PanicOverlay
           panics={panics}
           onClose={(id) => resolvePanic(id)}
-          onLocate={() => setActiveTab('Live map')}
+          onLocate={(panic) => {
+            setMapFocus({
+              officerId: panic.officer.id,
+              latitude: Number(panic.latitude),
+              longitude: Number(panic.longitude),
+              // New value on every click, so clicking again zooms again.
+              requestedAt: Date.now(),
+            });
+            setActiveTab('Live map');
+          }}
         />
       </div>
     </div>
