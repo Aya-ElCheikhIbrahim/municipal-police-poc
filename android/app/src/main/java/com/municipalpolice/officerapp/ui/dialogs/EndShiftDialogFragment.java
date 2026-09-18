@@ -10,10 +10,15 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.DialogFragment;
 
 import com.municipalpolice.officerapp.R;
+import com.municipalpolice.officerapp.ui.missions.MissionListActivity;
 import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 
 /** Confirmation dialog for "screen 7 - End shift". */
 public class EndShiftDialogFragment extends DialogFragment {
+
+    public interface EndShiftListener {
+        void onEndShiftConfirmed();
+    }
 
     public static EndShiftDialogFragment newInstance() {
         return new EndShiftDialogFragment();
@@ -29,8 +34,8 @@ public class EndShiftDialogFragment extends DialogFragment {
 
         view.findViewById(R.id.btnStay).setOnClickListener(v -> dismiss());
         view.findViewById(R.id.btnEnd).setOnClickListener(v -> {
-            if (getActivity() instanceof ShiftActivity) {
-                ((ShiftActivity) getActivity()).onEndShiftConfirmed();
+            if (getActivity() instanceof EndShiftListener) {
+                ((EndShiftListener) getActivity()).onEndShiftConfirmed();
             }
             dismiss();
         });

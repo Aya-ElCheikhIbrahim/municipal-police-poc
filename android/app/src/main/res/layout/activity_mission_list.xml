@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/bg_canvas"
     android:fitsSystemWindows="true">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/topBar"
         style="@style/AppTopBar"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <ImageButton
             android:id="@+id/btnBack"
@@ -21,14 +22,31 @@
             android:layout_marginStart="-8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/generic_back"
-            android:src="@drawable/ic_back" />
+            android:src="@drawable/ic_back"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
         <TextView
             style="@style/AppTopBar.Title"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/missions_title" />
+            android:layout_marginStart="8dp"
+            android:text="@string/missions_title"
+            app:layout_constraintStart_toEndOf="@id/btnBack"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <TextView
+            android:id="@+id/tvMissionCount"
+            style="@style/AppTopBar.Title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
         <TextView
             android:id="@+id/tvStatusPill"
@@ -36,17 +54,23 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/pill_active"
-            android:text="@string/status_online" />
-    </LinearLayout>
+            android:text="@string/status_online"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
         app:tabIndicatorColor="@color/brand"
         app:tabSelectedTextColor="@color/brand"
-        app:tabTextColor="@color/text_secondary"
-        android:background="@color/bg_card">
+        app:tabTextColor="@color/text_secondary">
 
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
@@ -56,24 +80,21 @@
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/tab_in_progress" />
-
-        <com.google.android.material.tabs.TabItem
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             android:text="@string/tab_completed" />
     </com.google.android.material.tabs.TabLayout>
 
-    <!-- WORKING OFFLINE NOTICE -->
     <LinearLayout
         android:id="@+id/groupOfflineNotice"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/space_m"
         android:layout_marginEnd="@dimen/space_m"
         android:layout_marginTop="@dimen/space_m"
         android:orientation="horizontal"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tabLayout">
 
         <View
             android:layout_width="4dp"
@@ -92,8 +113,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/shift_saved_on_phone"
                 android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="@dimen/text_title" />
+                android:textSize="@dimen/text_title"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvSavedDetail"
@@ -108,11 +129,13 @@
 
     <ViewFlipper
         android:id="@+id/flipper"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        app:layout_constraintBottom_toTopOf="@id/btnEndShift"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/groupOfflineNotice">
 
-        <!-- 0: LOADING (skeleton placeholders) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -124,7 +147,6 @@
             <include layout="@layout/item_mission_skeleton" />
         </LinearLayout>
 
-        <!-- 1: CONTENT -->
         <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
             android:id="@+id/swipeRefresh"
             android:layout_width="match_parent"
@@ -140,12 +162,11 @@
                 android:paddingBottom="@dimen/space_l" />
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-        <!-- 2: EMPTY -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
             android:gravity="center"
+            android:orientation="vertical"
             android:padding="@dimen/space_xl">
 
             <TextView
@@ -153,8 +174,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/missions_empty_title"
                 android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="@dimen/text_title" />
+                android:textSize="@dimen/text_title"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -166,12 +187,11 @@
                 android:textSize="@dimen/text_body" />
         </LinearLayout>
 
-        <!-- 3: ERROR -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
             android:gravity="center"
+            android:orientation="vertical"
             android:padding="@dimen/space_xl">
 
             <TextView
@@ -179,8 +199,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/missions_error_title"
                 android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="@dimen/text_title" />
+                android:textSize="@dimen/text_title"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -200,4 +220,31 @@
                 android:text="@string/missions_try_again" />
         </LinearLayout>
     </ViewFlipper>
-</LinearLayout>
+
+    <Button
+        android:id="@+id/btnEndShift"
+        style="@style/Button.Outline"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_margin="@dimen/space_m"
+        android:backgroundTint="@color/urgent_alert"
+        android:text="@string/shift_end_button"
+        android:textColor="@color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageButton
+        android:id="@+id/btnPanicCircle"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginEnd="@dimen/space_m"
+        android:layout_marginBottom="80dp"
+        android:background="@drawable/bg_panic_circle"
+        android:src="@drawable/ic_bell"
+        android:scaleType="centerInside"
+        app:tint="@color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

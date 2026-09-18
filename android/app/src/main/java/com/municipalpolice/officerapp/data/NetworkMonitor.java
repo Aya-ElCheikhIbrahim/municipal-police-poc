@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 public class NetworkMonitor {
 
     private static final String BACKEND_HEALTH_URL =
-            "http://10.0.2.2:8000/api/docs/";
+            "http://10.0.2.2:8000/api/v1/";
 
     private static final int CONNECT_TIMEOUT_MS = 2500;
     private static final int READ_TIMEOUT_MS = 2500;
@@ -47,6 +47,7 @@ public class NetworkMonitor {
 
     private boolean started = false;
     private boolean backendReachable = false;
+    private boolean firstCheckDone = false;
 
     private final Handler handler =
             new Handler(Looper.getMainLooper());
@@ -217,19 +218,27 @@ public class NetworkMonitor {
             boolean reachable =
                     isBackendReachable();
 
-            backendReachable = reachable;
-
             if (listener == null) {
+                backendReachable = reachable;
+                firstCheckDone = true;
                 return;
             }
 
+            boolean statusChanged = !firstCheckDone || (backendReachable != reachable);
+            backendReachable = reachable;
+            firstCheckDone = true;
+
             if (reachable) {
 
-                listener.onNetworkAvailable();
+                if (statusChanged) {
+                    listener.onNetworkAvailable();
+                }
 
             } else {
 
-                listener.onNetworkLost();
+                if (statusChanged) {
+                    listener.onNetworkLost();
+                }
 
                 // If still offline, try again in a few seconds.
                 if (started) {

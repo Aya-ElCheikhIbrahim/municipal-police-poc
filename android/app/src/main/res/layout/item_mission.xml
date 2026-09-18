@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/space_m"
-    android:background="@drawable/bg_card"
-    android:orientation="vertical"
-    android:padding="@dimen/space_m"
-    android:minHeight="@dimen/tap_target_min"
+    app:cardBackgroundColor="@color/bg_card"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="3dp"
+    app:strokeColor="@android:color/transparent"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground">
@@ -17,17 +19,44 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="top">
+        android:padding="@dimen/space_m"
+        android:minHeight="@dimen/tap_target_min"
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/tvTitle"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="@color/text_primary"
-            android:textStyle="bold"
-            android:textSize="@dimen/text_body"
-            tools:text="Illegal parking blocking access" />
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textStyle="bold"
+                android:textSize="@dimen/text_body"
+                tools:text="Illegal parking blocking access" />
+
+            <TextView
+                android:id="@+id/tvSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="@dimen/text_caption"
+                tools:text="Rue Tall · 400 m · 6 min ago" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnAction"
+            style="@style/Button.Success"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginStart="@dimen/space_s"
+            android:text="Start"
+            android:textSize="14sp"
+            android:minWidth="80dp" />
 
         <TextView
             android:id="@+id/tvPriority"
@@ -36,15 +65,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/space_s"
             android:background="@drawable/pill_urgent"
+            android:visibility="gone"
             tools:text="Urgent" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/tvSubtitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textColor="@color/text_secondary"
-        android:textSize="@dimen/text_caption"
-        tools:text="Rue Tall · 400 m · 6 min ago" />
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>
