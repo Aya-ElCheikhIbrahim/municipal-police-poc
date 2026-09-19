@@ -6,6 +6,7 @@ from django.utils import timezone
 from missions.models import Mission
 from panic.models import PanicEvent
 from shifts.models import Shift
+from django.db.models import Count
 
 User = get_user_model()
 
@@ -71,7 +72,7 @@ def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
     # MISSIONS
     # ---------------------------------------------------------
     missions = Mission.objects.filter(
-        assigned_to_id=officer_id,
+        assigned_to=officer,
         assigned_at__date=date,
     )
 
@@ -164,42 +165,26 @@ def generate_weekly_summary(*, start_date, end_date):
         else 0
     )
 
-    # Top-performing officers
-    officer_stats = {}
+    # Top-performing officers. A mission sent to several offciers counts for each of them, since they all worked on it
 
-    for mission in missions.filter(
-        assigned_to__isnull=False,
-        status=Mission.Status.COMPLETED,
-    ):
-        officer_id = mission.assigned_to_id
-
-        if officer_id not in officer_stats:
-            officer_stats[officer_id] = {
-                "completed_missions": 0,
-            }
-
-        officer_stats[officer_id]["completed_missions"] += 1
-
-    top_officers = []
-
-    for officer_id, stats in officer_stats.items():
-        officer = User.objects.filter(
-            pk=officer_id,
+    completed = missions.filter(status=Mission.Status.COMPLETED)
+    top = (
+        User.objects.filter(
+            missions_assigned__in=completed,
             is_active=True,
             role="officer",
-        ).first()
-
-        if officer:
-            top_officers.append({
-                "officer_id": officer.id,
-                "officer_name": str(officer),
-                "completed_missions": stats["completed_missions"],
-            })
-
-    top_officers.sort(
-        key=lambda officer: officer["completed_missions"],
-        reverse=True,
+        )
+        .annotate(completed_missions=Count("missions_assigned", distinct=True))
+        .order_by("-completed_missions", "full_name")[:5]
     )
+    top_officers = [
+        {
+            "officer_id": officer.id,
+            "officer_name": str(officer),
+            "completed_missions": officer.completed_missions,
+        }
+        for officer in top
+    ]
 
     return {
         "start_date": start_date,
