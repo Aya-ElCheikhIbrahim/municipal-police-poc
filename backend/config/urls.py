@@ -34,6 +34,7 @@ urlpatterns = [
     path("api/v1/", include("missions.urls")),
   path("api/v1/", include("panic.urls")),
   path("api/v1/notifications/", include("notifications.urls")),
+  path("api/v1/", include("reports.urls")),
 
 ]
 
