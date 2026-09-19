@@ -111,5 +111,7 @@ class ActiveOfficerSerializer(serializers.Serializer):
     shift_duration_seconds = serializers.IntegerField()
     distance_covered_m = serializers.IntegerField()
     latest_ping = LocationPingSerializer(allow_null=True)
+    position_source = serializers.CharField(allow_null=True)
+    current_mission = CurrentMissionSerializer(allow_null=True)
     current_mission = CurrentMissionSerializer(allow_null=True)
  

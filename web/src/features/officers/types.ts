@@ -45,6 +45,28 @@ export interface ActiveOfficer {
   current_mission: Record<string, unknown> | null;
 }
 
+
+/**
+ * Display status for the dispatcher map. `current_mission` is the source of
+ * truth for whether an officer is busy. This also tolerates the backend's
+ * older `in_mission` string while the API contract is being aligned.
+ */
+export interface OfficerTrail {
+  officer_id: number;
+  date: string;
+  point_count: number;
+  distance_covered_m: number;
+  points: LocationPing[];
+}
+export function displayOfficerStatus(entry: ActiveOfficer): OfficerStatus {
+  const rawStatus = entry.status as string;
+  if (rawStatus === 'panic') return 'panic';
+  if (entry.current_mission !== null || rawStatus === 'on_mission' || rawStatus === 'in_mission') {
+    return 'on_mission';
+  }
+  return 'available';
+}
+
 export function pingToCoords(ping: LocationPing | null): [number, number] | null {
   if (!ping) return null;
   const lat = Number(ping.latitude);

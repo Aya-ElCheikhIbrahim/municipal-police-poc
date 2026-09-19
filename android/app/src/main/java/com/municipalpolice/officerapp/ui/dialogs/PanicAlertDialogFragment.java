@@ -12,13 +12,20 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.DialogFragment;
 
 import com.municipalpolice.officerapp.R;
+import com.municipalpolice.officerapp.data.Callback;
+import com.municipalpolice.officerapp.data.RetrofitPanicRepository;
 import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 
 /** "Panic active" confirmation for the hold-2-seconds panic button, screen "Panic sent". */
 public class PanicAlertDialogFragment extends DialogFragment {
 
+    public interface PanicListener {
+        void onPanicSent();
+    }
+
     private static final long AUTO_DISMISS_MILLIS = 10_000;
     private CountDownTimer countDownTimer;
+    private RetrofitPanicRepository panicRepository;
 
     public static PanicAlertDialogFragment newInstance() {
         return new PanicAlertDialogFragment();
@@ -27,9 +34,20 @@ public class PanicAlertDialogFragment extends DialogFragment {
     @Override
     public void onStart() {
         super.onStart();
-        if (getActivity() instanceof ShiftActivity) {
-            ((ShiftActivity) getActivity()).onPanicSent();
-        }
+        
+        panicRepository = new RetrofitPanicRepository(requireContext());
+        panicRepository.triggerPanic(null, null, new Callback<Object>() {
+            @Override
+            public void onSuccess(Object result) {
+                if (getActivity() instanceof PanicListener) {
+                    ((PanicListener) getActivity()).onPanicSent();
+                }
+            }
+            @Override
+            public void onError(Throwable error) {
+                // Silent fail or toast
+            }
+        });
     }
 
     @NonNull

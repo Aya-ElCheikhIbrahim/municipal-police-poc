@@ -24,9 +24,10 @@ export function CreateMissionPage({
 }: CreateMissionPageProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Municipal');
   const [priority, setPriority] = useState<MissionPriority>('medium');
   const [address, setAddress] = useState('');
-  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [selectedOfficerIds, setSelectedOfficerIds] = useState<number[]>([]);
   const [deadline, setDeadline] = useState('');
   const [coords, setCoords] = useState<[number, number]>(TRIPOLI_CENTRE);
 
@@ -42,6 +43,12 @@ export function CreateMissionPage({
 
   useMissionPin({ mapRef, coords });
 
+  const toggleOfficer = (id: number) => {
+    setSelectedOfficerIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
@@ -51,12 +58,13 @@ export function CreateMissionPage({
       await onSubmit({
         title,
         description,
+        category,
         latitude: coords[0],
         longitude: coords[1],
         address,
         priority,
-        // §5: the officer's id, never a name parsed out of a label.
-        assigned_to_id: assigneeId ? Number(assigneeId) : null,
+        // Send array of assigned officer IDs
+        assigned_to_ids: selectedOfficerIds,
         deadline: deadline ? new Date(deadline).toISOString() : null,
       });
     } catch (err) {
@@ -77,22 +85,24 @@ export function CreateMissionPage({
   }
 
   const inputClass =
-    'w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864]';
+    'w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864]';
 
   return (
-    <div className="flex-1 bg-white flex w-full">
-      <div className="w-1/2 p-8 overflow-y-auto space-y-6">
-        <h2 className="text-lg font-bold text-slate-900">New mission</h2>
+    <div className="flex-1 bg-white flex flex-col lg:flex-row w-full overflow-y-auto lg:overflow-hidden">
+      <div className="w-full lg:w-1/2 p-4 lg:p-5 flex flex-col gap-2 lg:gap-3 lg:min-h-0 lg:overflow-hidden">
+        <h2 className="text-base lg:text-lg font-bold text-slate-900">New mission</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 lg:gap-2.5 lg:flex-1 lg:min-h-0">
           {errors.detail && (
-            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+            <div className="text-sm sm:text-base text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 sm:px-4 py-2 sm:py-3">
               {errors.detail}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Title</label>
+            <label className="block text-xs font-medium text-slate-500 mb-0.5">
+              Title
+            </label>
             <input
               type="text"
               value={title}
@@ -105,20 +115,36 @@ export function CreateMissionPage({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">
+            <label className="block text-xs font-medium text-slate-500 mb-0.5">
               Description
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className={`${inputClass} resize-none`}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="Municipal">Municipal</option>
+                <option value="Sanitation">Sanitation</option>
+                <option value="Traffic">Traffic</option>
+                <option value="Infrastructure">Infrastructure</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Priority
               </label>
               <select
@@ -133,34 +159,45 @@ export function CreateMissionPage({
                 ))}
               </select>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">
-                Assign to
-              </label>
-              <select
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className={`${inputClass} bg-white`}
-              >
-                <option value="">Leave unassigned</option>
-                {officers.map((entry) => (
-                  <option key={entry.officer.id} value={String(entry.officer.id)}>
-                    {entry.officer.full_name} · {entry.officer.badge_number}
-                  </option>
-                ))}
-              </select>
-              {officers.length === 0 && (
-                <p className="text-[11px] text-amber-600 mt-1">
+          {/* Multi-Officer Selection Area */}
+          <div className="flex flex-col lg:flex-1 lg:min-h-0">
+            <label className="block text-xs font-medium text-slate-500 mb-0.5">
+              Assign to ({selectedOfficerIds.length} selected)
+            </label>
+            <div className="border border-slate-200 rounded-md max-h-32 lg:max-h-none lg:flex-1 lg:min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 p-1 bg-white">
+              {officers.length === 0 ? (
+                <p className="p-3 text-xs sm:text-sm text-amber-600">
                   No officers on duty right now.
                 </p>
+              ) : (
+                officers.map((entry) => {
+                  const isChecked = selectedOfficerIds.includes(entry.officer.id);
+                  return (
+                    <label
+                      key={entry.officer.id}
+                      className="flex items-center gap-2 px-2.5 py-1 hover:bg-slate-50 cursor-pointer rounded-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleOfficer(entry.officer.id)}
+                        className="w-4 h-4 text-[#1F3864] rounded border-slate-300 focus:ring-[#1F3864]"
+                      />
+                      <span className="text-sm text-slate-700">
+                        {entry.officer.full_name} · {entry.officer.badge_number}
+                      </span>
+                    </label>
+                  );
+                })
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="relative">
-              <label className="block text-xs font-medium text-slate-500 mb-1">
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Address
               </label>
               <input
@@ -183,7 +220,7 @@ export function CreateMissionPage({
                         setAddress(location);
                         setSuggestions([]);
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 text-xs cursor-pointer"
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-100 text-sm sm:text-base cursor-pointer"
                     >
                       {location}
                     </button>
@@ -193,7 +230,7 @@ export function CreateMissionPage({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">
+              <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Deadline — optional
               </label>
               <input
@@ -205,18 +242,22 @@ export function CreateMissionPage({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-4">
+          <div className="flex items-center gap-2 pt-1 shrink-0">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-xs font-semibold px-5 py-2 rounded-md transition-colors cursor-pointer"
+              className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-sm font-semibold px-4 py-1.5 rounded-md transition-colors cursor-pointer"
             >
-              {isSubmitting ? 'Creating…' : assigneeId ? 'Create and assign' : 'Create mission'}
+              {isSubmitting
+                ? 'Creating…'
+                : selectedOfficerIds.length > 0
+                ? `Create and assign (${selectedOfficerIds.length})`
+                : 'Create mission'}
             </button>
             <button
               type="button"
               onClick={onCancel}
-              className="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-5 py-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
+              className="bg-white border border-slate-200 text-slate-700 text-sm font-semibold px-4 py-1.5 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -224,17 +265,17 @@ export function CreateMissionPage({
         </form>
       </div>
 
-      <div className="w-1/2 p-4 relative flex flex-col bg-slate-100">
+      <div className="w-full lg:w-1/2 p-4 relative flex flex-col bg-slate-100 h-[300px] lg:h-auto shrink-0">
         <div className="flex-1 relative rounded-lg overflow-hidden border border-slate-200 shadow-xs">
           <div ref={containerRef} className="w-full h-full z-0" />
 
-          <div className="absolute top-4 left-4 right-4 z-10 pointer-events-none">
-            <div className="bg-white/95 backdrop-blur px-3 py-2 rounded-md shadow-md text-xs text-slate-700 border border-slate-200">
+          <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 z-10 pointer-events-none">
+            <div className="bg-white/95 backdrop-blur px-3 sm:px-4 py-2 sm:py-3 rounded-md shadow-md text-sm sm:text-base text-slate-700 border border-slate-200">
               Click anywhere on the map to set the mission location.
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-4 z-10 bg-white/95 backdrop-blur px-3 py-1 rounded text-[11px] text-slate-700 font-mono shadow-xs border border-slate-200">
+          <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-10 bg-white/95 backdrop-blur px-3 py-1.5 rounded text-xs sm:text-sm text-slate-700 font-mono shadow-xs border border-slate-200">
             {coords[0].toFixed(4)}, {coords[1].toFixed(4)}
           </div>
         </div>
@@ -244,5 +285,5 @@ export function CreateMissionPage({
 }
 
 function FieldError({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] text-rose-600 mt-1">{children}</p>;
+  return <p className="text-xs sm:text-sm text-rose-600 mt-1.5">{children}</p>;
 }

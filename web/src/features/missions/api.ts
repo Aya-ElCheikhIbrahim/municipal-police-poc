@@ -27,7 +27,7 @@ export const missionsApi = {
 
   detail: (id: number) => apiClient.get<MissionDetail>(`/missions/${id}/`),
 
-  /** POST /missions/ : pass assigned_to_id to create and assign in one call. */
+  /** POST /missions/ : pass assigned_to_ids to create and assign in one call. */
   create: (payload: CreateMissionRequest) =>
     apiClient.post<MissionDetail>('/missions/', payload),
 
@@ -35,8 +35,8 @@ export const missionsApi = {
    * POST /missions/{id}/assign/ : the server decides assign vs reassign from
    * the mission's current status. Only valid before acknowledgement.
    */
-  assign: (id: number, officerId: number) =>
-    apiClient.post<MissionDetail>(`/missions/${id}/assign/`, { officer_id: officerId }),
+  assign: (id: number, officerIds: number[]) =>
+    apiClient.post<MissionDetail>(`/missions/${id}/assign/`, { officer_ids: officerIds }),
 
   /** POST /missions/{id}/cancel/ : reason is required by the serializer. */
   cancel: (id: number, reason: string) =>

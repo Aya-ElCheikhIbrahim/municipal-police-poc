@@ -1,5 +1,9 @@
 package com.municipalpolice.officerapp.util;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 /** Small formatting helpers for the shift timer and "X minutes ago" style labels. */
@@ -21,14 +25,15 @@ public final class TimeFormat {
     public static String relativeTime(String isoString) {
         if (isoString == null) return "";
         try {
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
-            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-            java.util.Date date = sdf.parse(isoString);
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            Date date = sdf.parse(isoString);
             if (date == null) return "";
 
             long now = System.currentTimeMillis();
             long time = date.getTime();
-            return android.text.format.DateUtils.getRelativeTimeSpanString(time, now, android.text.format.DateUtils.MINUTE_IN_MILLIS).toString();
+            String rel = android.text.format.DateUtils.getRelativeTimeSpanString(time, now, android.text.format.DateUtils.MINUTE_IN_MILLIS).toString();
+            return rel.replace(" minutes", " min").replace(" minute", " min");
         } catch (Exception e) {
             return "";
         }

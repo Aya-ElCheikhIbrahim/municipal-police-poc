@@ -92,8 +92,7 @@
         <item name="android:padding">@dimen/space_m</item>
     </style>
 
-    <!-- Full-bleed dialog theme: our layouts draw their own scrim + card,
-         so the window itself stays transparent and edge-to-edge. -->
+    <!-- Full-bleed dialog theme -->
     <style name="Theme.OfficerApp.FullscreenDialog" parent="Theme.AppCompat.Dialog">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowIsFloating">false</item>

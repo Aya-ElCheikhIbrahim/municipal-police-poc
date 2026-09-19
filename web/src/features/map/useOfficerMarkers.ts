@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { officerIcon } from './leafletIcons';
-import { pingToCoords } from '../officers/types';
+import { displayOfficerStatus, pingToCoords } from '../officers/types';
 import type { ActiveOfficer } from '../officers/types';
 
 interface UseOfficerMarkersOptions {
@@ -39,7 +39,7 @@ export function useOfficerMarkers({
       const id = entry.officer.id;
       seen.add(id);
 
-      const icon = officerIcon(entry.status, id === selectedOfficerId);
+      const icon = officerIcon(displayOfficerStatus(entry), id === selectedOfficerId);
       const existing = markers.get(id);
 
       if (existing) {

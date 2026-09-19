@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMissionDetail } from './useMissionDetail';
 import { MissionLifecycle } from './MissionLifecycle';
 import { PriorityBadge, StatusBadge } from './MissionBadges';
-import { canCancel, canReassign } from './types';
+import { canCancel, canReassign, formatMissionDuration } from './types';
 import { ApiError } from '../../shared/api/client';
 import type { ActiveOfficer } from '../officers/types';
 import { missionsApi } from './api';
@@ -26,6 +26,7 @@ export function MissionDetailPage({
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [isReassigning, setIsReassigning] = useState(false);
+  const [reassignIds, setReassignIds] = useState<number[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
@@ -75,8 +76,8 @@ export function MissionDetailPage({
   }
 
   return (
-    <div className="flex-1 bg-white flex w-full">
-      <div className="flex-1 p-8 overflow-y-auto space-y-6">
+    <div className="flex-1 bg-white flex w-full min-h-0">
+            <div className="flex-1 p-8 overflow-y-auto flex flex-col gap-6 min-h-0">
         <button
           onClick={onBack}
           className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
@@ -89,9 +90,13 @@ export function MissionDetailPage({
             <h2 className="text-xl font-bold text-slate-900">{mission.title}</h2>
             <p className="text-xs text-slate-500 mt-1">
               {mission.address || 'No address given'}
-              {mission.assigned_to
-                ? ` · ${mission.assigned_to.full_name}, badge ${mission.assigned_to.badge_number}`
+              {mission.assigned_to.length > 0
+                ? ` · ${mission.assigned_to
+                    .map((officer) => `${officer.full_name}, badge ${officer.badge_number}`)
+                    .join('; ')}`
                 : ' · Unassigned'}
+              {mission.duration_seconds !== null &&
+                ` · ${formatMissionDuration(mission.duration_seconds)} on mission`}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -163,7 +168,10 @@ export function MissionDetailPage({
         <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
           {canReassign(mission) && (
             <button
-              onClick={() => setIsReassigning(!isReassigning)}
+              onClick={() => {
+                setReassignIds(mission.assigned_to.map((officer) => officer.id));
+                setIsReassigning(!isReassigning);
+              }}
               className="bg-white border border-slate-200 text-slate-800 text-xs font-semibold px-4 py-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Reassign
@@ -180,31 +188,48 @@ export function MissionDetailPage({
           )}
         </div>
 
-        {isReassigning && (
-          <div className="border border-slate-200 rounded-md p-4 space-y-3 max-w-md">
+                {isReassigning && (
+          <div className="border border-slate-200 rounded-md p-4 space-y-3 max-w-md flex flex-col min-h-0">
             <label className="block text-xs font-semibold text-slate-600">
-              Reassign to
+              Assign to
             </label>
             {officers.length === 0 ? (
               <p className="text-xs text-slate-500">No officers are on duty.</p>
             ) : (
-              <div className="space-y-2">
-                {officers.map((entry) => (
-                  <button
-                    key={entry.officer.id}
-                    disabled={isBusy}
-                    onClick={() => run(() => missionsApi.assign(mission.id, entry.officer.id))
-
-                                        }
-                    className="w-full text-left px-3 py-2 text-xs border border-slate-200 rounded hover:bg-slate-50 cursor-pointer"
-                  >
-                    {entry.officer.full_name}
-                    <span className="text-slate-400">
-                      {' '}
-                      · Badge {entry.officer.badge_number}
-                    </span>
-                  </button>
-                ))}
+              <div className="flex flex-col gap-3 min-h-0">
+                {/* Only the names scroll; the page and the Save button stay put. */}
+                <div className="flex-1 min-h-24 max-h-48 overflow-y-auto overscroll-contain border border-slate-200 rounded-md divide-y divide-slate-100 p-1 bg-white">
+                {officers.map((entry) => {
+                  const id = entry.officer.id;
+                  const checked = reassignIds.includes(id);
+                  return (
+                    <label
+                      key={id}
+                      className="flex items-center gap-2 px-2.5 py-1.5 text-xs hover:bg-slate-50 cursor-pointer rounded-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={isBusy}
+                        onChange={() =>
+                          setReassignIds((prev) =>
+                            checked ? prev.filter((item) => item !== id) : [...prev, id]
+                          )
+                        }
+                      />
+                      {entry.officer.full_name}
+                      <span className="text-slate-400">· Badge {entry.officer.badge_number}</span>
+                    </label>
+                  );
+                })}
+                </div>
+                <button
+                  disabled={isBusy || reassignIds.length === 0}
+                  onClick={() => run(() => missionsApi.assign(mission.id, reassignIds))}
+                  className="shrink-0 self-start bg-[#1F3864] hover:bg-[#2E5496] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer"
+                >
+                  Save officers
+                </button>
               </div>
             )}
           </div>
@@ -241,8 +266,8 @@ export function MissionDetailPage({
         )}
       </div>
 
-      <aside className="w-72 bg-slate-50/60 border-l border-slate-200 p-6 flex flex-col">
-        <h3 className="text-xs font-semibold text-slate-500 mb-6 uppercase tracking-wider">
+      <aside className="w-72 bg-slate-50/60 border-l border-slate-200 p-6 flex flex-col overflow-y-auto">
+              <h3 className="text-xs font-semibold text-slate-500 mb-6 uppercase tracking-wider">
           Lifecycle
         </h3>
         <div className="flex-1">

@@ -22,11 +22,11 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from missions import services as mission_services
-from missions.models import Mission
+from missions.models import Mission, MissionWork
 
 from . import services
 from .models import LocationPing, Shift
-
+from panic import services as panic_services
 User = get_user_model()
 
 
@@ -253,6 +253,7 @@ class ActiveShiftsContractTests(TestCase):
                 "shift_duration_seconds",
                 "distance_covered_m",
                 "latest_ping",
+                "position_source",
                 "current_mission",
             },
         )
@@ -271,11 +272,6 @@ class ActiveShiftsContractTests(TestCase):
 
 
 class ActiveShiftsMissionTests(TestCase):
-    """
-    §4.6 marker colour. The contract counts an officer as busy only once they
-    have acknowledged, so ASSIGNED must still read as available.
-    """
-
     def setUp(self):
         self.officer = make_user("mission_officer")
         self.dispatcher = make_user("mission_dispatcher", role="dispatcher")
@@ -290,7 +286,7 @@ class ActiveShiftsMissionTests(TestCase):
             latitude=34.4367,
             longitude=35.8497,
             priority=priority,
-            assigned_to=self.officer,
+            officers=[self.officer],
         )
 
     def _row(self):
@@ -298,9 +294,9 @@ class ActiveShiftsMissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         return response.json()[0]
 
-    def test_acknowledged_mission_makes_the_officer_in_mission(self):
+    def test_started_mission_makes_the_officer_in_mission(self):
         mission = self._assign("Traffic obstruction on Al-Mina road")
-        mission_services.acknowledge_mission(mission, officer=self.officer)
+        mission_services.start_mission(mission, officer=self.officer)
 
         row = self._row()
         self.assertEqual(row["status"], "in_mission")
@@ -311,37 +307,56 @@ class ActiveShiftsMissionTests(TestCase):
                 "id": mission.id,
                 "title": "Traffic obstruction on Al-Mina road",
                 "priority": "high",
-                "status": "acknowledged",
+                "status": "in_progress",
             },
         )
 
-    def test_assigned_but_unacknowledged_officer_is_still_available(self):
+    def test_assigned_but_not_started_officer_is_still_available(self):
         """Showing them as busy would hide a free officer from the dispatcher."""
-        self._assign("Sent but not yet seen")
+        self._assign("Sent but not yet started")
 
         row = self._row()
         self.assertEqual(row["status"], "available")
         self.assertIsNone(row["current_mission"])
 
-    def test_two_open_missions_show_the_most_recently_assigned(self):
-        older = self._assign("Assigned an hour ago")
-        mission_services.acknowledge_mission(older, officer=self.officer)
-        newer = self._assign("Assigned just now")
-        mission_services.acknowledge_mission(newer, officer=self.officer)
+    def test_acknowledged_but_not_started_officer_is_still_available(self):
+        mission = self._assign("Seen but not yet started")
+        mission_services.acknowledge_mission(mission, officer=self.officer)
 
-        # Both were assigned in the same test tick; space them out so the
-        # ordering under test is the one being asserted, not clock luck.
-        now = timezone.now()
-        Mission.objects.filter(pk=older.pk).update(
-            assigned_at=now - timezone.timedelta(hours=1)
-        )
-        Mission.objects.filter(pk=newer.pk).update(assigned_at=now)
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+
+    def test_cancelled_mission_makes_the_officer_available_again(self):
+        mission = self._assign("Finished job")
+        mission_services.start_mission(mission, officer=self.officer)
+        mission_services.cancel_mission(mission, actor=self.dispatcher, reason="Done elsewhere.")
+
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+
+    def test_an_urgent_mission_takes_over_the_marker(self):
+        routine = self._assign("Routine patrol", priority=Mission.Priority.LOW)
+        mission_services.start_mission(routine, officer=self.officer)
+        urgent = self._assign("Officer down", priority=Mission.Priority.URGENT)
+        mission_services.start_mission(urgent, officer=self.officer)
 
         row = self._row()
         self.assertEqual(row["status"], "in_mission")
-        self.assertEqual(row["current_mission"]["id"], newer.id)
+        self.assertEqual(row["current_mission"]["id"], urgent.id)
 
+    def test_officer_on_a_paused_mission_is_available(self):
+        routine = self._assign("Routine patrol", priority=Mission.Priority.LOW)
+        mission_services.start_mission(routine, officer=self.officer)
+        urgent = self._assign("Officer down", priority=Mission.Priority.URGENT)
+        mission_services.start_mission(urgent, officer=self.officer)
+        mission_services.cancel_mission(urgent, actor=self.dispatcher, reason="False alarm.")
 
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertIsNone(row["current_mission"])
+        self.assertFalse(MissionWork.objects.filter(officer=self.officer, ended_at__isnull=True).exists())
 class DistanceCachingTests(TestCase):
     """shift.distance_m is now the read path; ingest is what keeps it correct."""
 
@@ -521,3 +536,45 @@ class StartShiftRaceRecoveryTests(TestCase):
         self.assertFalse(created)
         self.assertEqual(shift.pk, winner.pk)
         self.assertEqual(Shift.objects.filter(officer=officer).count(), 1)
+
+
+class ActiveShiftsPanicTests(TestCase):
+    def setUp(self):
+        self.officer = make_user("panic_officer")
+        services.start_shift(self.officer)
+        self.client = APIClient()
+        self.client.force_authenticate(make_user("panic_dispatcher", role="dispatcher"))
+
+    def _row(self):
+        response = self.client.get("/api/v1/shifts/active/")
+        self.assertEqual(response.status_code, 200)
+        return response.json()[0]
+
+    def test_panic_without_pings_puts_the_officer_on_the_map(self):
+        panic_services.trigger_panic(self.officer, latitude=34.4367, longitude=35.8497)
+
+        row = self._row()
+        self.assertEqual(row["status"], "panic")
+        self.assertEqual(row["position_source"], "panic")
+        self.assertEqual(Decimal(row["latest_ping"]["latitude"]), Decimal("34.436700"))
+
+    def test_a_newer_ping_wins_over_the_panic_position(self):
+        panic_services.trigger_panic(self.officer, latitude=34.4367, longitude=35.8497)
+        services.ingest_pings(
+            self.officer,
+            [ping_row(34.4400, 35.8500, timezone.now() + timedelta(seconds=30))],
+        )
+
+        row = self._row()
+        self.assertEqual(row["status"], "panic")
+        self.assertEqual(row["position_source"], "ping")
+
+    def test_resolved_panic_no_longer_turns_the_marker_red(self):
+        event, _ = panic_services.trigger_panic(
+            self.officer, latitude=34.4367, longitude=35.8497
+        )
+        panic_services.resolve_panic(event, make_user("panic_supervisor", role="supervisor"))
+
+        row = self._row()
+        self.assertEqual(row["status"], "available")
+        self.assertNotEqual(row["position_source"], "panic")

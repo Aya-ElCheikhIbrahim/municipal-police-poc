@@ -16,14 +16,19 @@ up the project-wide PageNumberPagination (PAGE_SIZE 25). Responses are
 plain APIViews and return bare arrays. Hence .json()["results"] below.
 """
 
-from django.test import TestCase
+from types import SimpleNamespace
+from unittest import mock
+
+from django.db import transaction
+from django.test import TestCase, override_settings
 from django.utils import timezone
+from firebase_admin import messaging
 from rest_framework.test import APIClient
 
 from missions.models import Mission
-from notifications import services
+from notifications import push, services
 from notifications.models import Notification, NotificationType
-from users.models import Role, User
+from users.models import DeviceToken, Role, User
 
 
 def make_user(username, role=Role.OFFICER, **extra):
@@ -45,6 +50,8 @@ class NotificationTestCase(TestCase):
         self.supervisor = make_user("sup1", role=Role.SUPERVISOR)
 
     def make_mission(self, **kwargs):
+        # A many-to-many field cannot be passed to create(); set it afterwards.
+        assigned_to = kwargs.pop("assigned_to", None)
         defaults = {
             "title": "Illegal parking on Rue Tall",
             "description": "Vehicle blocking the junction.",
@@ -53,7 +60,10 @@ class NotificationTestCase(TestCase):
             "longitude": 35.85,
         }
         defaults.update(kwargs)
-        return Mission.objects.create(**defaults)
+        mission = Mission.objects.create(**defaults)
+        if assigned_to is not None:
+            mission.assigned_to.set([assigned_to])
+        return mission
 
     def make_notification(self, recipient=None, **kwargs):
         defaults = {
@@ -271,3 +281,128 @@ class ApiTests(NotificationTestCase):
 
         self.assertIsNone(row["mission_id"])
         self.assertIsNone(row["mission_title"])
+
+
+class PushOnNotifyTests(NotificationTestCase):
+    """Officer notifications are pushed to the phone, after the transaction commits."""
+
+    @mock.patch("notifications.push.send_push")
+    def test_assigning_pushes_to_the_officer(self, send_push):
+        mission = self.make_mission()
+        with self.captureOnCommitCallbacks(execute=True):
+            services.notify_mission_assigned(mission, self.officer)
+
+        send_push.assert_called_once()
+        user, title, body, data = send_push.call_args.args
+        self.assertEqual(user, self.officer)
+        self.assertEqual(title, "New mission assigned")
+        self.assertEqual(body, mission.title)
+        self.assertEqual(data["type"], NotificationType.MISSION_ASSIGNED)
+        self.assertEqual(data["mission_id"], mission.id)
+
+    @mock.patch("notifications.push.send_push")
+    def test_assigning_to_two_officers_pushes_to_both(self, send_push):
+        from missions import services as mission_services
+
+        with self.captureOnCommitCallbacks(execute=True):
+            mission_services.create_mission(
+                created_by=self.dispatcher,
+                title="Crowd control",
+                latitude=34.44,
+                longitude=35.85,
+                officers=[self.officer, self.other_officer],
+            )
+
+        pushed_to = {call.args[0] for call in send_push.call_args_list}
+        self.assertEqual(pushed_to, {self.officer, self.other_officer})
+
+    @mock.patch("notifications.push.send_push")
+    def test_cancelling_pushes_to_the_officer(self, send_push):
+        mission = self.make_mission(assigned_to=self.officer)
+        with self.captureOnCommitCallbacks(execute=True):
+            services.notify_mission_cancelled(mission, self.officer, reason="Duplicate.")
+
+        send_push.assert_called_once()
+        self.assertEqual(send_push.call_args.args[1], "Mission cancelled")
+
+    @mock.patch("notifications.push.send_push")
+    def test_no_push_when_the_transaction_rolls_back(self, send_push):
+        """A rolled-back assignment must never reach a phone."""
+        mission = self.make_mission()
+        with self.captureOnCommitCallbacks(execute=True):
+            try:
+                with transaction.atomic():
+                    services.notify_mission_assigned(mission, self.officer)
+                    raise RuntimeError("roll back")
+            except RuntimeError:
+                pass
+
+        send_push.assert_not_called()
+
+    @mock.patch("notifications.push.send_push")
+    def test_dashboard_alerts_are_not_pushed(self, send_push):
+        """Unacknowledged-mission alerts go to the dashboard, not phones."""
+        mission = self.make_mission(assigned_to=self.officer)
+        with self.captureOnCommitCallbacks(execute=True):
+            services.notify_mission_unacknowledged(mission)
+
+        send_push.assert_not_called()
+
+
+@override_settings(FCM_CREDENTIALS_FILE="secrets/test-key.json")
+@mock.patch("notifications.push._get_app")
+@mock.patch("firebase_admin.messaging.send_each_for_multicast")
+class SendPushTests(NotificationTestCase):
+    """push.send_push with Firebase mocked out."""
+
+    def register(self, user, token, **extra):
+        return DeviceToken.objects.create(
+            user=user, token=token, platform=DeviceToken.Platform.ANDROID, **extra
+        )
+
+    def ok(self, count=1):
+        return SimpleNamespace(
+            success_count=count,
+            responses=[SimpleNamespace(success=True, exception=None)] * count,
+        )
+
+    def test_sends_to_active_devices_only(self, send, _get_app):
+        self.register(self.officer, "active-token")
+        self.register(self.officer, "old-token", is_active=False)
+        send.return_value = self.ok()
+
+        delivered = push.send_push(self.officer, "New mission assigned", "Crowd control", {"mission_id": 7})
+
+        self.assertEqual(delivered, 1)
+        message = send.call_args.args[0]
+        self.assertEqual(message.tokens, ["active-token"])
+        self.assertEqual(message.data, {"mission_id": "7"})  # FCM needs strings
+
+    def test_user_without_devices_sends_nothing(self, send, _get_app):
+        self.assertEqual(push.send_push(self.officer, "t", "b"), 0)
+        send.assert_not_called()
+
+    def test_dead_tokens_are_deactivated(self, send, _get_app):
+        self.register(self.officer, "dead-token")
+        send.return_value = SimpleNamespace(
+            success_count=0,
+            responses=[SimpleNamespace(success=False, exception=messaging.UnregisteredError("gone"))],
+        )
+
+        push.send_push(self.officer, "t", "b")
+
+        self.assertFalse(DeviceToken.objects.get(token="dead-token").is_active)
+
+    def test_a_firebase_failure_never_raises(self, send, _get_app):
+        self.register(self.officer, "token")
+        send.side_effect = RuntimeError("Firebase is down")
+
+        with self.assertLogs("notifications.push", level="ERROR"):
+            self.assertEqual(push.send_push(self.officer, "t", "b"), 0)
+        self.assertTrue(DeviceToken.objects.get(token="token").is_active)
+
+    @override_settings(FCM_CREDENTIALS_FILE="")
+    def test_does_nothing_without_a_firebase_key(self, send, _get_app):
+        self.register(self.officer, "token")
+        self.assertEqual(push.send_push(self.officer, "t", "b"), 0)
+        send.assert_not_called()

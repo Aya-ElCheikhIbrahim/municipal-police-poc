@@ -7,7 +7,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import IsDispatcherOrSupervisor, IsOfficer
-from missions.models import Mission
+from missions.models import MissionWork
+from panic.models import PanicEvent
 
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -126,6 +127,31 @@ class BulkLocationPingView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
+    serializer_class = BulkLocationPingSerializer
+
+    @extend_schema(
+        request=BulkLocationPingSerializer,
+        responses={201: IngestResultSerializer},
+        examples=[
+            OpenApiExample(
+                "One fix",
+                value={
+                    "pings": [
+                        {
+                            "client_uuid": "3f8a1c92-7d64-4e11-b0a5-9c2d81e4f7a3",
+                            "latitude": 34.451028,
+                            "longitude": 35.810472,
+                            "accuracy_m": 12.5,
+                            "battery_level": 78,
+                            "network_type": "mobile",
+                            "recorded_at": "2026-09-10T17:30:00+03:00"
+                        }
+                    ]
+                },
+                request_only=True,
+            )
+        ],
+    )
     def post(self, request):
         serializer = BulkLocationPingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -173,29 +199,64 @@ class ActiveShiftsView(APIView):
                 .distinct("shift_id")
         }
 
-        # Same one-query shape for the mission each officer is on. ASSIGNED is
-        # excluded deliberately: an officer counts as busy only once they have
-        # acknowledged, because showing an unacknowledged officer as busy would
-        # hide a free officer from the dispatcher. DISTINCT ON keeps the most
-        # recently assigned mission when an officer somehow holds two.
         missions = {
-            m.assigned_to_id: m
-            for m in Mission.objects
+            work.officer_id: work.mission
+            for work in MissionWork.objects
                 .filter(
-                    assigned_to_id__in=[s.officer_id for s in shifts],
-                    status__in=[
-                        Mission.Status.ACKNOWLEDGED,
-                        Mission.Status.IN_PROGRESS,
-                    ],
+                    officer_id__in=[s.officer_id for s in shifts],
+                    ended_at__isnull=True,
                 )
-                .order_by("assigned_to_id", "-assigned_at")
-                .distinct("assigned_to_id")
+                .select_related("mission")
         }
+
+        # Same one-query shape again: which of these officers has an open
+        # panic alert right now. Checked ahead of mission/available so a
+        # panicking officer never gets outranked by "on a mission" — the red
+        # marker (§4.6) and the dashboard's panic banner both key off this
+        # same field, so this is the one place that has to get it right.
+        active_panics = {
+            p.officer_id: p
+            for p in PanicEvent.objects.filter(
+                officer_id__in=[s.officer_id for s in shifts],
+                status=PanicEvent.Status.ACTIVE,
+            )
+        }
+        panicking_officer_ids = set(active_panics)
 
         payload = []
         for shift in shifts:
             ping = latest.get(shift.id)
             mission = missions.get(shift.officer_id)
+            panic = active_panics.get(shift.officer_id)
+            if panic is not None and (ping is None or panic.triggered_at > ping.recorded_at):
+                position = {
+                    "latitude": panic.latitude,
+                    "longitude": panic.longitude,
+                    "accuracy_m": panic.accuracy_m,
+                    "battery_level": panic.battery_level,
+                    "network_type": LocationPing.NetworkType.UNKNOWN,
+                    "recorded_at": panic.triggered_at,
+                    "received_at": panic.triggered_at,
+                    "is_offline_sync": False,
+                }
+                source = "panic"
+            elif ping is not None:
+                position = LocationPingSerializer(ping).data
+                source = "ping"
+            elif shift.start_latitude is not None:
+                position = {
+                    "latitude": shift.start_latitude,
+                    "longitude": shift.start_longitude,
+                    "accuracy_m": None,
+                    "battery_level": None,
+                    "network_type": LocationPing.NetworkType.UNKNOWN,
+                    "recorded_at": shift.started_at,
+                    "received_at": shift.started_at,
+                    "is_offline_sync": False,
+                }
+                source = "shift_start"
+            else:
+                position, source = None, None
             payload.append(
                 {
                     "officer": {
@@ -203,11 +264,16 @@ class ActiveShiftsView(APIView):
                         "full_name": shift.officer.full_name,
                         "badge_number": shift.officer.badge_number,
                     },
-                    "status": "in_mission" if mission is not None else "available",
+                    "status": (
+                        "panic"
+                        if shift.officer_id in panicking_officer_ids
+                        else "in_mission" if mission is not None else "available"
+                    ),
                     "shift_started_at": shift.started_at,
                     "shift_duration_seconds": shift.duration_seconds,
                     "distance_covered_m": shift.distance_m,
-                    "latest_ping": LocationPingSerializer(ping).data if ping else None,
+                    "latest_ping": position,
+                    "position_source": source,
                     "current_mission": mission,
                 }
             )

@@ -10,11 +10,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from core.permissions import IsSupervisor
-from users.models import User
+from users.models import DeviceToken, User
 
 from .serializers import (
     LoginSerializer,
@@ -48,6 +49,11 @@ class LogoutView(APIView):
             token.blacklist()
         except TokenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        if device_token := serializer.validated_data.get("device_token"):
+            DeviceToken.objects.filter(
+                token=device_token,
+                user_id=token[jwt_settings.USER_ID_CLAIM],
+            ).update(is_active=False)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 

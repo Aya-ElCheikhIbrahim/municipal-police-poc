@@ -5,6 +5,7 @@ export type MissionStatus =
   | 'assigned'
   | 'acknowledged'
   | 'in_progress'
+  | 'paused'
   | 'completed'
   | 'cancelled';
 
@@ -16,6 +17,8 @@ export type MissionEventType =
   | 'reassigned'
   | 'acknowledged'
   | 'started'
+  | 'paused'
+  | 'resumed'
   | 'completed'
   | 'cancelled'
   | 'photo_added'
@@ -49,16 +52,19 @@ export interface MissionListItem {
   latitude: string;
   longitude: string;
   address: string;
-  assigned_to: OfficerBrief | null;
+  assigned_to: OfficerBrief[]; // Changed from OfficerBrief | null to an array
   deadline: string | null;
   created_at: string;
   assigned_at: string | null;
+  /** Seconds since started_at, frozen at completion/cancellation. Null until work starts. */
+  duration_seconds: number | null;
   is_overdue: boolean;
   awaiting_acknowledgement: boolean;
 }
 
 export interface MissionDetail extends MissionListItem {
   description: string;
+  category?: string;
   created_by: OfficerBrief | null;
   acknowledged_at: string | null;
   started_at: string | null;
@@ -79,13 +85,14 @@ export interface MissionDetail extends MissionListItem {
 export interface CreateMissionRequest {
   title: string;
   description?: string;
+  category?: string;
   latitude: number;
   longitude: number;
   address?: string;
   priority: MissionPriority;
   deadline?: string | null;
-  /** Officer id, not a name. */
-  assigned_to_id?: number | null;
+  /** Array of Officer IDs */
+  assigned_to_ids?: number[];
 }
 
 /** Query params supported by GET /missions/. All filtering is server-side. */
@@ -104,6 +111,7 @@ export const MISSION_STATUSES: MissionStatus[] = [
   'assigned',
   'acknowledged',
   'in_progress',
+  'paused',
   'completed',
   'cancelled',
 ];
@@ -127,6 +135,8 @@ export function eventLabel(type: MissionEventType): string {
     reassigned: 'Reassigned',
     acknowledged: 'Acknowledged',
     started: 'Started',
+    paused: 'Paused (urgent mission)',
+    resumed: 'Resumed',
     completed: 'Completed',
     cancelled: 'Cancelled',
     photo_added: 'Photo added',
@@ -147,4 +157,14 @@ export function canCancel(mission: MissionListItem): boolean {
 
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+export function formatMissionDuration(seconds: number | null): string {
+  if (seconds === null) return ';';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  if (minutes > 0) return `${minutes}m ${String(secs).padStart(2, '0')}s`;
+  return `${secs}s`;
 }

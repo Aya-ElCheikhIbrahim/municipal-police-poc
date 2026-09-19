@@ -1,86 +1,406 @@
-import { useState } from 'react';
-import {type ReportSubTab } from './mockData';
-import { DailyActivity } from './DailyActivity';
+import { useState, type ReactNode } from 'react';
+import {
+  type ReportSubTab,
+  type FilterState,
+  dailyOfficerData,
+} from './mockData';
+import { TRIPOLI_LOCATIONS } from '../../data/tripoliLocations';
+import { DailyActivity, type DailyViewMode } from './DailyActivity';
 import { WeeklySummary } from './WeeklySummary';
+import { OfficerReport } from './OfficerReport';
+import { CustomRangeReport } from './CustomRangeReport';
+
+function getLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export function ReportsPage() {
   const [reportSubTab, setReportSubTab] = useState<ReportSubTab>('Daily activity');
+  const [dailyView, setDailyView] = useState<DailyViewMode>('SUMMARY');
+  const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
 
-  const getFormattedToday = () => {
-    const today = new Date();
-    const day = today.getDate();
-    const month = today.toLocaleString('en-US', { month: 'short' });
-    const year = today.getFullYear();
-    return `${day} ${month} ${year}`;
+  const todayStr = getLocalDateString(new Date());
+
+  const [filters, setFilters] = useState<FilterState>({
+    officer: 'ALL',
+    reportType: 'ALL',
+    priority: 'ALL',
+    startDate: todayStr,
+    endDate: todayStr,
+    location: 'ALL',
+    status: 'ALL',
+    fromTime: '',
+    toTime: '',
+  });
+
+  const officerOptions = Array.from(new Set(dailyOfficerData.map((d) => d.name)));
+
+  const handleFilterChange = (key: keyof FilterState, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const getFormattedWeekRange = () => {
-    const today = new Date();
-    const startOfWeek = new Date();
-    startOfWeek.setDate(today.getDate() - 6);
-
-    const startDay = startOfWeek.getDate();
-    const startMonth = startOfWeek.toLocaleString('en-US', { month: 'short' });
-    const endDay = today.getDate();
-    const endMonth = today.toLocaleString('en-US', { month: 'short' });
-
-    if (startMonth === endMonth) {
-      return `${startDay} – ${endDay} ${endMonth}`;
-    }
-    return `${startDay} ${startMonth} – ${endDay} ${endMonth}`;
+  const resetFilters = () => {
+    setFilters({
+      officer: 'ALL',
+      reportType: 'ALL',
+      priority: 'ALL',
+      startDate: todayStr,
+      endDate: todayStr,
+      location: 'ALL',
+      status: 'ALL',
+      fromTime: '',
+      toTime: '',
+    });
   };
+
+  const handleTabChange = (tab: ReportSubTab) => {
+    setReportSubTab(tab);
+    setSelectedOfficer(null);
+    setFilters((prev) => ({
+      ...prev,
+      status: 'ALL',
+      reportType: 'ALL',
+      priority: 'ALL',
+      fromTime: '',
+      toTime: '',
+      location: tab === 'Weekly summary' ? 'ALL' : prev.location,
+    }));
+  };
+
+  const handleDailyViewChange = (view: DailyViewMode) => {
+    setDailyView(view);
+    setSelectedOfficer(null);
+    setFilters((prev) => ({
+      ...prev,
+      status: 'ALL',
+      fromTime: '',
+      toTime: '',
+    }));
+  };
+
+  const handleExportFiltered = (format: 'CSV' | 'PDF') => {
+    alert(`${format} export is not connected yet. The web app will download the file once the reports export endpoint is implemented.`);
+  };
+
+  if (selectedOfficer) {
+    return (
+      <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto">
+        <OfficerReport
+          officerName={selectedOfficer}
+          sourceTab={reportSubTab}
+          filters={filters}
+          onBack={() => setSelectedOfficer(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto space-y-4">
-      {/* Header Actions & Sub-nav */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="bg-white/80 p-0.5 rounded-md border border-slate-200 flex items-center">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-white/80 p-0.5 rounded-md border border-slate-200 flex items-center">
+          {(['Daily activity', 'Weekly summary', 'Custom range'] as ReportSubTab[]).map((tab) => (
             <button
-              onClick={() => setReportSubTab('Daily activity')}
+              key={tab}
+              onClick={() => handleTabChange(tab)}
               className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                reportSubTab === 'Daily activity'
+                reportSubTab === tab
                   ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Daily activity
+              {tab}
             </button>
-            <button
-              onClick={() => setReportSubTab('Weekly summary')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                reportSubTab === 'Weekly summary'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Weekly summary
-            </button>
-          </div>
-
-          <div className="bg-white border border-slate-200 px-3 py-1 rounded-md text-xs font-medium text-slate-700 shadow-xs">
-            {reportSubTab === 'Daily activity' ? getFormattedToday() : getFormattedWeekRange()}
-          </div>
-
-          {reportSubTab === 'Daily activity' && (
-            <div className="bg-white border border-slate-200 px-3 py-1 rounded-md text-xs font-medium text-slate-700 shadow-xs cursor-pointer">
-              All officers
-            </div>
-          )}
+          ))}
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer">
-            Export CSV
+          <button
+            onClick={() => handleExportFiltered('CSV')}
+            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
+          >
+            Export Filtered CSV
           </button>
-          <button className="bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer">
-            Export PDF
+          <button
+            onClick={() => handleExportFiltered('PDF')}
+            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
+          >
+            Export Filtered PDF
           </button>
         </div>
       </div>
 
-      {/* Tab Panels */}
-      {reportSubTab === 'Daily activity' ? <DailyActivity /> : <WeeklySummary />}
+      {reportSubTab === 'Daily activity' && (
+        <div className="inline-flex bg-white/80 p-0.5 rounded-md border border-slate-200">
+          <button
+            onClick={() => handleDailyViewChange('SUMMARY')}
+            className={`px-3 py-1 rounded-md text-xs font-semibold cursor-pointer ${
+              dailyView === 'SUMMARY'
+                ? 'bg-[#1F3864] text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Daily Summary
+          </button>
+          <button
+            onClick={() => handleDailyViewChange('SNAPSHOT')}
+            className={`px-3 py-1 rounded-md text-xs font-semibold cursor-pointer ${
+              dailyView === 'SNAPSHOT'
+                ? 'bg-[#1F3864] text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Time Snapshot
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white/90 backdrop-blur rounded-lg border border-slate-200/80 shadow-xs">
+        <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
+          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            Filter Report
+          </span>
+          <button
+            onClick={resetFilters}
+            className="text-[11px] text-slate-500 hover:text-slate-800 font-medium cursor-pointer underline"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div className="p-4">
+          {reportSubTab === 'Daily activity' && dailyView === 'SUMMARY' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl">
+              <DateFilter
+                value={filters.startDate}
+                max={todayStr}
+                onChange={(value) => {
+                  handleFilterChange('startDate', value);
+                  handleFilterChange('endDate', value);
+                }}
+              />
+              <OfficerFilter
+                value={filters.officer}
+                options={officerOptions}
+                onChange={(value) => handleFilterChange('officer', value)}
+              />
+              <LocationFilter
+                value={filters.location}
+                onChange={(value) => handleFilterChange('location', value)}
+              />
+            </div>
+          )}
+
+          {reportSubTab === 'Daily activity' && dailyView === 'SNAPSHOT' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <DateFilter
+                value={filters.startDate}
+                max={todayStr}
+                onChange={(value) => {
+                  handleFilterChange('startDate', value);
+                  handleFilterChange('endDate', value);
+                }}
+              />
+              <FilterField label="From Time">
+                <input
+                  type="time"
+                  value={filters.fromTime}
+                  max={filters.toTime || undefined}
+                  onChange={(e) => handleFilterChange('fromTime', e.target.value)}
+                  className="filter-control"
+                />
+              </FilterField>
+              <FilterField label="To Time">
+                <input
+                  type="time"
+                  value={filters.toTime}
+                  min={filters.fromTime || undefined}
+                  onChange={(e) => handleFilterChange('toTime', e.target.value)}
+                  className="filter-control"
+                />
+              </FilterField>
+              <LocationFilter
+                value={filters.location}
+                onChange={(value) => handleFilterChange('location', value)}
+              />
+              <OfficerFilter
+                value={filters.officer}
+                options={officerOptions}
+                onChange={(value) => handleFilterChange('officer', value)}
+              />
+            </div>
+          )}
+
+          {reportSubTab === 'Weekly summary' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl">
+              <FilterField label="Week">
+                <CalendarDateInput
+                  value={filters.endDate}
+                  max={todayStr}
+                  onChange={(value) => handleFilterChange('endDate', value)}
+                />
+              </FilterField>
+              <OfficerFilter
+                value={filters.officer}
+                options={officerOptions}
+                onChange={(value) => handleFilterChange('officer', value)}
+              />
+              <LocationFilter
+                value={filters.location}
+                onChange={(value) => handleFilterChange('location', value)}
+              />
+            </div>
+          )}
+
+          {reportSubTab === 'Custom range' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <FilterField label="Start Date">
+                <CalendarDateInput
+                  value={filters.startDate}
+                  max={filters.endDate || todayStr}
+                  onChange={(value) => handleFilterChange('startDate', value)}
+                />
+              </FilterField>
+              <FilterField label="End Date">
+                <CalendarDateInput
+                  value={filters.endDate}
+                  min={filters.startDate}
+                  max={todayStr}
+                  onChange={(value) => handleFilterChange('endDate', value)}
+                />
+              </FilterField>
+              <OfficerFilter
+                value={filters.officer}
+                options={officerOptions}
+                onChange={(value) => handleFilterChange('officer', value)}
+              />
+              <LocationFilter
+                value={filters.location}
+                onChange={(value) => handleFilterChange('location', value)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {reportSubTab === 'Daily activity' && (
+        <DailyActivity
+          filters={filters}
+          mode={dailyView}
+          onOfficerSelect={setSelectedOfficer}
+        />
+      )}
+
+      {reportSubTab === 'Weekly summary' && (
+        <WeeklySummary filters={filters} onOfficerSelect={setSelectedOfficer} />
+      )}
+
+      {reportSubTab === 'Custom range' && (
+        <CustomRangeReport filters={filters} onOfficerSelect={setSelectedOfficer} />
+      )}
+
+      <style>{`
+        .filter-control {
+          width: 100%;
+          background: rgb(248 250 252);
+          border: 1px solid rgb(226 232 240);
+          border-radius: 0.375rem;
+          padding: 0.5rem 0.625rem;
+          font-size: 0.75rem;
+          color: rgb(51 65 85);
+          outline: none;
+        }
+        .filter-control:focus { box-shadow: 0 0 0 1px rgb(148 163 184); }
+      `}</style>
     </div>
+  );
+}
+
+function FilterField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function DateFilter({ value, max, onChange }: { value: string; max: string; onChange: (value: string) => void }) {
+  return (
+    <FilterField label="Date">
+      <CalendarDateInput value={value} max={max} onChange={onChange} />
+    </FilterField>
+  );
+}
+
+function CalendarDateInput({
+  value,
+  min,
+  max,
+  onChange,
+  className = '',
+}: {
+  value: string;
+  min?: string;
+  max?: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={`relative ${className}`}>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={value}
+        placeholder="YYYY-MM-DD"
+        onChange={(e) => onChange(e.target.value)}
+        className="filter-control pr-10"
+        aria-label="Date"
+      />
+      <input
+        type="date"
+        value={/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute right-0 top-0 h-full w-10 cursor-pointer opacity-0"
+        aria-label="Open calendar"
+      />
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+        aria-hidden="true"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 9h16.5M5.25 5.25h13.5A1.5 1.5 0 0 1 20.25 6.75v12a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-12a1.5 1.5 0 0 1 1.5-1.5Z" />
+      </svg>
+    </div>
+  );
+}
+
+function OfficerFilter({ value, options, onChange }: { value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <FilterField label="Officer">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="filter-control">
+        <option value="ALL">All Officers</option>
+        {options.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+    </FilterField>
+  );
+}
+
+function LocationFilter({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <FilterField label="Area / Location">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="filter-control">
+        <option value="ALL">All Areas</option>
+        {TRIPOLI_LOCATIONS.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+      </select>
+    </FilterField>
   );
 }

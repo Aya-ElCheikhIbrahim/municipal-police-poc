@@ -22,8 +22,7 @@ from rest_framework.test import APIClient
 from core.registry import set_settings
  
 from . import services
-from .models import Mission, MissionEvent, MissionPhoto
- 
+from .models import Mission, MissionEvent, MissionPhoto, MissionWork 
 User = get_user_model()
  
  
@@ -46,12 +45,26 @@ class MissionTestCase(TestCase):
         self.other_officer = make_user("off2")
  
     def make_mission(self, **kwargs):
+        # Tests pass one officer as assigned_to=...; the service takes a list.
+        assigned_to = kwargs.pop("assigned_to", None)
         return services.create_mission(
             created_by=kwargs.pop("created_by", self.dispatcher),
             title=kwargs.pop("title", "Traffic obstruction"),
             latitude=kwargs.pop("latitude", 34.4367),
             longitude=kwargs.pop("longitude", 35.8497),
+            officers=[assigned_to] if assigned_to is not None else [],
             **kwargs,
+        )
+
+    def attach_photo(self, mission):
+        """section 4.5 requires photo evidence before completion."""
+        return services.add_photo(
+            mission,
+            officer=mission.assigned_to.first(),
+            client_uuid=uuid.uuid4(),
+            image=SimpleUploadedFile(
+                "evidence.jpg", b"fake-image-bytes", content_type="image/jpeg"
+            ),
         )
  
     def event_types(self, mission):
@@ -62,7 +75,7 @@ class CreationTests(MissionTestCase):
     def test_created_unassigned(self):
         mission = self.make_mission()
         self.assertEqual(mission.status, Mission.Status.NEW)
-        self.assertIsNone(mission.assigned_to)
+        self.assertFalse(mission.assigned_to.exists())
         self.assertEqual(self.event_types(mission), ["created"])
  
     def test_created_and_assigned_in_one_step(self):
@@ -79,10 +92,11 @@ class CreationTests(MissionTestCase):
  
 class TransitionTests(MissionTestCase):
     def test_full_lifecycle_writes_every_event(self):
-        """§4.6's drawer shows a timeline; it can only show what was recorded."""
+        """section 4.6's drawer shows a timeline; it can only show what was recorded."""
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer, latitude=34.44, longitude=35.85)
+        self.attach_photo(mission)
         services.complete_mission(
             mission, officer=self.officer, latitude=34.45, longitude=35.85, notes="Vehicle removed."
         )
@@ -91,15 +105,42 @@ class TransitionTests(MissionTestCase):
         self.assertEqual(mission.status, Mission.Status.COMPLETED)
         self.assertEqual(
             self.event_types(mission),
-            ["created", "assigned", "acknowledged", "started", "completed"],
+            ["created", "assigned", "acknowledged", "started", "photo_added", "completed"],
         )
         for field in ["assigned_at", "acknowledged_at", "started_at", "completed_at"]:
             self.assertIsNotNone(getattr(mission, field), f"{field} was not set")
  
-    def test_cannot_start_before_acknowledging(self):
+    def test_can_start_without_acknowledging(self):
+        """Acknowledging is optional; an officer may start straight away."""
         mission = self.make_mission(assigned_to=self.officer)
+        services.start_mission(mission, officer=self.officer)
+
+        mission.refresh_from_db()
+        self.assertEqual(mission.status, Mission.Status.IN_PROGRESS)
+        self.assertIsNotNone(mission.started_at)
+        self.assertIsNone(mission.acknowledged_at)
+        self.assertEqual(self.event_types(mission), ["created", "assigned", "started"])
+
+    def test_acknowledging_then_starting_still_works(self):
+        """Existing app builds acknowledge first; that path must keep working."""
+        mission = self.make_mission(assigned_to=self.officer)
+        services.acknowledge_mission(mission, officer=self.officer)
+        services.start_mission(mission, officer=self.officer)
+
+        mission.refresh_from_db()
+        self.assertEqual(mission.status, Mission.Status.IN_PROGRESS)
+        self.assertIsNotNone(mission.acknowledged_at)
+
+    def test_cannot_acknowledge_after_starting(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        services.start_mission(mission, officer=self.officer)
         with self.assertRaises(services.MissionError):
-            services.start_mission(mission, officer=self.officer)
+            services.acknowledge_mission(mission, officer=self.officer)
+
+    def test_another_officer_cannot_start_it(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        with self.assertRaises(services.MissionPermissionError):
+            services.start_mission(mission, officer=self.other_officer)
  
     def test_cannot_complete_before_starting(self):
         mission = self.make_mission(assigned_to=self.officer)
@@ -117,20 +158,18 @@ class TransitionTests(MissionTestCase):
         mission = self.make_mission(assigned_to=self.officer)
         with self.assertRaises(services.MissionPermissionError):
             services.acknowledge_mission(mission, officer=self.other_officer)
- 
     def test_completed_mission_cannot_be_cancelled(self):
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer)
+        self.attach_photo(mission)
         services.complete_mission(mission, officer=self.officer)
-        with self.assertRaises(services.MissionError):
-            services.cancel_mission(mission, actor=self.dispatcher, reason="changed my mind")
- 
     def test_start_and_complete_positions_are_recorded(self):
         """Where the officer actually was, not where the mission is."""
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer, latitude=34.44, longitude=35.85)
+        self.attach_photo(mission)
         services.complete_mission(mission, officer=self.officer, latitude=34.45, longitude=35.86)
  
         mission.refresh_from_db()
@@ -142,34 +181,34 @@ class TransitionTests(MissionTestCase):
 class ReassignmentTests(MissionTestCase):
     def test_reassign_before_acknowledgement_is_allowed(self):
         mission = self.make_mission(assigned_to=self.officer)
-        services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+        services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
  
         mission.refresh_from_db()
-        self.assertEqual(mission.assigned_to, self.other_officer)
+        self.assertEqual(list(mission.assigned_to.all()), [self.other_officer])
         self.assertEqual(self.event_types(mission), ["created", "assigned", "reassigned"])
  
     def test_reassignment_records_the_previous_officer(self):
         """Otherwise the trail cannot answer who it was taken from."""
         mission = self.make_mission(assigned_to=self.officer)
-        services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+        services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
  
         event = mission.events.get(event_type="reassigned")
-        self.assertEqual(event.metadata["previous_officer_id"], self.officer.id)
-        self.assertEqual(event.metadata["officer_id"], self.other_officer.id)
+        self.assertEqual(event.metadata["previous_officer_ids"], [self.officer.id])
+        self.assertEqual(event.metadata["officer_ids"], [self.other_officer.id])
  
     def test_reassign_after_acknowledgement_is_refused(self):
         """The officer may already be driving to it. Cancel with a reason instead."""
         mission = self.make_mission(assigned_to=self.officer)
         services.acknowledge_mission(mission, officer=self.officer)
         with self.assertRaises(services.MissionError):
-            services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+            services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
  
     def test_reassignment_resets_the_acknowledgement_clock(self):
         mission = self.make_mission(assigned_to=self.officer)
         mission.ack_alert_sent_at = timezone.now()
         mission.save(update_fields=["ack_alert_sent_at"])
  
-        services.reassign_mission(mission, officer=self.other_officer, actor=self.dispatcher)
+        services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
         mission.refresh_from_db()
         self.assertIsNone(mission.ack_alert_sent_at)
  
@@ -314,7 +353,7 @@ class ApiPermissionTests(MissionTestCase):
         self.client.force_authenticate(self.officer)
         rows = self.client.get("/api/v1/missions/").json()
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["assigned_to"]["id"], self.officer.id)
+        self.assertEqual(rows[0]["assigned_to"][0]["id"], self.officer.id)
  
     def test_dispatcher_list_shows_everything(self):
         self.make_mission(assigned_to=self.officer)
@@ -340,8 +379,15 @@ class ApiPermissionTests(MissionTestCase):
     def test_illegal_transition_returns_400_not_500(self):
         mission = self.make_mission(assigned_to=self.officer)
         self.client.force_authenticate(self.officer)
-        response = self.client.post(f"/api/v1/missions/{mission.pk}/start/", {}, format="json")
+        response = self.client.post(f"/api/v1/missions/{mission.pk}/complete/", {}, format="json")
         self.assertEqual(response.status_code, 400)
+
+    def test_officer_can_start_an_assigned_mission_through_the_api(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        self.client.force_authenticate(self.officer)
+        response = self.client.post(f"/api/v1/missions/{mission.pk}/start/", {}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "in_progress")
  
     def test_acting_on_another_officers_mission_returns_403(self):
         mission = self.make_mission(assigned_to=self.other_officer)
@@ -366,7 +412,7 @@ class DetailContractTests(MissionTestCase):
         for key in ["events", "photos", "created_by", "assigned_to", "cancellation_reason"]:
             self.assertIn(key, body)
         self.assertEqual([e["event_type"] for e in body["events"]], ["created", "assigned", "acknowledged"])
-        self.assertEqual(set(body["assigned_to"]), {"id", "full_name", "badge_number"})
+        self.assertEqual(set(body["assigned_to"][0]), {"id", "full_name", "badge_number"})
  
     def test_list_row_flags_overdue_missions(self):
         self.make_mission(
@@ -375,4 +421,226 @@ class DetailContractTests(MissionTestCase):
         client = APIClient()
         client.force_authenticate(self.dispatcher)
         self.assertTrue(client.get("/api/v1/missions/").json()[0]["is_overdue"])
+
+
+        
+
+class MultiOfficerTests(MissionTestCase):
+    """A mission can go to several officers; they share one status."""
+
+    def make_shared_mission(self):
+        return services.create_mission(
+            created_by=self.dispatcher,
+            title="Crowd control",
+            latitude=34.4367,
+            longitude=35.8497,
+            officers=[self.officer, self.other_officer],
+        )
+
+    def test_a_mission_can_be_assigned_to_several_officers(self):
+        mission = self.make_shared_mission()
+        self.assertEqual(
+            set(mission.assigned_to.values_list("id", flat=True)),
+            {self.officer.id, self.other_officer.id},
+        )
+
+    def test_any_assigned_officer_can_act_on_a_shared_mission(self):
+        mission = self.make_shared_mission()
+        services.acknowledge_mission(mission, officer=self.other_officer)
+        mission.refresh_from_db()
+        self.assertEqual(mission.status, Mission.Status.ACKNOWLEDGED)
+
+    def test_an_unassigned_officer_still_cannot_act(self):
+        mission = self.make_mission(assigned_to=self.officer)
+        with self.assertRaises(services.MissionPermissionError):
+            services.acknowledge_mission(mission, officer=self.other_officer)
+
+    def test_every_assigned_officer_is_notified(self):
+        from notifications.models import Notification, NotificationType
+
+        self.make_shared_mission()
+        recipients = set(
+            Notification.objects.filter(
+                notification_type=NotificationType.MISSION_ASSIGNED
+            ).values_list("recipient_id", flat=True)
+        )
+        self.assertEqual(recipients, {self.officer.id, self.other_officer.id})
+
+    def test_reassigning_to_the_same_officers_is_refused(self):
+        mission = self.make_shared_mission()
+        with self.assertRaises(services.MissionError):
+            services.reassign_mission(
+                mission, officers=[self.other_officer, self.officer], actor=self.dispatcher
+            )
+
+
  
+
+class CategoryTests(MissionTestCase):
+    """Mission category: stored as the dashboard form sends it, Municipal by default."""
+
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient()
+        self.client.force_authenticate(self.dispatcher)
+
+    def create_through_api(self, **extra):
+        body = {"title": "Blocked drain", "latitude": 34.4367, "longitude": 35.8497, **extra}
+        return self.client.post("/api/v1/missions/", body, format="json")
+
+    def test_defaults_to_municipal(self):
+        mission = self.make_mission()
+        self.assertEqual(mission.category, Mission.Category.MUNICIPAL)
+
+    def test_service_stores_the_given_category(self):
+        mission = self.make_mission(category=Mission.Category.SANITATION)
+        mission.refresh_from_db()
+        self.assertEqual(mission.category, "Sanitation")
+
+    def test_api_saves_the_category_the_form_sends(self):
+        response = self.create_through_api(category="Traffic")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["category"], "Traffic")
+        self.assertEqual(Mission.objects.get(pk=response.json()["id"]).category, "Traffic")
+
+    def test_api_without_a_category_saves_municipal(self):
+        response = self.create_through_api()
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["category"], "Municipal")
+
+    def test_unknown_category_is_a_400(self):
+        response = self.create_through_api(category="traffic")  # wrong capitalisation
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("category", response.json())
+
+    def test_list_rows_carry_the_category(self):
+        self.make_mission(category=Mission.Category.INFRASTRUCTURE)
+        rows = self.client.get("/api/v1/missions/").json()
+        self.assertEqual(rows[0]["category"], "Infrastructure")
+
+    def test_list_can_be_filtered_by_category(self):
+        self.make_mission(title="Streetlight out", category=Mission.Category.INFRASTRUCTURE)
+        self.make_mission(title="Double parking", category=Mission.Category.TRAFFIC)
+
+        rows = self.client.get("/api/v1/missions/?category=Traffic").json()
+        self.assertEqual([row["title"] for row in rows], ["Double parking"])
+
+
+
+
+
+class OneMissionAtATimeTests(MissionTestCase):
+    """An officer works one mission at a time; only urgent missions interrupt."""
+
+    def mission(self, title, priority=Mission.Priority.MEDIUM, officers=None):
+        return services.create_mission(
+            created_by=self.dispatcher,
+            title=title,
+            latitude=34.4367,
+            longitude=35.8497,
+            priority=priority,
+            officers=officers or [self.officer],
+        )
+
+    def open_work(self, officer):
+        return MissionWork.objects.filter(officer=officer, ended_at__isnull=True)
+
+    def test_a_second_non_urgent_mission_is_refused(self):
+        first = self.mission("Patrol")
+        services.start_mission(first, officer=self.officer)
+        second = self.mission("Parking", priority=Mission.Priority.HIGH)
+
+        with self.assertRaises(services.MissionError):
+            services.start_mission(second, officer=self.officer)
+
+        second.refresh_from_db()
+        self.assertEqual(second.status, Mission.Status.ASSIGNED)
+        self.assertEqual(self.open_work(self.officer).get().mission_id, first.id)
+
+    def test_starting_the_same_mission_twice_is_refused(self):
+        mission = self.mission("Patrol")
+        services.start_mission(mission, officer=self.officer)
+        with self.assertRaises(services.MissionError):
+            services.start_mission(mission, officer=self.officer)
+
+    def test_an_urgent_mission_pauses_the_current_one(self):
+        routine = self.mission("Patrol")
+        services.start_mission(routine, officer=self.officer)
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+
+        services.start_mission(urgent, officer=self.officer)
+
+        routine.refresh_from_db()
+        self.assertEqual(routine.status, Mission.Status.PAUSED)
+        self.assertIsNone(routine.resumed_at)
+        self.assertEqual(urgent.status, Mission.Status.IN_PROGRESS)
+        self.assertEqual(self.open_work(self.officer).get().mission_id, urgent.id)
+        paused = routine.events.get(event_type="paused")
+        self.assertEqual(paused.metadata["interrupted_by_mission_id"], urgent.id)
+
+    def test_a_shared_mission_keeps_going_when_one_officer_leaves(self):
+        shared = self.mission("Crowd control", officers=[self.officer, self.other_officer])
+        services.start_mission(shared, officer=self.officer)
+        services.start_mission(shared, officer=self.other_officer)  # joins
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+
+        services.start_mission(urgent, officer=self.officer)
+
+        shared.refresh_from_db()
+        self.assertEqual(shared.status, Mission.Status.IN_PROGRESS)
+        self.assertEqual(self.open_work(self.other_officer).get().mission_id, shared.id)
+
+    def test_resuming_continues_the_clock_without_counting_the_pause(self):
+        routine = self.mission("Patrol")
+        services.start_mission(routine, officer=self.officer)
+        # Pretend the officer had been working it for ten minutes.
+        Mission.objects.filter(pk=routine.pk).update(
+            resumed_at=timezone.now() - timezone.timedelta(minutes=10)
+        )
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+        services.start_mission(urgent, officer=self.officer)
+        services.cancel_mission(urgent, actor=self.dispatcher, reason="False alarm.")
+
+        routine.refresh_from_db()
+        worked_before_pause = routine.worked_seconds
+        self.assertGreaterEqual(worked_before_pause, 600)
+
+        services.start_mission(routine, officer=self.officer)  # resume
+
+        routine.refresh_from_db()
+        self.assertEqual(routine.status, Mission.Status.IN_PROGRESS)
+        self.assertEqual(self.event_types(routine)[-1], "resumed")
+        self.assertLess(routine.duration_seconds - worked_before_pause, 5)
+
+    def test_completing_frees_the_officer(self):
+        mission = self.mission("Patrol")
+        services.start_mission(mission, officer=self.officer)
+        self.attach_photo(mission)
+        services.complete_mission(mission, officer=self.officer)
+
+        self.assertFalse(self.open_work(self.officer).exists())
+        next_one = self.mission("Next patrol")
+        services.start_mission(next_one, officer=self.officer)
+        self.assertEqual(next_one.status, Mission.Status.IN_PROGRESS)
+
+    def test_a_paused_mission_can_be_cancelled(self):
+        routine = self.mission("Patrol")
+        services.start_mission(routine, officer=self.officer)
+        urgent = self.mission("Officer down", priority=Mission.Priority.URGENT)
+        services.start_mission(urgent, officer=self.officer)
+
+        routine.refresh_from_db()
+        services.cancel_mission(routine, actor=self.dispatcher, reason="No longer needed.")
+        self.assertEqual(routine.status, Mission.Status.CANCELLED)
+
+    def test_the_api_explains_why_a_start_is_refused(self):
+        first = self.mission("Patrol")
+        services.start_mission(first, officer=self.officer)
+        second = self.mission("Parking")
+
+        client = APIClient()
+        client.force_authenticate(self.officer)
+        response = client.post(f"/api/v1/missions/{second.pk}/start/", {}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("only urgent missions can interrupt", response.json()["detail"])

@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Real device location + camera permissions are declared now so the
-         backend/location-tracking work described in LocationTracker.java
-         and MissionDetailActivity's photo capture can be wired in later
-         without touching the manifest again. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
@@ -23,7 +19,8 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.OfficerApp">
+        android:theme="@style/Theme.OfficerApp"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".ui.login.LoginActivity"
@@ -56,4 +53,5 @@
             android:theme="@style/Theme.OfficerApp.NoActionBar" />
 
     </application>
+
 </manifest>

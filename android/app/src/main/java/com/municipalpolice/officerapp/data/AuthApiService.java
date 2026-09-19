@@ -5,6 +5,14 @@ import retrofit2.http.Body;
 import retrofit2.http.POST;
 
 public interface AuthApiService {
+
     @POST("login/")
-    Call<LoginResponse> login(@Body LoginRequest request);
+    Call<LoginResponse> login(
+            @Body LoginRequest request
+    );
+
+    @POST("token/refresh/")
+    Call<TokenRefreshResponse> refreshToken(
+            @Body TokenRefreshRequest request
+    );
 }
