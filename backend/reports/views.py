@@ -22,21 +22,6 @@ from reports.services import (
     generate_weekly_summary,
 )
 from .params import daily_params, weekly_params
-
-from rest_framework.renderers import BaseRenderer
-class CSVRenderer(BaseRenderer):
-    media_type = "text/csv"
-    format = "csv"
-
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
-from rest_framework.renderers import BaseRenderer
-class PDFRenderer(BaseRenderer):
-    media_type = "application/pdf"
-    format = "pdf"
-
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
     
 class DailyOfficerReportView(APIView):
     """
@@ -370,7 +355,6 @@ class DailyOfficerReportPDFView(APIView):
         return response
 class WeeklySummaryCSVView(APIView):
     permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
-    renderer_classes = [CSVRenderer]
 
     @extend_schema(
         parameters=[
@@ -449,7 +433,6 @@ class WeeklySummaryCSVView(APIView):
     
 class WeeklySummaryPDFView(APIView):
     permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
-    renderer_classes = [PDFRenderer]
     @extend_schema(
         parameters=[
             OpenApiParameter(
