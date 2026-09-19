@@ -6,7 +6,8 @@ from django.utils import timezone
 from missions.models import Mission
 from panic.models import PanicEvent
 from shifts.models import Shift
-from django.db.models import Count
+from django.db.models import Avg, Count
+from shifts.services import trail_distance_m
 
 User = get_user_model()
 
@@ -14,7 +15,6 @@ User = get_user_model()
 def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
     officer = User.objects.filter(
         pk=officer_id,
-        is_active=True,
         role="officer",
     ).first()
 
@@ -59,13 +59,17 @@ def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
     # ---------------------------------------------------------
     # DISTANCE COVERED
     # ---------------------------------------------------------
-    # Shift.distance_m already contains the calculated distance
-    # from the officer's location pings.
+    # Only the pings recorded on this day, so a shift that crosses midnight is
+    # split between the two days. Shift.distance_m covers the whole shift and
+    # would count it on both.
     distance_covered_m = sum(
-        shift.distance_m
+        trail_distance_m(
+            shift.pings.filter(
+                recorded_at__gte=day_start,
+                recorded_at__lt=day_end,
+            ).order_by("recorded_at")
+        )
         for shift in shifts
-        if shift.started_at < day_end
-        and (shift.ended_at is None or shift.ended_at > day_start)
     )
 
     # ---------------------------------------------------------
@@ -149,24 +153,12 @@ def generate_weekly_summary(*, start_date, end_date):
         else 0
     )
 
-    # Average completion time
-    completed_missions = missions.filter(
-        started_at__isnull=False,
-        completed_at__isnull=False,
-    )
-
-    completion_times = [
-        (mission.completed_at - mission.started_at).total_seconds()
-        for mission in completed_missions
-    ]
+    average_worked = missions.filter(
+        status=Mission.Status.COMPLETED,
+    ).aggregate(average=Avg("worked_seconds"))["average"]
 
     average_completion_seconds = (
-        round(
-            sum(completion_times) / len(completion_times),
-            2,
-        )
-        if completion_times
-        else 0
+        round(average_worked, 2) if average_worked is not None else 0
     )
 
     # Top-performing officers. A mission sent to several offciers counts for each of them, since they all worked on it
@@ -175,7 +167,6 @@ def generate_weekly_summary(*, start_date, end_date):
     top = (
         User.objects.filter(
             missions_assigned__in=completed,
-            is_active=True,
             role="officer",
         )
         .annotate(completed_missions=Count("missions_assigned", distinct=True))
