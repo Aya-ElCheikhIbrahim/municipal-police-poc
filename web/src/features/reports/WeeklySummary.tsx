@@ -82,8 +82,8 @@ function SortHeader({
   onSort: (field: WeeklySort) => void;
 }) {
   return (
-    <th className="p-3.5 cursor-pointer select-none hover:bg-slate-100" onClick={() => onSort(field)}>
-      {label} <span className="text-[9px] text-slate-400">{currentField === field ? (asc ? '▲' : '▼') : '↕'}</span>
+    <th className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100" onClick={() => onSort(field)}>
+      {label} <span className="text-xs text-slate-400">{currentField === field ? (asc ? '▲' : '▼') : '↕'}</span>
     </th>
   );
 }
@@ -198,14 +198,14 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800">Officer Summary</h3>
+          <h3 className="text-base font-bold text-slate-800">Officer Summary</h3>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[670px]">
+          <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[670px]">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                <th className="p-3.5">Officer</th>
+              <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
+                <th className="px-4 py-3">Officer</th>
                 <SortHeader label="Duty Hours" field="dutyHours" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Avg Acknowledgement" field="avgAcknowledgement" currentField={sortField} asc={sortAsc} onSort={handleSort} />
@@ -217,14 +217,18 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {sortedData.map((row) => (
                 <tr key={row.name} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-3.5">
+                  <td className="px-4 py-3">
                     <button type="button" onClick={() => onOfficerSelect?.(row.name)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">{row.name}</button>
                   </td>
-                  <td className="p-3.5 font-medium">{row.dutyHours}</td>
-                  <td className="p-3.5 font-bold">{row.completed}</td>
-                  <td className="p-3.5">{row.avgAcknowledgement}</td>
-                  <td className="p-3.5">{row.avgTime}</td>
-                  <td className="p-3.5">{row.panic}</td>
+                  <td className="px-4 py-3 font-medium">{row.dutyHours}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-100/70 px-2.5 py-1 font-bold text-emerald-700">
+                      {row.completed}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{row.avgAcknowledgement}</td>
+                  <td className="px-4 py-3">{row.avgTime}</td>
+                  <td className="px-4 py-3">{row.panic}</td>
                 </tr>
               ))}
 
@@ -234,7 +238,7 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-500">Click an officer’s name to view details.</div>
+        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">Click an officer’s name to view details.</div>
       </div>
     </div>
   );
@@ -244,7 +248,7 @@ function SummaryCard({ value, label }: { value: string | number; label: string }
   return (
     <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
       <div className="text-2xl font-bold text-slate-900">{value}</div>
-      <div className="text-[11px] text-slate-500 font-medium mt-1">{label}</div>
+      <div className="text-sm text-slate-500 font-medium mt-1">{label}</div>
     </div>
   );
 }
@@ -253,11 +257,11 @@ function BreakdownCard({ title, items }: { title: string; items: { label: string
   const max = Math.max(1, ...items.map((item) => item.value));
   return (
     <div className="bg-white p-5 rounded-lg border border-slate-200/80 shadow-xs">
-      <h4 className="text-xs font-semibold text-slate-700 mb-4">{title}</h4>
+      <h4 className="text-base font-semibold text-slate-700 mb-4">{title}</h4>
       <div className="space-y-3.5">
         {items.map((item) => (
           <div key={item.label}>
-            <div className="flex justify-between text-xs text-slate-600 font-medium mb-1">
+            <div className="flex justify-between text-sm text-slate-600 font-medium mb-1">
               <span>{item.label}</span>
               <span>{item.value}</span>
             </div>
