@@ -1,0 +1,2544 @@
+openapi: 3.0.3
+info:
+  title: Municipal Police Field Operations API
+  version: 1.0.0
+paths:
+  /api/v1/device-tokens/:
+    post:
+      operationId: v1_device_tokens_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceToken'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DeviceToken'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeviceToken'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceToken'
+          description: ''
+  /api/v1/device-tokens/{id}/:
+    delete:
+      operationId: v1_device_tokens_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/location-pings/bulk/:
+    post:
+      operationId: v1_location_pings_bulk_create
+      description: |-
+        POST /api/v1/location-pings/bulk/ — §4.3 batch ingest.
+
+        Returns counts rather than rows: the phone only needs to know the batch
+        landed so it can clear those rows from Room.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/login/:
+    post:
+      operationId: v1_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Login'
+          description: ''
+  /api/v1/logout/:
+    post:
+      operationId: v1_logout_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Logout'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Logout'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Logout'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Logout'
+          description: ''
+  /api/v1/missions/:
+    get:
+      operationId: v1_missions_list
+      description: |-
+        GET  /api/v1/missions/  - list, filtered. Officers see only their own.
+        POST /api/v1/missions/  - create (§4.4). Dispatcher and supervisor only.
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+        description: Missions created on this day, YYYY-MM-DD.
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: Filter by assigned officer.
+      - in: query
+        name: open
+        schema:
+          type: string
+        description: true for missions not yet closed.
+      - in: query
+        name: priority
+        schema:
+          type: string
+        description: low, medium, high, urgent
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: new, assigned, acknowledged, in_progress, completed, cancelled
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MissionList'
+          description: ''
+    post:
+      operationId: v1_missions_create
+      description: |-
+        GET  /api/v1/missions/  - list, filtered. Officers see only their own.
+        POST /api/v1/missions/  - create (§4.4). Dispatcher and supervisor only.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MissionCreate'
+            examples:
+              CreateAndAssignInOneStep:
+                value:
+                  title: Traffic obstruction on Al-Mina road
+                  description: Abandoned vehicle blocking the right lane.
+                  latitude: 34.4367
+                  longitude: 35.8497
+                  address: Al-Mina, Tripoli
+                  priority: high
+                  assigned_to_id: 4
+                summary: Create and assign in one step
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MissionCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MissionCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/{mission_id}/:
+    get:
+      operationId: v1_missions_retrieve
+      description: GET /api/v1/missions/{id}/ - the drawer, with the full timeline
+        (§4.6).
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/{mission_id}/acknowledge/:
+    post:
+      operationId: v1_missions_acknowledge_create
+      description: POST /api/v1/missions/{id}/acknowledge/ - officer confirms receipt
+        (§4.9).
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/{mission_id}/assign/:
+    post:
+      operationId: v1_missions_assign_create
+      description: |-
+        POST /api/v1/missions/{id}/assign/ - assign, or reassign before it has
+        been acknowledged (§4.4). Dispatcher and supervisor only.
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Assign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Assign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Assign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/{mission_id}/cancel/:
+    post:
+      operationId: v1_missions_cancel_create
+      description: POST /api/v1/missions/{id}/cancel/ - reason required (§4.4).
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cancel'
+            examples:
+              CancelADuplicate:
+                value:
+                  reason: 'Duplicate of mission #12.'
+                summary: Cancel a duplicate
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cancel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cancel'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/{mission_id}/complete/:
+    post:
+      operationId: v1_missions_complete_create
+      description: POST /api/v1/missions/{id}/complete/ - officer finished (§4.4).
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Complete'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Complete'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Complete'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/{mission_id}/notes/:
+    post:
+      operationId: v1_missions_notes_create
+      description: POST /api/v1/missions/{id}/notes/ - append to the timeline.
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Note'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Note'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/{mission_id}/photos/:
+    post:
+      operationId: v1_missions_photos_create
+      description: |-
+        POST /api/v1/missions/{id}/photos/ - attach evidence (§4.4).
+
+        Multipart, and deduped on client_uuid. A retried upload returns 200 with
+        the existing photo rather than an error, so the phone can clear its queue.
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhotoUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhotoUpload'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionPhoto'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionPhoto'
+          description: ''
+  /api/v1/missions/{mission_id}/start/:
+    post:
+      operationId: v1_missions_start_create
+      description: POST /api/v1/missions/{id}/start/ - officer is on it.
+      parameters:
+      - in: path
+        name: mission_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Position'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Position'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Position'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+          description: ''
+  /api/v1/missions/sweep-unacknowledged/:
+    post:
+      operationId: v1_missions_sweep_unacknowledged_create
+      description: |-
+        POST /api/v1/missions/sweep-unacknowledged/ - §4.9.
+
+        Flags missions nobody has acknowledged within the configured timeout, once
+        each. The dashboard can call this on its poll; it is safe to repeat.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MissionList'
+          description: ''
+  /api/v1/notifications/:
+    get:
+      operationId: v1_notifications_list
+      description: GET /api/v1/notifications/
+      summary: List the current user's notifications
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: type
+        schema:
+          type: string
+        description: Filter by notification_type.
+      - in: query
+        name: unread
+        schema:
+          type: boolean
+        description: Pass true to return only unread notifications.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNotificationList'
+          description: ''
+  /api/v1/notifications/{id}/read/:
+    post:
+      operationId: v1_notifications_read_create
+      description: POST /api/v1/notifications/{id}/read/
+      summary: Mark one notification as read
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/v1/notifications/mark-all-read/:
+    post:
+      operationId: v1_notifications_mark_all_read_create
+      description: POST /api/v1/notifications/mark-all-read/
+      summary: Mark all of the current user's notifications as read
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marked_read:
+                    type: integer
+          description: ''
+  /api/v1/notifications/unread-count/:
+    get:
+      operationId: v1_notifications_unread_count_retrieve
+      description: |-
+        GET /api/v1/notifications/unread-count/
+
+        Separate from the list endpoint because the dashboard badge polls this
+        far more often than it opens the list — no reason to serialise rows the
+        caller is going to discard.
+      summary: Unread notification count for the current user
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unread_count:
+                    type: integer
+          description: ''
+  /api/v1/officers/{officer_id}/trail/:
+    get:
+      operationId: v1_officers_trail_retrieve
+      description: |-
+        GET /api/v1/officers/{id}/trail/?date=YYYY-MM-DD — §4.6 the day's path.
+
+        §5 also gives an officer the right to see their own history, so an officer
+        may call this for themselves and no one else.
+      parameters:
+      - in: path
+        name: officer_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/panic/:
+    post:
+      operationId: v1_panic_create
+      description: |-
+        POST /api/v1/panic/ — §4.7 raise the alarm.
+
+        201 for a new alert, 200 when one was already active. Idempotent, because
+        an officer in trouble taps more than once and a phone on a bad connection
+        retries; neither may raise a second alert.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PanicTrigger'
+            examples:
+              PanicWithAGoodFix:
+                value:
+                  latitude: 34.4367
+                  longitude: 35.8497
+                  accuracy_m: 12.5
+                  battery_level: 38
+                summary: Panic with a good fix
+              PositionOnly:
+                value:
+                  latitude: 34.4367
+                  longitude: 35.8497
+                summary: Position only
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PanicTrigger'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PanicTrigger'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanicEvent'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanicEvent'
+          description: ''
+  /api/v1/panic/{event_id}/cancel/:
+    post:
+      operationId: v1_panic_cancel_create
+      description: |-
+        POST /api/v1/panic/{id}/cancel/ — §4.7, the officer withdraws it.
+
+        Own alert only, and only inside the grace window. Past that the dispatcher
+        has already seen it and may be responding, so it takes a resolve.
+      parameters:
+      - in: path
+        name: event_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanicEvent'
+          description: ''
+  /api/v1/panic/{event_id}/resolve/:
+    post:
+      operationId: v1_panic_resolve_create
+      description: POST /api/v1/panic/{id}/resolve/ — §4.7, a dispatcher closes it.
+      parameters:
+      - in: path
+        name: event_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PanicResolve'
+            examples:
+              ClosedAfterContact:
+                value:
+                  notes: Reached the officer by radio; false alarm, no unit sent.
+                summary: Closed after contact
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PanicResolve'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PanicResolve'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanicEvent'
+          description: ''
+  /api/v1/panic/active/:
+    get:
+      operationId: v1_panic_active_list
+      description: |-
+        GET /api/v1/panic/active/ — §4.6, the red pulsing marker.
+
+        Only alerts still open. Cancelled and resolved ones are kept forever as
+        audit records but must never reappear on the map.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivePanic'
+          description: ''
+  /api/v1/password-reset/:
+    post:
+      operationId: v1_password_reset_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequest'
+          description: ''
+  /api/v1/password-reset/confirm/:
+    post:
+      operationId: v1_password_reset_confirm_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetConfirm'
+          description: ''
+  /api/v1/reports/daily/:
+    get:
+      operationId: v1_reports_daily_retrieve
+      description: |-
+        GET /api/v1/reports/daily/
+
+        Generate a daily activity report for one officer.
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+        description: Report date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: Officer to generate the report for.
+        required: true
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter missions by status.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyOfficerReport'
+          description: ''
+  /api/v1/reports/daily/export/csv/:
+    get:
+      operationId: v1_reports_daily_export_csv_retrieve
+      description: |-
+        GET /api/v1/reports/daily/export/csv/
+
+        Export a daily activity report as CSV.
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+        description: Report date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: Officer to generate the report for.
+        required: true
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter missions by status.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/reports/daily/export/pdf/:
+    get:
+      operationId: v1_reports_daily_export_pdf_retrieve
+      description: |-
+        GET /api/v1/reports/daily/export/pdf/
+
+        Export a daily activity report as PDF.
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+        description: Report date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: Officer to generate the report for.
+        required: true
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter missions by status.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/reports/weekly/:
+    get:
+      operationId: v1_reports_weekly_retrieve
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+        description: End date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: start_date
+        schema:
+          type: string
+        description: Start date, YYYY-MM-DD.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySummary'
+          description: ''
+  /api/v1/settings/:
+    get:
+      operationId: v1_settings_retrieve
+      description: |-
+        GET   /api/v1/settings/ - any signed-in user. The officer app reads the
+                                  ping interval from here when a shift starts.
+        PATCH /api/v1/settings/ - supervisor only. Partial update.
+
+        Returns a flat object rather than a list of rows, so Android reads
+        response.location_ping_interval_seconds without walking a key/value list.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSetting'
+          description: ''
+    patch:
+      operationId: v1_settings_partial_update
+      description: |-
+        GET   /api/v1/settings/ - any signed-in user. The officer app reads the
+                                  ping interval from here when a shift starts.
+        PATCH /api/v1/settings/ - supervisor only. Partial update.
+
+        Returns a flat object rather than a list of rows, so Android reads
+        response.location_ping_interval_seconds without walking a key/value list.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSystemSetting'
+            examples:
+              SlowThePingIntervalDown:
+                value:
+                  location_ping_interval_seconds: 60
+                summary: Slow the ping interval down
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSystemSetting'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSystemSetting'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSetting'
+          description: ''
+  /api/v1/settings/schema/:
+    get:
+      operationId: v1_settings_schema_list
+      description: |-
+        GET /api/v1/settings/schema/ - what each setting means and its bounds, so
+        the supervisor screen can render inputs without hardcoding limits.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SettingDefinition'
+          description: ''
+  /api/v1/shifts/active/:
+    get:
+      operationId: v1_shifts_active_retrieve
+      description: |-
+        GET /api/v1/shifts/active/ — §4.6, the dashboard map.
+
+        Poll this every 15s; §4.6 asks for 15-30s refresh, which polling meets
+        without a socket layer.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/shifts/end/:
+    post:
+      operationId: v1_shifts_end_create
+      description: |-
+        POST /api/v1/shifts/end/ — §4.2 stops tracking.
+
+        §4.1 also requires the session to end, but revoking the JWT is
+        POST /api/v1/logout/'s job; the client calls it separately. Doing it here
+        too meant a failed blacklist still returned 200, so a phone could believe
+        its session was revoked when it was not.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShiftBoundary'
+            examples:
+              WithPosition:
+                value:
+                  latitude: 34.4467
+                  longitude: 35.8497
+                summary: With position
+              NoGPSFix:
+                value: {}
+                summary: No GPS fix
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ShiftBoundary'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShiftBoundary'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+          description: ''
+  /api/v1/shifts/start/:
+    post:
+      operationId: v1_shifts_start_create
+      description: |-
+        POST /api/v1/shifts/start/ — §4.2. Idempotent; retrying is safe.
+
+        Optional body: {"latitude": ..., "longitude": ...} for the position where
+        the officer went on duty.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShiftBoundary'
+            examples:
+              WithPosition:
+                value:
+                  latitude: 34.4367
+                  longitude: 35.8497
+                summary: With position
+              NoGPSFixYet:
+                value: {}
+                summary: No GPS fix yet
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ShiftBoundary'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShiftBoundary'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+          description: ''
+  /api/v1/token/refresh/:
+    post:
+      operationId: v1_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/users/:
+    get:
+      operationId: v1_users_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserList'
+          description: ''
+    post:
+      operationId: v1_users_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreate'
+          description: ''
+  /api/v1/users/{id}/:
+    get:
+      operationId: v1_users_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: v1_users_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdate'
+          description: ''
+  /api/v1/users/{id}/activate/:
+    post:
+      operationId: v1_users_activate_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/{id}/deactivate/:
+    post:
+      operationId: v1_users_deactivate_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/me/:
+    get:
+      operationId: v1_users_me_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: v1_users_me_partial_update
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+components:
+  schemas:
+    ActivePanic:
+      type: object
+      description: |-
+        The contract for GET /api/v1/panic/active/ — what feeds the red pulsing
+        marker in §4.6.
+
+        Deliberately narrow: name, badge, and where they are. The outcome columns
+        are all empty on an active alert, so sending them would be noise on an
+        endpoint every open dashboard polls.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        officer:
+          allOf:
+          - $ref: '#/components/schemas/OfficerBrief'
+          readOnly: true
+        shift:
+          type: integer
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        accuracy_m:
+          type: number
+          format: double
+          nullable: true
+        battery_level:
+          type: integer
+          maximum: 100
+          minimum: 0
+          nullable: true
+          description: Percentage, 0-100. A dying battery explains a trail that stops.
+        triggered_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - latitude
+      - longitude
+      - officer
+      - shift
+      - triggered_at
+    Assign:
+      type: object
+      properties:
+        officer_id:
+          type: integer
+      required:
+      - officer_id
+    Cancel:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Required. Stored on the mission and in the timeline.
+      required:
+      - reason
+    Complete:
+      type: object
+      description: Where the officer was when they started or completed.
+      properties:
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        notes:
+          type: string
+          default: ''
+    DailyOfficerReport:
+      type: object
+      properties:
+        officer_id:
+          type: integer
+        officer_name:
+          type: string
+        date:
+          type: string
+          format: date
+        hours_on_duty:
+          type: number
+          format: double
+        distance_covered_m:
+          type: integer
+        missions_assigned:
+          type: integer
+        missions_completed:
+          type: integer
+        missions_cancelled:
+          type: integer
+        panic_events:
+          type: integer
+      required:
+      - date
+      - distance_covered_m
+      - hours_on_duty
+      - missions_assigned
+      - missions_cancelled
+      - missions_completed
+      - officer_id
+      - officer_name
+      - panic_events
+    DeviceToken:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        token:
+          type: string
+          maxLength: 255
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+        device_model:
+          type: string
+          maxLength: 100
+        app_version:
+          type: string
+          maxLength: 20
+      required:
+      - id
+      - platform
+      - token
+    EventTypeEnum:
+      enum:
+      - created
+      - assigned
+      - reassigned
+      - acknowledged
+      - started
+      - completed
+      - cancelled
+      - photo_added
+      - note_added
+      - ack_alert_sent
+      type: string
+      description: |-
+        * `created` - Created
+        * `assigned` - Assigned
+        * `reassigned` - Reassigned
+        * `acknowledged` - Acknowledged
+        * `started` - Started
+        * `completed` - Completed
+        * `cancelled` - Cancelled
+        * `photo_added` - Photo added
+        * `note_added` - Note added
+        * `ack_alert_sent` - Acknowledgement alert sent
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - password
+      - username
+    Logout:
+      type: object
+      properties:
+        refresh:
+          type: string
+      required:
+      - refresh
+    MissionCreate:
+      type: object
+      description: Dispatcher creates a mission, optionally assigning it at once.
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          default: ''
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        address:
+          type: string
+          default: ''
+          maxLength: 255
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          default: medium
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        assigned_to_id:
+          type: integer
+          nullable: true
+          description: Officer to assign immediately. Optional.
+      required:
+      - latitude
+      - longitude
+      - title
+    MissionDetail:
+      type: object
+      description: The drawer. Carries the full lifecycle timeline.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        status:
+          $ref: '#/components/schemas/Status0aaEnum'
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        address:
+          type: string
+          maxLength: 255
+        assigned_to:
+          allOf:
+          - $ref: '#/components/schemas/OfficerBrief'
+          readOnly: true
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        assigned_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_overdue:
+          type: boolean
+          readOnly: true
+        awaiting_acknowledgement:
+          type: boolean
+          description: The dashboard highlights these. Set by the sweep, not here.
+          readOnly: true
+        description:
+          type: string
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/OfficerBrief'
+          readOnly: true
+        acknowledged_at:
+          type: string
+          format: date-time
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        started_latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        started_longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        completed_latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        completed_longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        notes:
+          type: string
+        cancellation_reason:
+          type: string
+        ack_alert_sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionEvent'
+          readOnly: true
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionPhoto'
+          readOnly: true
+      required:
+      - assigned_to
+      - awaiting_acknowledgement
+      - created_at
+      - created_by
+      - events
+      - id
+      - is_overdue
+      - latitude
+      - longitude
+      - photos
+      - title
+    MissionEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        event_type:
+          $ref: '#/components/schemas/EventTypeEnum'
+        actor:
+          allOf:
+          - $ref: '#/components/schemas/OfficerBrief'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        metadata: {}
+      required:
+      - actor
+      - created_at
+      - event_type
+      - id
+    MissionList:
+      type: object
+      description: |-
+        The list row. Deliberately without events and photos: the mission list is
+        polled alongside the map, and dragging every event of every mission into
+        that response would grow without bound over a shift.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        status:
+          $ref: '#/components/schemas/Status0aaEnum'
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        address:
+          type: string
+          maxLength: 255
+        assigned_to:
+          allOf:
+          - $ref: '#/components/schemas/OfficerBrief'
+          readOnly: true
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        assigned_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_overdue:
+          type: boolean
+          readOnly: true
+        awaiting_acknowledgement:
+          type: boolean
+          description: The dashboard highlights these. Set by the sweep, not here.
+          readOnly: true
+      required:
+      - assigned_to
+      - awaiting_acknowledgement
+      - created_at
+      - id
+      - is_overdue
+      - latitude
+      - longitude
+      - title
+    MissionPhoto:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        client_uuid:
+          type: string
+          format: uuid
+        image:
+          type: string
+          format: uri
+        captured_latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        captured_longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        captured_at:
+          type: string
+          format: date-time
+          nullable: true
+        uploaded_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - client_uuid
+      - id
+      - image
+      - uploaded_at
+    Note:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+      - text
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        notification_type:
+          allOf:
+          - $ref: '#/components/schemas/NotificationTypeEnum'
+          readOnly: true
+        notification_type_display:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        mission_id:
+          type: integer
+          readOnly: true
+        mission_title:
+          type: string
+          readOnly: true
+        mission_status:
+          type: string
+          readOnly: true
+        is_read:
+          type: boolean
+          readOnly: true
+        read_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - created_at
+      - id
+      - is_read
+      - mission_id
+      - mission_status
+      - mission_title
+      - notification_type
+      - notification_type_display
+      - read_at
+      - title
+    NotificationTypeEnum:
+      enum:
+      - mission_assigned
+      - mission_cancelled
+      - mission_unacknowledged
+      - dispatcher_message
+      - panic_alert
+      type: string
+      description: |-
+        * `mission_assigned` - Mission Assigned
+        * `mission_cancelled` - Mission Cancelled
+        * `mission_unacknowledged` - Mission Not Acknowledged
+        * `dispatcher_message` - Dispatcher Message
+        * `panic_alert` - Panic Alert
+    OfficerBrief:
+      type: object
+      description: |-
+        The minimum identifying fields for a person, used by every app that has to
+        label a row with an officer. Defined once in core: two apps declaring their
+        own version produces two schema components with the same name, which makes
+        the generated OpenAPI document wrong.
+      properties:
+        id:
+          type: integer
+        full_name:
+          type: string
+        badge_number:
+          type: string
+      required:
+      - badge_number
+      - full_name
+      - id
+    PaginatedNotificationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+    PaginatedUserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    PanicEvent:
+      type: object
+      description: |-
+        One alert in full — what trigger, cancel, and resolve all return.
+
+        `resolved_by` is expanded rather than left as an id so the dashboard can
+        show who closed it without a second request.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        shift:
+          type: integer
+        status:
+          $ref: '#/components/schemas/PanicEventStatusEnum'
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        accuracy_m:
+          type: number
+          format: double
+          nullable: true
+        battery_level:
+          type: integer
+          maximum: 100
+          minimum: 0
+          nullable: true
+          description: Percentage, 0-100. A dying battery explains a trail that stops.
+        triggered_at:
+          type: string
+          format: date-time
+          readOnly: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_by:
+          allOf:
+          - $ref: '#/components/schemas/OfficerBrief'
+          readOnly: true
+          nullable: true
+        notes:
+          type: string
+      required:
+      - id
+      - latitude
+      - longitude
+      - resolved_by
+      - shift
+      - triggered_at
+    PanicEventStatusEnum:
+      enum:
+      - active
+      - cancelled
+      - resolved
+      type: string
+      description: |-
+        * `active` - Active
+        * `cancelled` - Cancelled
+        * `resolved` - Resolved
+    PanicResolve:
+      type: object
+      description: POST /api/v1/panic/{id}/resolve/ body. What happened, in the closer's
+        words.
+      properties:
+        notes:
+          type: string
+          description: What the alert turned out to be and how it was handled.
+    PanicTrigger:
+      type: object
+      description: |-
+        POST /api/v1/panic/ body.
+
+        Position is required, unlike the optional one on Start Shift: an alert the
+        dispatcher cannot put on the map is not an alert. Battery and accuracy are
+        optional because the phone may not have them, and waiting for a better GPS
+        fix before sending is the wrong trade for this button.
+      properties:
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        accuracy_m:
+          type: number
+          format: double
+          nullable: true
+        battery_level:
+          type: integer
+          maximum: 100
+          minimum: 0
+          nullable: true
+      required:
+      - latitude
+      - longitude
+    PasswordResetConfirm:
+      type: object
+      properties:
+        badge_number:
+          type: string
+        code:
+          type: string
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 8
+      required:
+      - badge_number
+      - code
+      - new_password
+    PasswordResetRequest:
+      type: object
+      properties:
+        badge_number:
+          type: string
+      required:
+      - badge_number
+    PatchedSystemSetting:
+      type: object
+      description: |-
+        The settings object, flat rather than a list of key/value rows.
+
+        Built from the registry so a new setting appears in the API docs the
+        moment it is added to DEFINITIONS — no second place to update.
+
+        Validation still happens in `registry.set_settings`; this exists so
+        drf-spectacular can render a request body and so the docs show each
+        field's bounds. Duplicating the checks here would give two sources of
+        truth for the same rule.
+      properties:
+        location_ping_interval_seconds:
+          type: integer
+          maximum: 120
+          minimum: 10
+          description: How often the officer app records a location, in seconds.
+        mission_ack_timeout_minutes:
+          type: integer
+          maximum: 60
+          minimum: 1
+          description: Minutes before an unacknowledged mission is flagged.
+        location_retention_days:
+          type: integer
+          maximum: 365
+          minimum: 1
+          description: Location pings older than this are deleted.
+        panic_cancel_grace_seconds:
+          type: integer
+          maximum: 60
+          minimum: 5
+          description: Seconds an officer has to cancel their own panic alert.
+        mission_photo_min:
+          type: integer
+          maximum: 5
+          minimum: 1
+          description: Photos required before a mission can be completed.
+        mission_photo_max:
+          type: integer
+          maximum: 10
+          minimum: 1
+          description: Photos allowed on one mission.
+        map_refresh_seconds:
+          type: integer
+          maximum: 60
+          minimum: 10
+          description: How often the dispatcher dashboard reloads the map, in seconds.
+    PatchedUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        full_name:
+          type: string
+          maxLength: 150
+        badge_number:
+          type: string
+          maxLength: 20
+        phone:
+          type: string
+          maxLength: 20
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+    PatchedUserUpdate:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+    PhotoUpload:
+      type: object
+      description: |-
+        Multipart upload. `client_uuid` is generated on the phone before the row
+        enters the upload queue, so a retry is a no-op rather than a second copy.
+      properties:
+        client_uuid:
+          type: string
+          format: uuid
+        image:
+          type: string
+          format: uri
+        captured_latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        captured_longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        captured_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - client_uuid
+      - image
+    PlatformEnum:
+      enum:
+      - android
+      - web
+      type: string
+      description: |-
+        * `android` - Android
+        * `web` - Web
+    Position:
+      type: object
+      description: Where the officer was when they started or completed.
+      properties:
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+    PreferredLanguageEnum:
+      enum:
+      - ar
+      - en
+      type: string
+      description: |-
+        * `ar` - العربية
+        * `en` - English
+    PriorityEnum:
+      enum:
+      - low
+      - medium
+      - high
+      - urgent
+      type: string
+      description: |-
+        * `low` - Low
+        * `medium` - Medium
+        * `high` - High
+        * `urgent` - Urgent
+    RoleEnum:
+      enum:
+      - officer
+      - dispatcher
+      - supervisor
+      type: string
+      description: |-
+        * `officer` - Officer
+        * `dispatcher` - Dispatcher
+        * `supervisor` - Supervisor
+    SettingDefinition:
+      type: object
+      description: One row of GET /settings/schema/.
+      properties:
+        key:
+          type: string
+        description:
+          type: string
+        default:
+          type: integer
+        minimum:
+          type: integer
+          nullable: true
+        maximum:
+          type: integer
+          nullable: true
+      required:
+      - default
+      - description
+      - key
+      - maximum
+      - minimum
+    Shift:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/ShiftStatusEnum'
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_seconds:
+          type: integer
+          readOnly: true
+        start_latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        start_longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        end_latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        end_longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+      required:
+      - duration_seconds
+      - id
+    ShiftBoundary:
+      type: object
+      description: Optional position sent with Start Shift and End Shift.
+      properties:
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+    ShiftStatusEnum:
+      enum:
+      - active
+      - ended
+      type: string
+      description: |-
+        * `active` - Active
+        * `ended` - Ended
+    Status0aaEnum:
+      enum:
+      - new
+      - assigned
+      - acknowledged
+      - in_progress
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `new` - New
+        * `assigned` - Assigned
+        * `acknowledged` - Acknowledged
+        * `in_progress` - In progress
+        * `completed` - Completed
+        * `cancelled` - Cancelled
+    SystemSetting:
+      type: object
+      description: |-
+        The settings object, flat rather than a list of key/value rows.
+
+        Built from the registry so a new setting appears in the API docs the
+        moment it is added to DEFINITIONS — no second place to update.
+
+        Validation still happens in `registry.set_settings`; this exists so
+        drf-spectacular can render a request body and so the docs show each
+        field's bounds. Duplicating the checks here would give two sources of
+        truth for the same rule.
+      properties:
+        location_ping_interval_seconds:
+          type: integer
+          maximum: 120
+          minimum: 10
+          description: How often the officer app records a location, in seconds.
+        mission_ack_timeout_minutes:
+          type: integer
+          maximum: 60
+          minimum: 1
+          description: Minutes before an unacknowledged mission is flagged.
+        location_retention_days:
+          type: integer
+          maximum: 365
+          minimum: 1
+          description: Location pings older than this are deleted.
+        panic_cancel_grace_seconds:
+          type: integer
+          maximum: 60
+          minimum: 5
+          description: Seconds an officer has to cancel their own panic alert.
+        mission_photo_min:
+          type: integer
+          maximum: 5
+          minimum: 1
+          description: Photos required before a mission can be completed.
+        mission_photo_max:
+          type: integer
+          maximum: 10
+          minimum: 1
+          description: Photos allowed on one mission.
+        map_refresh_seconds:
+          type: integer
+          maximum: 60
+          minimum: 10
+          description: How often the dispatcher dashboard reloads the map, in seconds.
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TopOfficer:
+      type: object
+      properties:
+        officer_id:
+          type: integer
+        officer_name:
+          type: string
+        completed_missions:
+          type: integer
+      required:
+      - completed_missions
+      - officer_id
+      - officer_name
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        full_name:
+          type: string
+          maxLength: 150
+        badge_number:
+          type: string
+          maxLength: 20
+        phone:
+          type: string
+          maxLength: 20
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - badge_number
+      - created_at
+      - full_name
+      - id
+      - last_login
+      - role
+      - username
+    UserCreate:
+      type: object
+      description: '"Supervisor creates an account only (in section 4: no self registration)'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        full_name:
+          type: string
+          maxLength: 150
+        badge_number:
+          type: string
+          maxLength: 20
+        phone:
+          type: string
+          maxLength: 20
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+      required:
+      - badge_number
+      - full_name
+      - id
+      - password
+      - role
+      - username
+    UserUpdate:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+      required:
+      - full_name
+      - role
+    WeeklySummary:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        missions_by_priority:
+          type: object
+          additionalProperties: {}
+        average_acknowledgement_seconds:
+          type: number
+          format: double
+        average_completion_seconds:
+          type: number
+          format: double
+        top_officers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopOfficer'
+      required:
+      - average_acknowledgement_seconds
+      - average_completion_seconds
+      - end_date
+      - missions_by_priority
+      - start_date
+      - top_officers
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
