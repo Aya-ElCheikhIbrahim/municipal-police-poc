@@ -491,7 +491,7 @@ class DailyOfficerReportPDFView(APIView):
 
         return response
 class WeeklySummaryCSVView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
     renderer_classes = [CSVRenderer]
 
     @extend_schema(
@@ -597,7 +597,7 @@ class WeeklySummaryCSVView(APIView):
         return response
     
 class WeeklySummaryPDFView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
     renderer_classes = [PDFRenderer]
     @extend_schema(
         parameters=[
