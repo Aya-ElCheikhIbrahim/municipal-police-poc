@@ -6,6 +6,8 @@ from django.utils import timezone
 from missions.models import Mission
 from panic.models import PanicEvent
 from shifts.models import Shift
+from django.db.models import Avg, Count
+from shifts.services import trail_distance_m
 
 User = get_user_model()
 
@@ -13,7 +15,6 @@ User = get_user_model()
 def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
     officer = User.objects.filter(
         pk=officer_id,
-        is_active=True,
         role="officer",
     ).first()
 
@@ -58,20 +59,24 @@ def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
     # ---------------------------------------------------------
     # DISTANCE COVERED
     # ---------------------------------------------------------
-    # Shift.distance_m already contains the calculated distance
-    # from the officer's location pings.
+    # Only the pings recorded on this day, so a shift that crosses midnight is
+    # split between the two days. Shift.distance_m covers the whole shift and
+    # would count it on both.
     distance_covered_m = sum(
-        shift.distance_m
+        trail_distance_m(
+            shift.pings.filter(
+                recorded_at__gte=day_start,
+                recorded_at__lt=day_end,
+            ).order_by("recorded_at")
+        )
         for shift in shifts
-        if shift.started_at < day_end
-        and (shift.ended_at is None or shift.ended_at > day_start)
     )
 
     # ---------------------------------------------------------
     # MISSIONS
     # ---------------------------------------------------------
     missions = Mission.objects.filter(
-        assigned_to_id=officer_id,
+        assigned_to=officer,
         assigned_at__date=date,
     )
 
@@ -123,6 +128,10 @@ def generate_weekly_summary(*, start_date, end_date):
         ).count()
         for priority, _ in Mission.Priority.choices
     }
+    missions_by_category = {
+        category: missions.filter(category=category).count()
+        for category, _ in Mission.Category.choices
+    }
 
     # Average acknowledgement time
     acknowledged_missions = missions.filter(
@@ -144,62 +153,33 @@ def generate_weekly_summary(*, start_date, end_date):
         else 0
     )
 
-    # Average completion time
-    completed_missions = missions.filter(
-        started_at__isnull=False,
-        completed_at__isnull=False,
-    )
-
-    completion_times = [
-        (mission.completed_at - mission.started_at).total_seconds()
-        for mission in completed_missions
-    ]
+    average_worked = missions.filter(
+        status=Mission.Status.COMPLETED,
+    ).aggregate(average=Avg("worked_seconds"))["average"]
 
     average_completion_seconds = (
-        round(
-            sum(completion_times) / len(completion_times),
-            2,
-        )
-        if completion_times
-        else 0
+        round(average_worked, 2) if average_worked is not None else 0
     )
 
-    # Top-performing officers
-    officer_stats = {}
+    # Top-performing officers. A mission sent to several offciers counts for each of them, since they all worked on it
 
-    for mission in missions.filter(
-        assigned_to__isnull=False,
-        status=Mission.Status.COMPLETED,
-    ):
-        officer_id = mission.assigned_to_id
-
-        if officer_id not in officer_stats:
-            officer_stats[officer_id] = {
-                "completed_missions": 0,
-            }
-
-        officer_stats[officer_id]["completed_missions"] += 1
-
-    top_officers = []
-
-    for officer_id, stats in officer_stats.items():
-        officer = User.objects.filter(
-            pk=officer_id,
-            is_active=True,
+    completed = missions.filter(status=Mission.Status.COMPLETED)
+    top = (
+        User.objects.filter(
+            missions_assigned__in=completed,
             role="officer",
-        ).first()
-
-        if officer:
-            top_officers.append({
-                "officer_id": officer.id,
-                "officer_name": str(officer),
-                "completed_missions": stats["completed_missions"],
-            })
-
-    top_officers.sort(
-        key=lambda officer: officer["completed_missions"],
-        reverse=True,
+        )
+        .annotate(completed_missions=Count("missions_assigned", distinct=True))
+        .order_by("-completed_missions", "full_name")[:5]
     )
+    top_officers = [
+        {
+            "officer_id": officer.id,
+            "officer_name": str(officer),
+            "completed_missions": officer.completed_missions,
+        }
+        for officer in top
+    ]
 
     return {
         "start_date": start_date,
@@ -208,4 +188,5 @@ def generate_weekly_summary(*, start_date, end_date):
         "average_acknowledgement_seconds": average_acknowledgement_seconds,
         "average_completion_seconds": average_completion_seconds,
         "top_officers": top_officers[:5],
+        "missions_by_category": missions_by_category,
     }

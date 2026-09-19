@@ -1,4 +1,3 @@
-from datetime import datetime
 import csv
 from django.http import HttpResponse
 from drf_spectacular.utils import (
@@ -22,22 +21,18 @@ from reports.services import (
     generate_daily_officer_report,
     generate_weekly_summary,
 )
-
-from rest_framework.renderers import BaseRenderer
-class CSVRenderer(BaseRenderer):
-    media_type = "text/csv"
-    format = "csv"
-
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
-from rest_framework.renderers import BaseRenderer
-class PDFRenderer(BaseRenderer):
-    media_type = "application/pdf"
-    format = "pdf"
-
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
-    
+from .arabic import (
+    LABELS,
+    PRIORITIES,
+    RIGHT,
+    CATEGORIES,
+    daily_rows,
+    digits,
+    draw_line,
+    pdf_value,
+    written_date,
+)
+from .params import daily_params, weekly_params    
 class DailyOfficerReportView(APIView):
     """
     GET /api/v1/reports/daily/
@@ -74,32 +69,7 @@ class DailyOfficerReportView(APIView):
         responses=DailyOfficerReportSerializer,
     )
     def get(self, request):
-        raw_date = request.query_params.get("date")
-        officer_id = request.query_params.get("officer_id")
-        status_filter = request.query_params.get("status")
-
-        if not raw_date:
-            return Response(
-                {"detail": "date is required. Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not officer_id:
-            return Response(
-                {"detail": "officer_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            date = datetime.strptime(
-                raw_date,
-                "%Y-%m-%d",
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        date, officer_id, status_filter = daily_params(request)
 
         report = services.generate_daily_officer_report(
             date=date,
@@ -142,53 +112,7 @@ class WeeklySummaryView(APIView):
         responses=WeeklySummarySerializer,
     )
     def get(self, request):
-        raw_start_date = request.query_params.get("start_date")
-        raw_end_date = request.query_params.get("end_date")
-
-        if not raw_start_date:
-            return Response(
-                {
-                    "detail": (
-                        "start_date is required. "
-                        "Use start_date=YYYY-MM-DD."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not raw_end_date:
-            return Response(
-                {
-                    "detail": (
-                        "end_date is required. "
-                        "Use end_date=YYYY-MM-DD."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            start_date = datetime.strptime(
-                raw_start_date,
-                "%Y-%m-%d",
-            ).date()
-
-            end_date = datetime.strptime(
-                raw_end_date,
-                "%Y-%m-%d",
-            ).date()
-
-        except ValueError:
-            return Response(
-                {"detail": "Use dates in YYYY-MM-DD format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if start_date > end_date:
-            return Response(
-                {"detail": "start_date cannot be after end_date."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        start_date, end_date = weekly_params(request)
 
         report = services.generate_weekly_summary(
             start_date=start_date,
@@ -198,7 +122,6 @@ class WeeklySummaryView(APIView):
         return Response(
             WeeklySummarySerializer(report).data
         )
-
 
 class DailyOfficerReportCSVView(APIView):
     """
@@ -238,32 +161,7 @@ class DailyOfficerReportCSVView(APIView):
         },
     )
     def get(self, request):
-        raw_date = request.query_params.get("date")
-        officer_id = request.query_params.get("officer_id")
-        status_filter = request.query_params.get("status")
-
-        if not raw_date:
-            return Response(
-                {"detail": "date is required. Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not officer_id:
-            return Response(
-                {"detail": "officer_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            date = datetime.strptime(
-                raw_date,
-                "%Y-%m-%d",
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        date, officer_id, status_filter = daily_params(request)
 
         report = services.generate_daily_officer_report(
             date=date,
@@ -277,65 +175,18 @@ class DailyOfficerReportCSVView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        response = HttpResponse(
-            content_type="text/csv"
-        )
-
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = (
             f'attachment; filename="daily_report_{date}_{officer_id}.csv"'
         )
+        # Byte-order mark first, or Excel opens the file with the wrong
+        # encoding and the Arabic comes out as garbage.
+        response.write("\ufeff")
 
         writer = csv.writer(response)
-
-        writer.writerow([
-            "Metric",
-            "Value",
-        ])
-
-        writer.writerow([
-            "Officer",
-            report["officer_name"],
-        ])
-
-        writer.writerow([
-            "Officer ID",
-            report["officer_id"],
-        ])
-
-        writer.writerow([
-            "Date",
-            report["date"],
-        ])
-
-        writer.writerow([
-            "Hours on duty",
-            report["hours_on_duty"],
-        ])
-
-        writer.writerow([
-            "Distance covered (m)",
-            report["distance_covered_m"],
-        ])
-
-        writer.writerow([
-            "Missions assigned",
-            report["missions_assigned"],
-        ])
-
-        writer.writerow([
-            "Missions completed",
-            report["missions_completed"],
-        ])
-
-        writer.writerow([
-            "Missions cancelled",
-            report["missions_cancelled"],
-        ])
-
-        writer.writerow([
-            "Panic events",
-            report["panic_events"],
-        ])
+        writer.writerow([LABELS["metric"], LABELS["value"]])
+        for label, value in daily_rows(report):
+            writer.writerow([label, value])
 
         return response
 
@@ -378,32 +229,7 @@ class DailyOfficerReportPDFView(APIView):
         },
     )
     def get(self, request):
-        raw_date = request.query_params.get("date")
-        officer_id = request.query_params.get("officer_id")
-        status_filter = request.query_params.get("status")
-
-        if not raw_date:
-            return Response(
-                {"detail": "date is required. Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not officer_id:
-            return Response(
-                {"detail": "officer_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            date = datetime.strptime(
-                raw_date,
-                "%Y-%m-%d",
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        date, officer_id, status_filter = daily_params(request)
 
         report = services.generate_daily_officer_report(
             date=date,
@@ -417,82 +243,29 @@ class DailyOfficerReportPDFView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        response = HttpResponse(
-            content_type="application/pdf"
-        )
-
+        response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="daily_report_{date}_{officer_id}.pdf"'
         )
 
         pdf = canvas.Canvas(response)
-
-        pdf.setTitle(
-            "Daily Officer Activity Report"
-        )
+        pdf.setTitle(LABELS["daily_title"])
 
         y = 800
-
-        pdf.setFont(
-            "Helvetica-Bold",
-            16,
-        )
-
-        pdf.drawString(
-            50,
-            y,
-            "Daily Officer Activity Report",
-        )
-
+        draw_line(pdf, y, LABELS["daily_title"], size=16, bold=True)
         y -= 40
 
-        pdf.setFont(
-            "Helvetica",
-            11,
-        )
-
-        rows = [
-            ("Officer", report["officer_name"]),
-            ("Officer ID", report["officer_id"]),
-            ("Date", str(report["date"])),
-            ("Hours on duty", report["hours_on_duty"]),
-            (
-                "Distance covered (m)",
-                report["distance_covered_m"],
-            ),
-            (
-                "Missions assigned",
-                report["missions_assigned"],
-            ),
-            (
-                "Missions completed",
-                report["missions_completed"],
-            ),
-            (
-                "Missions cancelled",
-                report["missions_cancelled"],
-            ),
-            (
-                "Panic events",
-                report["panic_events"],
-            ),
-        ]
-
-        for label, value in rows:
-            pdf.drawString(
-                60,
-                y,
-                f"{label}: {value}",
-            )
-
+        for label, value in daily_rows(report):
+            draw_line(pdf, y, f"{label}: {pdf_value(value)}")
             y -= 25
 
         pdf.save()
 
         return response
+
+    
 class WeeklySummaryCSVView(APIView):
-    permission_classes = [IsAuthenticated]
-    renderer_classes = [CSVRenderer]
+    permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
 
     @extend_schema(
         parameters=[
@@ -514,79 +287,56 @@ class WeeklySummaryCSVView(APIView):
         responses={(200, "text/csv"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-
-        if not start_date_str or not end_date_str:
-            return Response(
-                {"detail": "start_date and end_date are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            start_date = datetime.strptime(
-                start_date_str, "%Y-%m-%d"
-            ).date()
-            end_date = datetime.strptime(
-                end_date_str, "%Y-%m-%d"
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Dates must use YYYY-MM-DD format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if start_date > end_date:
-            return Response(
-                {"detail": "start_date cannot be after end_date."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        start_date, end_date = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
         )
 
-        response = HttpResponse(content_type="text/csv")
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = (
             f'attachment; filename="weekly_report_'
             f'{start_date}_{end_date}.csv"'
         )
+        # Byte-order mark first, or Excel opens the file with the wrong
+        # encoding and the Arabic comes out as garbage.
+        response.write("\ufeff")
 
         writer = csv.writer(response)
 
-        writer.writerow(["Weekly Summary"])
-        writer.writerow(["Start Date", report["start_date"]])
-        writer.writerow(["End Date", report["end_date"]])
+        writer.writerow([LABELS["weekly_title"]])
+        writer.writerow([LABELS["start_date"], report["start_date"]])
+        writer.writerow([LABELS["end_date"], report["end_date"]])
         writer.writerow([])
 
-        writer.writerow(["Missions by Priority"])
-        writer.writerow(["Priority", "Count"])
-
+        writer.writerow([LABELS["missions_by_priority"]])
+        writer.writerow([LABELS["priority"], LABELS["count"]])
         for priority, count in report["missions_by_priority"].items():
-            writer.writerow([priority, count])
-
+            writer.writerow([PRIORITIES[priority], count])
+        writer.writerow([])
+        writer.writerow([LABELS["missions_by_category"]])
+        writer.writerow([LABELS["category"], LABELS["count"]])
+        for category, count in report["missions_by_category"].items():
+            writer.writerow([CATEGORIES[category], count])
         writer.writerow([])
 
         writer.writerow([
-            "Average Acknowledgement Time (seconds)",
+            f'{LABELS["avg_ack"]} ({LABELS["seconds"]})',
             report["average_acknowledgement_seconds"],
         ])
-
         writer.writerow([
-            "Average Completion Time (seconds)",
+            f'{LABELS["avg_completion"]} ({LABELS["seconds"]})',
             report["average_completion_seconds"],
         ])
-
         writer.writerow([])
 
-        writer.writerow(["Top Officers"])
+        writer.writerow([LABELS["top_officers"]])
         writer.writerow([
-            "Officer ID",
-            "Officer Name",
-            "Completed Missions",
+            LABELS["officer_id"],
+            LABELS["officer"],
+            LABELS["completed_missions"],
         ])
-
+        
         for officer in report["top_officers"]:
             writer.writerow([
                 officer["officer_id"],
@@ -597,8 +347,7 @@ class WeeklySummaryCSVView(APIView):
         return response
     
 class WeeklySummaryPDFView(APIView):
-    permission_classes = [IsAuthenticated]
-    renderer_classes = [PDFRenderer]
+    permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
     @extend_schema(
         parameters=[
             OpenApiParameter(
@@ -619,34 +368,7 @@ class WeeklySummaryPDFView(APIView):
         responses={(200, "application/pdf"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-
-        if not start_date_str or not end_date_str:
-            return Response(
-                {"detail": "start_date and end_date are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            start_date = datetime.strptime(
-                start_date_str, "%Y-%m-%d"
-            ).date()
-            end_date = datetime.strptime(
-                end_date_str, "%Y-%m-%d"
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Dates must use YYYY-MM-DD format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if start_date > end_date:
-            return Response(
-                {"detail": "start_date cannot be after end_date."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        start_date, end_date = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
@@ -659,77 +381,62 @@ class WeeklySummaryPDFView(APIView):
         )
 
         pdf = canvas.Canvas(response)
+        pdf.setTitle(LABELS["weekly_title"])
 
         y = 800
-
-        pdf.setFont("Helvetica-Bold", 16)
-        pdf.drawString(50, y, "Weekly Activity Report")
-
+        draw_line(pdf, y, LABELS["weekly_title"], size=16, bold=True)
         y -= 30
 
-        pdf.setFont("Helvetica", 11)
-        pdf.drawString(
-            50,
+        draw_line(
+            pdf,
             y,
-            f"Period: {start_date} to {end_date}",
+            f'{LABELS["period"]}: {LABELS["from"]} {written_date(start_date)} '
+            f'{LABELS["to"]} {written_date(end_date)}',
         )
-
         y -= 40
 
-        pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawString(50, y, "Missions by Priority")
-
+        draw_line(pdf, y, LABELS["missions_by_priority"], size=12, bold=True)
         y -= 25
-
-        pdf.setFont("Helvetica", 11)
-
         for priority, count in report["missions_by_priority"].items():
-            pdf.drawString(
-                70,
-                y,
-                f"{priority.title()}: {count}",
-            )
+            draw_line(pdf, y, f"{PRIORITIES[priority]}: {digits(count)}", right=RIGHT - 20)
             y -= 20
-
         y -= 15
-
-        pdf.drawString(
-            50,
+        draw_line(pdf, y, LABELS["missions_by_category"], size=12, bold=True)
+        y -= 25
+        for category, count in report["missions_by_category"].items():
+            draw_line(pdf, y, f"{CATEGORIES[category]}: {digits(count)}", right=RIGHT - 20)
+            y -= 20
+        y -= 15
+        draw_line(
+            pdf,
             y,
-            "Average Acknowledgement Time: "
-            f"{report['average_acknowledgement_seconds']} seconds",
+            f'{LABELS["avg_ack"]}: '
+            f'{digits(report["average_acknowledgement_seconds"])} {LABELS["seconds"]}',
         )
-
         y -= 20
-
-        pdf.drawString(
-            50,
+        draw_line(
+            pdf,
             y,
-            "Average Completion Time: "
-            f"{report['average_completion_seconds']} seconds",
+            f'{LABELS["avg_completion"]}: '
+            f'{digits(report["average_completion_seconds"])} {LABELS["seconds"]}',
         )
-
         y -= 40
 
-        pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawString(50, y, "Top Officers")
-
+        draw_line(pdf, y, LABELS["top_officers"], size=12, bold=True)
         y -= 25
-
-        pdf.setFont("Helvetica", 11)
-
         if report["top_officers"]:
             for officer in report["top_officers"]:
-                pdf.drawString(
-                    70,
+                draw_line(
+                    pdf,
                     y,
-                    f"{officer['officer_name']} - "
-                    f"{officer['completed_missions']} completed missions",
+                    f'{officer["officer_name"]} — '
+                    f'{digits(officer["completed_missions"])} {LABELS["completed_count"]}',
+                    right=RIGHT - 20,
                 )
                 y -= 20
         else:
-            pdf.drawString(70, y, "No completed missions.")
-        
+            draw_line(pdf, y, LABELS["no_completed_missions"], right=RIGHT - 20)
+
         pdf.save()
 
         return response
