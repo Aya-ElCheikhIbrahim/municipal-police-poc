@@ -1,4 +1,3 @@
-from datetime import datetime
 import csv
 from django.http import HttpResponse
 from drf_spectacular.utils import (
@@ -22,6 +21,7 @@ from reports.services import (
     generate_daily_officer_report,
     generate_weekly_summary,
 )
+from .params import daily_params, weekly_params
 
 from rest_framework.renderers import BaseRenderer
 class CSVRenderer(BaseRenderer):
@@ -74,32 +74,7 @@ class DailyOfficerReportView(APIView):
         responses=DailyOfficerReportSerializer,
     )
     def get(self, request):
-        raw_date = request.query_params.get("date")
-        officer_id = request.query_params.get("officer_id")
-        status_filter = request.query_params.get("status")
-
-        if not raw_date:
-            return Response(
-                {"detail": "date is required. Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not officer_id:
-            return Response(
-                {"detail": "officer_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            date = datetime.strptime(
-                raw_date,
-                "%Y-%m-%d",
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        date, officer_id, status_filter = daily_params(request)
 
         report = services.generate_daily_officer_report(
             date=date,
@@ -142,53 +117,7 @@ class WeeklySummaryView(APIView):
         responses=WeeklySummarySerializer,
     )
     def get(self, request):
-        raw_start_date = request.query_params.get("start_date")
-        raw_end_date = request.query_params.get("end_date")
-
-        if not raw_start_date:
-            return Response(
-                {
-                    "detail": (
-                        "start_date is required. "
-                        "Use start_date=YYYY-MM-DD."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not raw_end_date:
-            return Response(
-                {
-                    "detail": (
-                        "end_date is required. "
-                        "Use end_date=YYYY-MM-DD."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            start_date = datetime.strptime(
-                raw_start_date,
-                "%Y-%m-%d",
-            ).date()
-
-            end_date = datetime.strptime(
-                raw_end_date,
-                "%Y-%m-%d",
-            ).date()
-
-        except ValueError:
-            return Response(
-                {"detail": "Use dates in YYYY-MM-DD format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if start_date > end_date:
-            return Response(
-                {"detail": "start_date cannot be after end_date."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        start_date, end_date = weekly_params(request)
 
         report = services.generate_weekly_summary(
             start_date=start_date,
@@ -198,7 +127,6 @@ class WeeklySummaryView(APIView):
         return Response(
             WeeklySummarySerializer(report).data
         )
-
 
 class DailyOfficerReportCSVView(APIView):
     """
@@ -238,32 +166,7 @@ class DailyOfficerReportCSVView(APIView):
         },
     )
     def get(self, request):
-        raw_date = request.query_params.get("date")
-        officer_id = request.query_params.get("officer_id")
-        status_filter = request.query_params.get("status")
-
-        if not raw_date:
-            return Response(
-                {"detail": "date is required. Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not officer_id:
-            return Response(
-                {"detail": "officer_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            date = datetime.strptime(
-                raw_date,
-                "%Y-%m-%d",
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        date, officer_id, status_filter = daily_params(request)
 
         report = services.generate_daily_officer_report(
             date=date,
@@ -378,32 +281,7 @@ class DailyOfficerReportPDFView(APIView):
         },
     )
     def get(self, request):
-        raw_date = request.query_params.get("date")
-        officer_id = request.query_params.get("officer_id")
-        status_filter = request.query_params.get("status")
-
-        if not raw_date:
-            return Response(
-                {"detail": "date is required. Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not officer_id:
-            return Response(
-                {"detail": "officer_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            date = datetime.strptime(
-                raw_date,
-                "%Y-%m-%d",
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Use date=YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        date, officer_id, status_filter = daily_params(request)
 
         report = services.generate_daily_officer_report(
             date=date,
@@ -514,34 +392,7 @@ class WeeklySummaryCSVView(APIView):
         responses={(200, "text/csv"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-
-        if not start_date_str or not end_date_str:
-            return Response(
-                {"detail": "start_date and end_date are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            start_date = datetime.strptime(
-                start_date_str, "%Y-%m-%d"
-            ).date()
-            end_date = datetime.strptime(
-                end_date_str, "%Y-%m-%d"
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Dates must use YYYY-MM-DD format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if start_date > end_date:
-            return Response(
-                {"detail": "start_date cannot be after end_date."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        start_date, end_date = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
@@ -619,34 +470,7 @@ class WeeklySummaryPDFView(APIView):
         responses={(200, "application/pdf"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
-
-        if not start_date_str or not end_date_str:
-            return Response(
-                {"detail": "start_date and end_date are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            start_date = datetime.strptime(
-                start_date_str, "%Y-%m-%d"
-            ).date()
-            end_date = datetime.strptime(
-                end_date_str, "%Y-%m-%d"
-            ).date()
-        except ValueError:
-            return Response(
-                {"detail": "Dates must use YYYY-MM-DD format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if start_date > end_date:
-            return Response(
-                {"detail": "start_date cannot be after end_date."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        start_date, end_date = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
@@ -729,7 +553,7 @@ class WeeklySummaryPDFView(APIView):
                 y -= 20
         else:
             pdf.drawString(70, y, "No completed missions.")
-        
+
         pdf.save()
 
         return response
