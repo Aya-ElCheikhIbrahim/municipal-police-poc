@@ -124,6 +124,10 @@ def generate_weekly_summary(*, start_date, end_date):
         ).count()
         for priority, _ in Mission.Priority.choices
     }
+    missions_by_category = {
+        category: missions.filter(category=category).count()
+        for category, _ in Mission.Category.choices
+    }
 
     # Average acknowledgement time
     acknowledged_missions = missions.filter(
@@ -193,4 +197,5 @@ def generate_weekly_summary(*, start_date, end_date):
         "average_acknowledgement_seconds": average_acknowledgement_seconds,
         "average_completion_seconds": average_completion_seconds,
         "top_officers": top_officers[:5],
+        "missions_by_category": missions_by_category,
     }

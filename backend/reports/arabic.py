@@ -57,6 +57,8 @@ LABELS = {
     "missions_by_priority": "المهام حسب الأولوية",
     "priority": "الأولوية",
     "count": "العدد",
+    "missions_by_category": "المهام حسب النوع",
+    "category": "النوع",
     "avg_ack": "متوسط وقت تأكيد الاستلام",
     "avg_completion": "متوسط وقت الإنجاز",
     "seconds": "ثانية",
@@ -64,6 +66,13 @@ LABELS = {
     "completed_missions": "المهام المنجزة",
     "completed_count": "عدد المهام المنجزة",
     "no_completed_missions": "المهام غير المنجزة",
+}
+
+CATEGORIES = {
+    "Municipal": "بلدية",
+    "Sanitation": "نظافة",
+    "Traffic": "سير",
+    "Infrastructure": "بنى تحتية",
 }
 
 PRIORITIES = {

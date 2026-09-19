@@ -23,6 +23,7 @@ class WeeklySummarySerializer(serializers.Serializer):
     start_date = serializers.DateField()
     end_date = serializers.DateField()
     missions_by_priority = serializers.DictField()
+    missions_by_category = serializers.DictField()
     average_acknowledgement_seconds = serializers.FloatField()
     average_completion_seconds = serializers.FloatField()
     top_officers = TopOfficerSerializer(many=True)

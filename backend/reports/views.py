@@ -25,6 +25,7 @@ from .arabic import (
     LABELS,
     PRIORITIES,
     RIGHT,
+    CATEGORIES,
     daily_rows,
     digits,
     draw_line,
@@ -313,6 +314,11 @@ class WeeklySummaryCSVView(APIView):
         for priority, count in report["missions_by_priority"].items():
             writer.writerow([PRIORITIES[priority], count])
         writer.writerow([])
+        writer.writerow([LABELS["missions_by_category"]])
+        writer.writerow([LABELS["category"], LABELS["count"]])
+        for category, count in report["missions_by_category"].items():
+            writer.writerow([CATEGORIES[category], count])
+        writer.writerow([])
 
         writer.writerow([
             f'{LABELS["avg_ack"]} ({LABELS["seconds"]})',
@@ -330,6 +336,7 @@ class WeeklySummaryCSVView(APIView):
             LABELS["officer"],
             LABELS["completed_missions"],
         ])
+        
         for officer in report["top_officers"]:
             writer.writerow([
                 officer["officer_id"],
@@ -394,7 +401,12 @@ class WeeklySummaryPDFView(APIView):
             draw_line(pdf, y, f"{PRIORITIES[priority]}: {digits(count)}", right=RIGHT - 20)
             y -= 20
         y -= 15
-
+        draw_line(pdf, y, LABELS["missions_by_category"], size=12, bold=True)
+        y -= 25
+        for category, count in report["missions_by_category"].items():
+            draw_line(pdf, y, f"{CATEGORIES[category]}: {digits(count)}", right=RIGHT - 20)
+            y -= 20
+        y -= 15
         draw_line(
             pdf,
             y,
