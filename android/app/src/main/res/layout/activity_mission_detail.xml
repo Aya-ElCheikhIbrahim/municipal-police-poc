@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -7,6 +9,7 @@
     android:background="@color/bg_canvas"
     android:fitsSystemWindows="true">
 
+    <!-- TOP BAR -->
     <LinearLayout
         android:id="@+id/topBar"
         style="@style/AppTopBar"
@@ -41,12 +44,16 @@
             android:layout_height="wrap_content"
             android:background="@drawable/pill_active"
             android:text="@string/status_online" />
+
     </LinearLayout>
 
+
+    <!-- MAIN CONTENT -->
     <ScrollView
         android:id="@+id/scrollView"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:paddingBottom="72dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -58,6 +65,8 @@
             android:orientation="vertical"
             android:padding="@dimen/space_m">
 
+
+            <!-- MISSION INFORMATION -->
             <LinearLayout
                 style="@style/CardSurface"
                 android:layout_width="match_parent"
@@ -86,6 +95,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="@dimen/space_s"
                         android:background="@drawable/pill_urgent" />
+
                 </LinearLayout>
 
                 <TextView
@@ -96,6 +106,8 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="@dimen/text_caption" />
 
+
+                <!-- MAP -->
                 <FrameLayout
                     android:id="@+id/mapPreview"
                     android:layout_width="match_parent"
@@ -107,6 +119,7 @@
                         android:id="@+id/mapView"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent" />
+
                 </FrameLayout>
 
                 <TextView
@@ -123,8 +136,11 @@
                     android:textColor="@color/brand"
                     android:textSize="@dimen/text_caption"
                     android:textStyle="bold" />
+
             </LinearLayout>
 
+
+            <!-- OFFLINE NOTICE -->
             <LinearLayout
                 android:id="@+id/groupOfflineNotice"
                 android:layout_width="match_parent"
@@ -161,15 +177,21 @@
                         android:text="@string/missions_error_body"
                         android:textColor="@color/text_secondary"
                         android:textSize="@dimen/text_body" />
+
                 </LinearLayout>
+
             </LinearLayout>
 
+
+            <!-- MISSION STATE PAGES -->
             <ViewFlipper
                 android:id="@+id/flipper"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_m">
 
+
+                <!-- ASSIGNED MISSION -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -192,6 +214,7 @@
                         <include
                             android:id="@+id/step3"
                             layout="@layout/item_step_row" />
+
                     </LinearLayout>
 
                     <Button
@@ -209,8 +232,11 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/space_s"
                         android:text="@string/mission_navigate_button" />
+
                 </LinearLayout>
 
+
+                <!-- MISSION IN PROGRESS -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -222,21 +248,18 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/tvAcknowledgedAt"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/text_primary"
-                            android:textSize="@dimen/text_body" />
+
+                        <!-- ACKNOWLEDGED REMOVED -->
 
                         <TextView
                             android:id="@+id/tvStartedAt"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/space_s"
                             android:textColor="@color/text_primary"
                             android:textSize="@dimen/text_body" />
 
+
+                        <!-- PHOTO PREVIEW SLOTS -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="72dp"
@@ -265,6 +288,7 @@
                                 android:layout_height="match_parent"
                                 android:layout_weight="1"
                                 android:background="@drawable/bg_photo_slot" />
+
                         </LinearLayout>
 
                         <TextView
@@ -274,39 +298,52 @@
                             android:layout_marginTop="@dimen/space_s"
                             android:textColor="@color/text_secondary"
                             android:textSize="@dimen/text_caption" />
+
                     </LinearLayout>
 
+
+                    <!-- ADD PHOTO -->
                     <Button
                         android:id="@+id/btnTakePhoto"
                         style="@style/Button.Outline"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/space_m"
-                        android:text="@string/mission_take_photo" />
+                        android:text="Add photo" />
 
+
+                    <!-- COMPLETE MISSION -->
                     <Button
                         android:id="@+id/btnCompleteMission"
                         style="@style/Button.Primary"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/space_s"
+                        android:layout_marginBottom="80dp"
                         android:text="@string/mission_complete_button" />
+
                 </LinearLayout>
+
             </ViewFlipper>
+
         </LinearLayout>
+
     </ScrollView>
 
+
+    <!-- PANIC BUTTON: ALWAYS BOTTOM RIGHT -->
     <ImageButton
         android:id="@+id/btnPanicCircle"
         android:layout_width="56dp"
         android:layout_height="56dp"
-        android:layout_marginStart="@dimen/space_m"
+        android:layout_marginEnd="@dimen/space_m"
         android:layout_marginBottom="@dimen/space_m"
         android:background="@drawable/bg_panic_circle"
-        android:src="@drawable/ic_bell"
+        android:contentDescription="Panic"
         android:scaleType="centerInside"
+        android:src="@drawable/ic_bell"
         app:tint="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

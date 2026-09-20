@@ -1,71 +1,193 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/space_m"
+
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+
     app:cardBackgroundColor="@color/bg_card"
     app:cardCornerRadius="14dp"
     app:cardElevation="0dp"
     app:strokeWidth="3dp"
-    app:strokeColor="@android:color/transparent"
-    android:clickable="true"
-    android:focusable="true"
-    android:foreground="?attr/selectableItemBackground">
+    app:strokeColor="@android:color/transparent">
 
+
+    <!-- WHOLE CARD CONTENT -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="@dimen/space_m"
-        android:minHeight="@dimen/tap_target_min"
-        android:gravity="center_vertical">
+        android:orientation="vertical"
+        android:padding="@dimen/space_m">
+
+
+        <!-- ================================================= -->
+        <!-- TOP ROW: TITLE / SUBTITLE + START/STOP BUTTON -->
+        <!-- ================================================= -->
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:minHeight="@dimen/tap_target_min"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/tvTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="@dimen/text_body"
-                tools:text="Illegal parking blocking access" />
 
-            <TextView
-                android:id="@+id/tvSubtitle"
-                android:layout_width="match_parent"
+            <!-- TITLE + SUBTITLE -->
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/text_secondary"
-                android:textSize="@dimen/text_caption"
-                tools:text="Rue Tall · 400 m · 6 min ago" />
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
+                    android:textSize="@dimen/text_body"
+                    android:textStyle="bold"
+                    tools:text="Sanitation Test Mission" />
+
+
+                <TextView
+                    android:id="@+id/tvSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/text_caption"
+                    tools:text="Tripoli · 3.4 km · In 4 hours" />
+
+            </LinearLayout>
+
+
+            <!-- START / STOP BUTTON -->
+            <Button
+                android:id="@+id/btnAction"
+                style="@style/Button.Success"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="@dimen/space_s"
+                android:minWidth="80dp"
+                android:text="Start work"
+                android:textSize="14sp" />
+
+
+            <!-- Existing priority pill.
+                 We keep it because MissionAdapter currently expects it,
+                 but it stays hidden. -->
+            <TextView
+                android:id="@+id/tvPriority"
+                style="@style/StatusPill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/space_s"
+                android:background="@drawable/pill_urgent"
+                android:visibility="gone"
+                tools:text="Urgent" />
+
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btnAction"
-            style="@style/Button.Success"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginStart="@dimen/space_s"
-            android:text="Start"
-            android:textSize="14sp"
-            android:minWidth="80dp" />
 
-        <TextView
-            android:id="@+id/tvPriority"
-            style="@style/StatusPill"
-            android:layout_width="wrap_content"
+        <!-- ================================================= -->
+        <!-- LIVE WORK TIMER -->
+        <!-- Hidden until a mission has started -->
+        <!-- ================================================= -->
+
+        <LinearLayout
+            android:id="@+id/workTimerRow"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/space_s"
-            android:background="@drawable/pill_urgent"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:visibility="gone"
-            tools:text="Urgent" />
+            tools:visibility="visible">
+
+
+            <!-- TIMER ICON -->
+            <TextView
+                android:id="@+id/tvTimerIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:gravity="center"
+                android:text="◷"
+                android:textColor="@color/brand"
+                android:textSize="20sp" />
+
+
+            <!-- WORK TIME LABEL -->
+            <TextView
+                android:id="@+id/tvWorkTimeLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="Work time"
+                android:textColor="@color/text_secondary"
+                android:textSize="@dimen/text_caption" />
+
+
+            <!-- LIVE / FINAL TIME -->
+            <TextView
+                android:id="@+id/tvWorkTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:00:00"
+                android:textColor="@color/brand"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                tools:text="00:12:48" />
+
+        </LinearLayout>
+
+
+        <!-- ================================================= -->
+        <!-- LOCK MESSAGE -->
+        <!-- Only shown when another mission is active -->
+        <!-- ================================================= -->
+
+        <LinearLayout
+            android:id="@+id/lockRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            tools:visibility="gone">
+
+
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:gravity="center"
+                android:text="🔒"
+                android:textSize="15sp" />
+
+
+            <TextView
+                android:id="@+id/tvLockMessage"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="Locked (another mission in progress)"
+                android:textColor="@color/text_secondary"
+                android:textSize="@dimen/text_caption" />
+
+        </LinearLayout>
+
     </LinearLayout>
+
 </com.google.android.material.card.MaterialCardView>
