@@ -11,7 +11,7 @@ import {
   pingToCoords,
   displayOfficerStatus,
 } from '../officers/types';
-
+import { usePanicRadius } from './usePanicRadius';
 /** A request to zoom in on an officer, e.g. from "Locate on Map" on a panic banner. */
 export interface MapFocus {
   officerId: number;
@@ -43,6 +43,8 @@ export function LiveMapPage({ focus = null }: { focus?: MapFocus | null }) {
     selectedOfficerId,
     onSelect: setSelectedOfficerId,
   });
+
+  usePanicRadius({ mapRef, officers });
 
   const { trail, isLoading: isTrailLoading, zoomToTrail } = useOfficerTrail({
     mapRef,
