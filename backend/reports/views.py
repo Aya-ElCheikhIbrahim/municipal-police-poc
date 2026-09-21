@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from core.permissions import IsDispatcherOrSupervisor
+from core.permissions import IsSupervisor
 from . import services
 from .serializers import (
     DailyOfficerReportSerializer,
@@ -42,7 +42,7 @@ class DailyOfficerReportView(APIView):
 
     permission_classes = [
         IsAuthenticated,
-        IsDispatcherOrSupervisor,
+        IsSupervisor,
     ]
 
     @extend_schema(
@@ -91,7 +91,7 @@ class DailyOfficerReportView(APIView):
 class WeeklySummaryView(APIView):
     permission_classes = [
         IsAuthenticated,
-        IsDispatcherOrSupervisor,
+        IsSupervisor,
     ]
 
     @extend_schema(
@@ -132,7 +132,7 @@ class DailyOfficerReportCSVView(APIView):
 
     permission_classes = [
         IsAuthenticated,
-        IsDispatcherOrSupervisor,
+        IsSupervisor,
     ]
 
     @extend_schema(
@@ -200,7 +200,7 @@ class DailyOfficerReportPDFView(APIView):
 
     permission_classes = [
         IsAuthenticated,
-        IsDispatcherOrSupervisor,
+        IsSupervisor,
     ]
 
     @extend_schema(
@@ -265,7 +265,7 @@ class DailyOfficerReportPDFView(APIView):
 
     
 class WeeklySummaryCSVView(APIView):
-    permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
+    permission_classes = [IsAuthenticated, IsSupervisor]
 
     @extend_schema(
         parameters=[
@@ -347,7 +347,7 @@ class WeeklySummaryCSVView(APIView):
         return response
     
 class WeeklySummaryPDFView(APIView):
-    permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
+    permission_classes = [IsAuthenticated, IsSupervisor]
     @extend_schema(
         parameters=[
             OpenApiParameter(
