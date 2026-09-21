@@ -85,3 +85,19 @@ class ActivePanicSerializer(serializers.ModelSerializer):
             "battery_level",
             "triggered_at",
         ]
+
+
+class PanicLocationSerializer(serializers.Serializer):
+    """
+    GET /api/v1/panic/{id}/location/ — for an officer on their way to help.
+
+    Narrow on purpose: who it is and where they are now. The outcome columns
+    and the battery belong to the dispatcher feed, not to a colleague en route.
+    """
+
+    id = serializers.IntegerField()
+    officer = OfficerBriefSerializer()
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    accuracy_m = serializers.FloatField(allow_null=True)
+    recorded_at = serializers.DateTimeField()

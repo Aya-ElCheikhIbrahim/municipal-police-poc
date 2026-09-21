@@ -182,7 +182,7 @@ def ingest_pings(officer, rows):
     # pings recorded earlier than ones already stored, so adding new segments
     # to a running total would drift. This costs one scan per batch upload
     # (every few minutes per officer) instead of one scan per read of
-    # /shifts/active/ (every 15s per officer, times every dispatcher watching).
+    # /shifts/active/ (every 5s per officer, times every dispatcher watching).
     shift.distance_m = shift_distance_m(shift)
     shift.save(update_fields=["distance_m"])
 
@@ -191,3 +191,44 @@ def ingest_pings(officer, rows):
         duplicates=len(fresh) - len(objects),
         rejected=rejected,
     )
+
+
+
+def officers_near(latitude, longitude, radius_m, exclude_officer):
+    """
+    Officers on an active shift whose last known position is within radius_m.
+    Returns [(officer, distance_m)], nearest first.
+
+    Last known position is the newest ping, else where the shift was started.
+    An officer with neither is skipped: there is no way to tell how far away
+    they are, and guessing would send the wrong person.
+    """
+    shifts = list(
+        Shift.objects.filter(status=Shift.Status.ACTIVE, officer__is_active=True)
+        .exclude(officer=exclude_officer)
+        .select_related("officer")
+    )
+
+    latest = {
+        ping.shift_id: ping
+        for ping in LocationPing.objects
+            .filter(shift_id__in=[shift.id for shift in shifts])
+            .order_by("shift_id", "-recorded_at")
+            .distinct("shift_id")
+    }
+
+    nearby = []
+    for shift in shifts:
+        ping = latest.get(shift.id)
+        if ping is not None:
+            lat, lon = ping.latitude, ping.longitude
+        elif shift.start_latitude is not None:
+            lat, lon = shift.start_latitude, shift.start_longitude
+        else:
+            continue
+        distance = haversine_m(float(latitude), float(longitude), float(lat), float(lon))
+        if distance <= radius_m:
+            nearby.append((shift.officer, distance))
+
+    nearby.sort(key=lambda pair: pair[1])
+    return nearby
