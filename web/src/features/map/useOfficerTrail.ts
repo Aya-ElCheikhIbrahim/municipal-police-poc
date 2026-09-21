@@ -20,39 +20,46 @@ interface UseOfficerTrailOptions {
  * 15-second map refresh would move a lot of rows for very little new data.
  */
 export function useOfficerTrail({ mapRef, officerId, date }: UseOfficerTrailOptions) {
-  const [trail, setTrail] = useState<OfficerTrail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [fetchedTrail, setFetchedTrail] = useState<OfficerTrail | null>(null);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const lineRef = useRef<L.Polyline | null>(null);
 
+  // One key per request, so a trail is only shown once its own request has
+  // landed - never the previous officer's path while the new one loads.
+  const requestKey = officerId === null ? null : `${officerId}:${date ?? ''}`;
+
+  // Both derived rather than set from inside the effect below: setting state
+  // in an effect body costs an extra render pass and React's lint rule flags
+  // it. The effect only talks to the API.
+  const trail = requestKey !== null && loadedKey === requestKey ? fetchedTrail : null;
+  const isLoading = requestKey !== null && loadedKey !== requestKey;
+
   useEffect(() => {
-    if (officerId === null) {
-      setTrail(null);
-      return;
-    }
+    if (officerId === null || requestKey === null) return;
 
     // Guards against a slow response for a previously selected officer
     // landing after the dispatcher has already clicked someone else.
     let cancelled = false;
-    setIsLoading(true);
 
     officersApi
       .getTrail(officerId, date)
       .then((data) => {
-        if (!cancelled) setTrail(data);
+        if (cancelled) return;
+        setFetchedTrail(data);
+        setLoadedKey(requestKey);
       })
       .catch(() => {
         // A failed trail must not blank the drawer; the shift stats above it
         // came from a different request and are still good.
-        if (!cancelled) setTrail(null);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (cancelled) return;
+        setFetchedTrail(null);
+        setLoadedKey(requestKey);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [officerId, date]);
+  }, [officerId, date, requestKey]);
 
   useEffect(() => {
     const map = mapRef.current;

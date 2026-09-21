@@ -59,7 +59,9 @@ export function useLeafletMap({
     const timer = setTimeout(() => mapRef.current?.invalidateSize(), 100);
 
     return () => clearTimeout(timer);
-    
+    // The map is created once. Listing centre and zoom here would tear it down
+    // and rebuild it every time the dispatcher pans or zooms.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
   return { containerRef, mapRef };

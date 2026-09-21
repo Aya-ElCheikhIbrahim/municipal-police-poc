@@ -27,7 +27,7 @@ from .models import Notification, NotificationType
 
 User = get_user_model()
 
-def _push_after_commit(notification):
+def _push_after_commit(notification, extra_data=None):
     data = {
         "type": notification.notification_type,
         "notification_id": notification.id,
@@ -35,11 +35,12 @@ def _push_after_commit(notification):
     if notification.related_mission_id:
         data["mission_id"] = notification.related_mission_id
 
+    if extra_data:
+        data.update(extra_data)
     recipient = notification.recipient
     transaction.on_commit(
         lambda: push.send_push(recipient, notification.title, notification.body, data)
     )
-
 
 # ---------------------------------------------------------------------------
 # Reads
@@ -217,3 +218,29 @@ def notify_panic_triggered(event):
         )
         for user in recipients
     ])
+
+
+@transaction.atomic
+def notify_nearby_officers_of_panic(event, nearby):
+    notifications = Notification.objects.bulk_create([
+        Notification(
+            recipient=officer,
+            notification_type=NotificationType.PANIC_ALERT,
+            title=f"{event.officer.full_name} has hit the panic button",
+            body=(
+                f"{distance / 1000:.1f} km from you, "
+                f"at {event.latitude}, {event.longitude}"
+            ),
+        )
+        for officer, distance in nearby
+    ])
+
+    for notification in notifications:
+        _push_after_commit(notification, {
+            "panic_id": event.id,
+            "officer_name": event.officer.full_name,
+            "latitude": event.latitude,
+            "longitude": event.longitude,
+        })
+
+    return notifications

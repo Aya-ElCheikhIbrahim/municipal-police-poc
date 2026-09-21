@@ -72,6 +72,9 @@ export function useOfficerMarkers({
 
     const coords = pingToCoords(selected.latest_ping);
     if (coords) map.panTo(coords, { animate: true });
+    // officers is left out on purpose, as the comment above says: including it
+    // would pan back to the selected officer on every 15-second poll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOfficerId, followSelected]);
 
   // Remove every marker when the map goes away.
