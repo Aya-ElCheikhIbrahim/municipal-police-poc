@@ -116,3 +116,19 @@ def activity_params(request):
         int(raw_officer_id) if raw_officer_id else None,
         _parse_area(request),
     )
+
+
+def officer_report_params(request):
+    """(officer_id, start_date, end_date, status_filter) for the officer report."""
+    raw_officer_id = request.query_params.get("officer_id")
+    if not raw_officer_id:
+        raise ParseError("officer_id is required.")
+    if not raw_officer_id.isdigit():
+        raise ParseError("officer_id must be a number.")
+
+    start_date = _parse_date(request, "start_date")
+    end_date = _parse_date(request, "end_date")
+    if start_date > end_date:
+        raise ParseError("start_date cannot be after end_date.")
+
+    return int(raw_officer_id), start_date, end_date, _parse_status(request)

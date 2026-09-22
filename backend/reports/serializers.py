@@ -119,3 +119,55 @@ class ActivityRowSerializer(serializers.Serializer):
     details = serializers.CharField(allow_blank=True)
     mission_id = serializers.IntegerField(allow_null=True)
     panic_id = serializers.IntegerField(allow_null=True)
+
+
+class OfficerReportSummarySerializer(serializers.Serializer):
+    """The cards at the top of the officer page."""
+
+    hours_on_duty = serializers.FloatField()
+    distance_covered_m = serializers.IntegerField()
+    missions_assigned = serializers.IntegerField()
+    missions_completed = serializers.IntegerField()
+    missions_cancelled = serializers.IntegerField()
+    missions_in_progress = serializers.IntegerField()
+    panic_events = serializers.IntegerField()
+
+
+class OfficerPerformanceSerializer(serializers.Serializer):
+    """This officer's own averages, not the period's."""
+
+    average_acknowledgement_seconds = serializers.FloatField()
+    average_completion_seconds = serializers.FloatField()
+
+
+class OfficerMissionSerializer(serializers.Serializer):
+    """One line of the mission history, with the timestamps the screen shows."""
+
+    mission_id = serializers.IntegerField()
+    title = serializers.CharField()
+    status = serializers.CharField()
+    priority = serializers.CharField()
+    category = serializers.CharField()
+    area = serializers.CharField(allow_null=True)
+    area_id = serializers.IntegerField(allow_null=True)
+    assigned_at = serializers.DateTimeField(allow_null=True)
+    acknowledged_at = serializers.DateTimeField(allow_null=True)
+    completed_at = serializers.DateTimeField(allow_null=True)
+    cancelled_at = serializers.DateTimeField(allow_null=True)
+
+
+class OfficerReportSerializer(serializers.Serializer):
+    """
+    GET /api/v1/reports/officer/ - one officer over a day or a range.
+
+    `timeline` is only filled for a single day; over a longer range it is empty
+    and the client asks /reports/activity/ for whatever slice it needs.
+    """
+
+    officer = OfficerBriefSerializer()
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    summary = OfficerReportSummarySerializer()
+    performance = OfficerPerformanceSerializer()
+    timeline = ActivityRowSerializer(many=True)
+    missions = OfficerMissionSerializer(many=True)

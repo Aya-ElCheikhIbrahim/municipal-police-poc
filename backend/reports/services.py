@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from core.geo import haversine_m
+
+from .activity import activity_feed
 from core.models import Area
 from missions.models import Mission
 from panic.models import PanicEvent
@@ -495,3 +497,103 @@ def officer_rows_for_range(*, start_date, end_date, officer_id=None, area_id=Non
     for row in officers:
         row["hours_on_duty"] = round(row["hours_on_duty"], 2)
     return officers
+
+
+
+def generate_officer_report(*, officer_id, start_date, end_date, status_filter=None):
+    """
+    One officer over a day, a week or any range: the page a supervisor lands on
+    after clicking a name in the other reports. Returns None for an id that is
+    not an officer's, so the view can answer 404.
+
+    Nothing new is calculated here. The figures come from the same helper the
+    weekly and custom range tables use, so a number can never disagree between
+    two screens, and the timeline is the activity feed.
+
+    The timeline is only filled for a single day, as the screen asks: a month
+    of one officer's actions is a different question, and `/reports/activity/`
+    answers it directly.
+    """
+    officer = User.objects.filter(pk=officer_id, role="officer").first()
+    if officer is None:
+        return None
+
+    rows = officer_rows_for_range(
+        start_date=start_date, end_date=end_date, officer_id=officer_id
+    )
+    row = rows[0] if rows else {
+        "hours_on_duty": 0.0,
+        "distance_covered_m": 0,
+        "missions_assigned": 0,
+        "missions_completed": 0,
+        "missions_cancelled": 0,
+        "average_acknowledgement_seconds": 0,
+        "average_completion_seconds": 0,
+        "panic_events": 0,
+    }
+
+    missions = (
+        Mission.objects.filter(
+            assigned_to=officer_id,
+            assigned_at__date__gte=start_date,
+            assigned_at__date__lte=end_date,
+        )
+        .select_related("area")
+        .order_by("-assigned_at")
+    )
+    if status_filter:
+        missions = missions.filter(status=status_filter)
+
+    # A paused mission is still work in hand, not a finished one, so the
+    # screen's "in progress" covers both.
+    in_progress = missions.filter(
+        status__in=[Mission.Status.IN_PROGRESS, Mission.Status.PAUSED]
+    ).count()
+
+    history = [
+        {
+            "mission_id": mission.id,
+            "title": mission.title,
+            "status": mission.status,
+            "priority": mission.priority,
+            "category": mission.category,
+            "area": mission.area.name if mission.area_id else None,
+            "area_id": mission.area_id,
+            "assigned_at": mission.assigned_at,
+            "acknowledged_at": mission.acknowledged_at,
+            "completed_at": mission.completed_at,
+            "cancelled_at": mission.cancelled_at,
+        }
+        for mission in missions
+    ]
+
+    timeline = (
+        activity_feed(date=start_date, officer_id=officer_id)
+        if start_date == end_date
+        else []
+    )
+
+    return {
+        "officer": {
+            "id": officer.id,
+            "full_name": officer.full_name,
+            "badge_number": officer.badge_number,
+        },
+        "start_date": start_date,
+        "end_date": end_date,
+        "summary": {
+            "hours_on_duty": row["hours_on_duty"],
+            "distance_covered_m": row["distance_covered_m"],
+            "missions_assigned": row["missions_assigned"],
+            "missions_completed": row["missions_completed"],
+            "missions_cancelled": row["missions_cancelled"],
+            "missions_in_progress": in_progress,
+            "panic_events": row["panic_events"],
+        },
+        "performance": {
+            "average_acknowledgement_seconds": row["average_acknowledgement_seconds"],
+            "average_completion_seconds": row["average_completion_seconds"],
+        },
+        "timeline": timeline,
+        "missions": history,
+    }

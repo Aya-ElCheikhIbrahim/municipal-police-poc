@@ -14,6 +14,7 @@ from . import services
 from .serializers import (
     ActivityRowSerializer,
     DailyOfficerReportSerializer,
+    OfficerReportSerializer,
     WeeklySummarySerializer,
     DailySummarySerializer,
 )
@@ -39,6 +40,7 @@ from .params import (
     activity_params,
     daily_params,
     daily_summary_params,
+    officer_report_params,
     weekly_params,
 )
 class DailyOfficerReportView(APIView):
@@ -578,3 +580,63 @@ class ActivityFeedView(APIView):
         )
 
         return Response(ActivityRowSerializer(rows, many=True).data)
+
+
+class OfficerReportView(APIView):
+    """
+    GET /api/v1/reports/officer/ - the page behind an officer's name.
+
+    Day, week or custom range: the screen picks the span, this answers for it.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSupervisor,
+    ]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="officer_id",
+                description="The officer to report on.",
+                required=True,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="start_date",
+                description="Start date, YYYY-MM-DD. Use the same day twice for a single day.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="end_date",
+                description="End date, YYYY-MM-DD.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="status",
+                description="Only missions with this status, in the history and the counts.",
+                required=False,
+                type=str,
+            ),
+        ],
+        responses=OfficerReportSerializer,
+    )
+    def get(self, request):
+        officer_id, start_date, end_date, status_filter = officer_report_params(request)
+
+        report = services.generate_officer_report(
+            officer_id=officer_id,
+            start_date=start_date,
+            end_date=end_date,
+            status_filter=status_filter,
+        )
+
+        if report is None:
+            return Response(
+                {"detail": "Officer not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(OfficerReportSerializer(report).data)
