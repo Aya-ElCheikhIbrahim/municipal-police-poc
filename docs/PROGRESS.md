@@ -20,7 +20,9 @@ Written during phase 5 (panic, reports, polish).
 - Web dashboard: login, users, live map, missions, panic: wired to the API
 - Web reports: still mock data
 - Android app: builds and works, but three gaps (see What comes next)
-- Reports backend: daily per officer, weekly summary, CSV and PDF export in Arabic: done
+- Reports backend: daily per officer and all-officers summary, weekly and custom
+  range, activity feed, individual officer report, area filters, CSV and PDF
+  export in Arabic: done
 
 ## Environment
 
@@ -110,12 +112,10 @@ requirement forces it.
 ### Web
 
 - **Connect the reports screens to real data.** They still read `mockData.ts`.
-  The reports API meets section 4.8; the screens do not. Connect Daily activity
-  to /reports/daily/, Weekly summary and Custom range to /reports/weekly/, and
-  the four export buttons to the export endpoints. Add the two required pieces
-  the UI is missing: a mission status filter and a "missions by type" card.
-  Drop the mock-only parts (activity timeline, mission history, location and
-  time-of-day filters, per-priority splits) or raise them with the Product Owner.
+  Every screen now has an endpoint: Daily Summary -> /reports/daily/summary/,
+  Time Snapshot -> /reports/activity/, Weekly and Custom range ->
+  /reports/weekly/, the officer page -> /reports/officer/, and the area
+  dropdowns -> /areas/.
 - **Hide the Reports tab for non-supervisors.** The API is supervisor-only, so
   a dispatcher now gets 403 on every report.
 
