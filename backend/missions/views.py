@@ -53,6 +53,35 @@ class MissionActionMixin:
         return Response(MissionDetailSerializer(mission).data)
  
  
+class FilterError(Exception):
+    """A query parameter the list cannot honour; the view answers 400."""
+
+
+def _one_of(request, name, allowed):
+    """
+    A filter whose value must come from a fixed set.
+
+    An unknown value is a mistake worth reporting: returning an empty list
+    instead would look like "no missions match" and hide the typo.
+    """
+    value = request.query_params.get(name)
+    if not value:
+        return None
+    if value not in allowed:
+        raise FilterError(f"{name} must be one of: {', '.join(allowed)}.")
+    return value
+
+
+def _an_id(request, name):
+    """An id filter. A non-numeric value used to reach the database and 500."""
+    value = request.query_params.get(name)
+    if not value:
+        return None
+    if not value.isdigit():
+        raise FilterError(f"{name} must be a number.")
+    return int(value)
+
+
 class MissionListCreateView(APIView):
     """
     GET  /api/v1/missions/  - list, filtered. Officers see only their own.
@@ -84,24 +113,28 @@ class MissionListCreateView(APIView):
             "assigned_to"
         )
 
+        try:
+            officer_id = _an_id(request, "officer_id")
+            area_id = _an_id(request, "area_id")
+            mission_status = _one_of(request, "status", Mission.Status.values)
+            priority = _one_of(request, "priority", Mission.Priority.values)
+            category = _one_of(request, "category", Mission.Category.values)
+        except FilterError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         if request.user.role == "officer":
             queryset = queryset.filter(assigned_to=request.user)
-        elif officer_id := request.query_params.get("officer_id"):
+        elif officer_id is not None:
             queryset = queryset.filter(assigned_to__id=officer_id)
- 
-        if value := request.query_params.get("status"):
-            queryset = queryset.filter(status=value)
-        if value := request.query_params.get("priority"):
-            queryset = queryset.filter(priority=value)
-        if value := request.query_params.get("category"):
-            queryset = queryset.filter(category=value)
-        if value := request.query_params.get("area_id"):
-            if not value.isdigit():
-                return Response(
-                    {"detail": "area_id must be a number."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            queryset = queryset.filter(area_id=value)
+
+        if mission_status:
+            queryset = queryset.filter(status=mission_status)
+        if priority:
+            queryset = queryset.filter(priority=priority)
+        if category:
+            queryset = queryset.filter(category=category)
+        if area_id is not None:
+            queryset = queryset.filter(area_id=area_id)
         if request.query_params.get("open") == "true":
             queryset = queryset.exclude(
                 status__in=[Mission.Status.COMPLETED, Mission.Status.CANCELLED]
