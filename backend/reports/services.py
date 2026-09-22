@@ -3,6 +3,8 @@ from datetime import datetime, time, timedelta
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from core.geo import haversine_m
+from core.models import Area
 from missions.models import Mission
 from panic.models import PanicEvent
 from shifts.models import Shift
@@ -115,7 +117,7 @@ def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
         "missions_cancelled": missions_cancelled,
         "panic_events": panic_events,
     }
-def generate_weekly_summary(*, start_date, end_date, officer_id=None):
+def generate_weekly_summary(*, start_date, end_date, officer_id=None, area_id=None):
     """
     Section 4.8 weekly summary, and the custom range report, which is the same
     figures over any span the supervisor picks.
@@ -130,6 +132,8 @@ def generate_weekly_summary(*, start_date, end_date, officer_id=None):
     )
     if officer_id is not None:
         missions = missions.filter(assigned_to=officer_id)
+    if area_id is not None:
+        missions = missions.filter(area_id=area_id)
 
     # Total missions by priority
     missions_by_priority = {
@@ -200,6 +204,7 @@ def generate_weekly_summary(*, start_date, end_date, officer_id=None):
         start_date=start_date,
         end_date=end_date,
         officer_id=officer_id,
+        area_id=area_id,
     )
 
     return {
@@ -227,7 +232,7 @@ def generate_weekly_summary(*, start_date, end_date, officer_id=None):
 
 
 
-def generate_daily_summary(*, date, status_filter=None):
+def generate_daily_summary(*, date, status_filter=None, area_id=None):
     day_start = timezone.make_aware(datetime.combine(date, time.min))
     day_end = day_start + timedelta(days=1)
 
@@ -288,6 +293,8 @@ def generate_daily_summary(*, date, status_filter=None):
     )
     if status_filter:
         missions = missions.filter(status=status_filter)
+    if area_id is not None:
+        missions = missions.filter(area_id=area_id)
 
     # One grouped query instead of three per officer.
     for counts in missions.values("assigned_to").annotate(
@@ -302,12 +309,20 @@ def generate_daily_summary(*, date, status_filter=None):
         row["missions_completed"] = counts["completed"]
         row["missions_cancelled"] = counts["cancelled"]
 
-    for counts in (
-        PanicEvent.objects.filter(officer_id__in=officer_ids, triggered_at__date=date)
-        .values("officer_id")
-        .annotate(count=Count("id"))
-    ):
-        rows[counts["officer_id"]]["panic_events"] = counts["count"]
+    panics = PanicEvent.objects.filter(
+        officer_id__in=officer_ids, triggered_at__date=date
+    )
+    for event in panics_in_area(panics, area_id):
+        rows[event.officer_id]["panic_events"] += 1
+
+    if area_id is not None:
+        # An area filter asks "who worked in this district", so an officer who
+        # was on duty elsewhere all day does not belong in the table.
+        rows = {
+            officer_id: row
+            for officer_id, row in rows.items()
+            if row["missions_assigned"] or row["panic_events"]
+        }
 
     officers = sorted(rows.values(), key=lambda row: row["officer_name"])
     for row in officers:
@@ -327,7 +342,34 @@ def generate_daily_summary(*, date, status_filter=None):
 
 
 
-def officer_rows_for_range(*, start_date, end_date, officer_id=None):
+def panics_in_area(panics, area_id):
+    """
+    The panic alerts that happened inside one area, or all of them when no
+    area is asked for.
+
+    Panic events store a position rather than an area: they are raised from a
+    phone in the street, not created against a district the way a mission is.
+    One area means one centre to measure against, so this stays a short loop.
+    """
+    if area_id is None:
+        return list(panics)
+
+    area = Area.objects.filter(pk=area_id).first()
+    if area is None:
+        return []
+
+    centre = (float(area.latitude), float(area.longitude))
+    return [
+        event
+        for event in panics
+        if haversine_m(
+            float(event.latitude), float(event.longitude), centre[0], centre[1]
+        )
+        <= area.radius_m
+    ]
+
+
+def officer_rows_for_range(*, start_date, end_date, officer_id=None, area_id=None):
     """
     One row per officer who was on duty or held a mission in the range: the
     officer activity table on the weekly and custom range screens.
@@ -389,6 +431,8 @@ def officer_rows_for_range(*, start_date, end_date, officer_id=None):
     )
     if officer_id is not None:
         missions = missions.filter(assigned_to=officer_id)
+    if area_id is not None:
+        missions = missions.filter(area_id=area_id)
 
     for officer in User.objects.filter(missions_assigned__in=missions).distinct():
         rows.setdefault(officer.id, blank(officer))
@@ -435,10 +479,17 @@ def officer_rows_for_range(*, start_date, end_date, officer_id=None):
     )
     if officer_id is not None:
         panics = panics.filter(officer_id=officer_id)
-    for count in panics.values("officer_id").annotate(count=Count("id")):
-        row = rows.get(count["officer_id"])
+    for event in panics_in_area(panics, area_id):
+        row = rows.get(event.officer_id)
         if row is not None:
-            row["panic_events"] = count["count"]
+            row["panic_events"] += 1
+
+    if area_id is not None:
+        rows = {
+            officer_pk: row
+            for officer_pk, row in rows.items()
+            if row["missions_assigned"] or row["panic_events"]
+        }
 
     officers = sorted(rows.values(), key=lambda row: row["officer_name"])
     for row in officers:

@@ -10,6 +10,7 @@ from datetime import datetime
 
 from rest_framework.exceptions import ParseError
 
+from core.models import Area
 from missions.models import Mission
 
 
@@ -32,6 +33,21 @@ def _parse_status(request):
     return status_filter
 
 
+def _parse_area(request):
+    """
+    The area filter, checked against the table so a stale id from an old
+    dropdown reads as a mistake rather than silently emptying the report.
+    """
+    raw_area_id = request.query_params.get("area_id")
+    if not raw_area_id:
+        return None
+    if not raw_area_id.isdigit():
+        raise ParseError("area_id must be a number.")
+    if not Area.objects.filter(pk=raw_area_id).exists():
+        raise ParseError("Unknown area_id.")
+    return int(raw_area_id)
+
+
 def daily_params(request):
     """(date, officer_id, status_filter) for the daily report and its exports."""
     date = _parse_date(request, "date")
@@ -46,13 +62,13 @@ def daily_params(request):
 
 
 def daily_summary_params(request):
-    """(date, status_filter) for the all-officers daily summary."""
-    return _parse_date(request, "date"), _parse_status(request)
+    """(date, status_filter, area_id) for the all-officers daily summary."""
+    return _parse_date(request, "date"), _parse_status(request), _parse_area(request)
 def weekly_params(request):
     """
-    (start_date, end_date, officer_id) for the weekly summary, the custom
-    range report and their exports. `officer_id` is optional: without it the
-    report covers everyone.
+    (start_date, end_date, officer_id, area_id) for the weekly summary, the
+    custom range report and their exports. Both filters are optional: without
+    them the report covers everyone, everywhere.
     """
     start_date = _parse_date(request, "start_date")
     end_date = _parse_date(request, "end_date")
@@ -63,4 +79,9 @@ def weekly_params(request):
     if raw_officer_id and not raw_officer_id.isdigit():
         raise ParseError("officer_id must be a number.")
 
-    return start_date, end_date, int(raw_officer_id) if raw_officer_id else None
+    return (
+        start_date,
+        end_date,
+        int(raw_officer_id) if raw_officer_id else None,
+        _parse_area(request),
+    )

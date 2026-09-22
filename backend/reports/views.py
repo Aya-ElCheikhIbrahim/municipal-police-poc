@@ -115,16 +115,23 @@ class WeeklySummaryView(APIView):
                 required=False,
                 type=int,
             ),
+            OpenApiParameter(
+                name="area_id",
+                description="Narrow the whole report to one area.",
+                required=False,
+                type=int,
+            ),
         ],
         responses=WeeklySummarySerializer,
     )
     def get(self, request):
-        start_date, end_date, officer_id = weekly_params(request)
+        start_date, end_date, officer_id, area_id = weekly_params(request)
 
         report = services.generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
             officer_id=officer_id,
+            area_id=area_id,
         )
 
         return Response(
@@ -295,11 +302,12 @@ class WeeklySummaryCSVView(APIView):
         responses={(200, "text/csv"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date, end_date, officer_id = weekly_params(request)
+        start_date, end_date, officer_id, area_id = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
             officer_id=officer_id,
+            area_id=area_id,
         )
 
         response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -377,11 +385,12 @@ class WeeklySummaryPDFView(APIView):
         responses={(200, "application/pdf"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date, end_date, officer_id = weekly_params(request)
+        start_date, end_date, officer_id, area_id = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
             officer_id=officer_id,
+            area_id=area_id,
         )
 
         response = HttpResponse(content_type="application/pdf")
@@ -481,15 +490,22 @@ class DailySummaryView(APIView):
                 required=False,
                 type=str,
             ),
+            OpenApiParameter(
+                name="area_id",
+                description="Only officers who worked in this area.",
+                required=False,
+                type=int,
+            ),
         ],
         responses=DailySummarySerializer,
     )
     def get(self, request):
-        date, status_filter = daily_summary_params(request)
+        date, status_filter, area_id = daily_summary_params(request)
 
         report = services.generate_daily_summary(
             date=date,
             status_filter=status_filter,
+            area_id=area_id,
         )
 
         return Response(DailySummarySerializer(report).data)
