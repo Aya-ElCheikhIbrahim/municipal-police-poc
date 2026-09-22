@@ -106,6 +106,14 @@ Returns the definition for each setting — its description, default, and bounds
 ]
 ```
 
+`GET /api/v1/areas/`
+
+Any signed-in user. The city's districts, for the dashboard's area filters and for labelling where something happened.
+
+```json
+[{"id": 6, "name": "Al Tall, Tripoli, Lebanon", "latitude": "34.435600", "longitude": "35.842200", "radius_m": 700}]
+```
+
 `Permission classes`
 
 All role checks are defined in `core/permissions.py` and used across every app. They are enforced server-side — a client that omits a restricted field does not get a silent pass, the endpoint returns 403.
@@ -121,3 +129,4 @@ All role checks are defined in `core/permissions.py` and used across every app. 
 `IsSupervisorOrReadOnly` — supervisors can write, any authenticated user can read. Used on settings.
 
 An officer cannot change their own role. The self-update serializer does not include the `role` field at all, so sending `{"role": "supervisor"}` is silently ignored rather than rejected — the field simply does not exist for that operation. Clients should not offer the control in the first place.
+
