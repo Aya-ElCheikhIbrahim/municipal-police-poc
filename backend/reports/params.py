@@ -49,9 +49,18 @@ def daily_summary_params(request):
     """(date, status_filter) for the all-officers daily summary."""
     return _parse_date(request, "date"), _parse_status(request)
 def weekly_params(request):
-    """(start_date, end_date) for the weekly summary and its exports."""
+    """
+    (start_date, end_date, officer_id) for the weekly summary, the custom
+    range report and their exports. `officer_id` is optional: without it the
+    report covers everyone.
+    """
     start_date = _parse_date(request, "start_date")
     end_date = _parse_date(request, "end_date")
     if start_date > end_date:
         raise ParseError("start_date cannot be after end_date.")
-    return start_date, end_date
+
+    raw_officer_id = request.query_params.get("officer_id")
+    if raw_officer_id and not raw_officer_id.isdigit():
+        raise ParseError("officer_id must be a number.")
+
+    return start_date, end_date, int(raw_officer_id) if raw_officer_id else None

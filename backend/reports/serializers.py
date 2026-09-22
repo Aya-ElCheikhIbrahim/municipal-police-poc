@@ -19,14 +19,45 @@ class TopOfficerSerializer(serializers.Serializer):
     officer_name = serializers.CharField()
     completed_missions = serializers.IntegerField()
 
+class RangeTotalsSerializer(serializers.Serializer):
+    """The cards above the weekly and custom range tables."""
+
+    officers = serializers.IntegerField()
+    hours_on_duty = serializers.FloatField()
+    distance_covered_m = serializers.IntegerField()
+    missions_assigned = serializers.IntegerField()
+    missions_completed = serializers.IntegerField()
+    missions_cancelled = serializers.IntegerField()
+    panic_events = serializers.IntegerField()
+
+
+class RangeOfficerSerializer(serializers.Serializer):
+    """One row of the officer activity table."""
+
+    officer_id = serializers.IntegerField()
+    officer_name = serializers.CharField()
+    badge_number = serializers.CharField()
+    hours_on_duty = serializers.FloatField()
+    distance_covered_m = serializers.IntegerField()
+    missions_assigned = serializers.IntegerField()
+    missions_completed = serializers.IntegerField()
+    missions_cancelled = serializers.IntegerField()
+    average_acknowledgement_seconds = serializers.FloatField()
+    average_completion_seconds = serializers.FloatField()
+    panic_events = serializers.IntegerField()
+
+
 class WeeklySummarySerializer(serializers.Serializer):
     start_date = serializers.DateField()
     end_date = serializers.DateField()
     missions_by_priority = serializers.DictField()
     missions_by_category = serializers.DictField()
+    missions_by_status = serializers.DictField()
     average_acknowledgement_seconds = serializers.FloatField()
     average_completion_seconds = serializers.FloatField()
     top_officers = TopOfficerSerializer(many=True)
+    totals = RangeTotalsSerializer()
+    officers = RangeOfficerSerializer(many=True)
 class DailySummaryTotalsSerializer(serializers.Serializer):
     """The cards above the Daily Summary table."""
 

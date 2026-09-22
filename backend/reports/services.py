@@ -115,11 +115,21 @@ def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
         "missions_cancelled": missions_cancelled,
         "panic_events": panic_events,
     }
-def generate_weekly_summary(*, start_date, end_date):
+def generate_weekly_summary(*, start_date, end_date, officer_id=None):
+    """
+    Section 4.8 weekly summary, and the custom range report, which is the same
+    figures over any span the supervisor picks.
+
+    `officer_id` narrows everything to one officer. Mission breakdowns are
+    keyed on when a mission was created; the per-officer rows are keyed on
+    when it was assigned to them, the same as the daily report.
+    """
     missions = Mission.objects.filter(
         created_at__date__gte=start_date,
         created_at__date__lte=end_date,
     )
+    if officer_id is not None:
+        missions = missions.filter(assigned_to=officer_id)
 
     # Total missions by priority
     missions_by_priority = {
@@ -163,6 +173,11 @@ def generate_weekly_summary(*, start_date, end_date):
 
     # Top-performing officers. A mission sent to several offciers counts for each of them, since they all worked on it
 
+    missions_by_status = {
+        value: missions.filter(status=value).count()
+        for value, _ in Mission.Status.choices
+    }
+
     completed = missions.filter(status=Mission.Status.COMPLETED)
     top = (
         User.objects.filter(
@@ -181,6 +196,12 @@ def generate_weekly_summary(*, start_date, end_date):
         for officer in top
     ]
 
+    officers = officer_rows_for_range(
+        start_date=start_date,
+        end_date=end_date,
+        officer_id=officer_id,
+    )
+
     return {
         "start_date": start_date,
         "end_date": end_date,
@@ -189,6 +210,19 @@ def generate_weekly_summary(*, start_date, end_date):
         "average_completion_seconds": average_completion_seconds,
         "top_officers": top_officers[:5],
         "missions_by_category": missions_by_category,
+        "missions_by_status": missions_by_status,
+        "totals": {
+            "officers": len(officers),
+            "hours_on_duty": round(sum(row["hours_on_duty"] for row in officers), 2),
+            "distance_covered_m": sum(row["distance_covered_m"] for row in officers),
+            "missions_assigned": sum(row["missions_assigned"] for row in officers),
+            "missions_completed": missions.filter(
+                status=Mission.Status.COMPLETED
+            ).count(),
+            "missions_cancelled": sum(row["missions_cancelled"] for row in officers),
+            "panic_events": sum(row["panic_events"] for row in officers),
+        },
+        "officers": officers,
     }
 
 
@@ -290,3 +324,123 @@ def generate_daily_summary(*, date, status_filter=None):
     }
 
     return {"date": date, "totals": totals, "officers": officers}
+
+
+
+def officer_rows_for_range(*, start_date, end_date, officer_id=None):
+    """
+    One row per officer who was on duty or held a mission in the range: the
+    officer activity table on the weekly and custom range screens.
+
+    Hours and distance are clipped to the range, so a shift that starts the
+    evening before only counts from midnight. Averages are that officer's own,
+    not the period's.
+    """
+    range_start = timezone.make_aware(datetime.combine(start_date, time.min))
+    range_end = timezone.make_aware(
+        datetime.combine(end_date + timedelta(days=1), time.min)
+    )
+
+    shifts = (
+        Shift.objects.filter(started_at__lt=range_end)
+        .filter(Q(ended_at__isnull=True) | Q(ended_at__gt=range_start))
+        .select_related("officer")
+        .order_by("started_at")
+    )
+    if officer_id is not None:
+        shifts = shifts.filter(officer_id=officer_id)
+
+    def blank(officer):
+        return {
+            "officer_id": officer.id,
+            "officer_name": str(officer),
+            "badge_number": officer.badge_number,
+            "hours_on_duty": 0.0,
+            "distance_covered_m": 0,
+            "missions_assigned": 0,
+            "missions_completed": 0,
+            "missions_cancelled": 0,
+            "average_acknowledgement_seconds": 0,
+            "average_completion_seconds": 0,
+            "panic_events": 0,
+        }
+
+    rows = {}
+    for shift in shifts:
+        row = rows.setdefault(shift.officer_id, blank(shift.officer))
+
+        worked_from = max(shift.started_at, range_start)
+        worked_to = min(shift.ended_at or timezone.now(), range_end)
+        if worked_to > worked_from:
+            row["hours_on_duty"] += (worked_to - worked_from).total_seconds() / 3600
+
+        row["distance_covered_m"] += trail_distance_m(
+            shift.pings.filter(
+                recorded_at__gte=range_start,
+                recorded_at__lt=range_end,
+            ).order_by("recorded_at")
+        )
+
+    # Missions the officer held in the range, even if they were never on duty
+    # in it - a mission assigned on the last evening still belongs to them.
+    missions = Mission.objects.filter(
+        assigned_at__date__gte=start_date,
+        assigned_at__date__lte=end_date,
+    )
+    if officer_id is not None:
+        missions = missions.filter(assigned_to=officer_id)
+
+    for officer in User.objects.filter(missions_assigned__in=missions).distinct():
+        rows.setdefault(officer.id, blank(officer))
+
+    counts = missions.values("assigned_to").annotate(
+        assigned=Count("id", distinct=True),
+        completed=Count("id", filter=Q(status=Mission.Status.COMPLETED), distinct=True),
+        cancelled=Count("id", filter=Q(status=Mission.Status.CANCELLED), distinct=True),
+        average_completion=Avg(
+            "worked_seconds", filter=Q(status=Mission.Status.COMPLETED)
+        ),
+    )
+    for count in counts:
+        row = rows.get(count["assigned_to"])
+        if row is None:
+            continue
+        row["missions_assigned"] = count["assigned"]
+        row["missions_completed"] = count["completed"]
+        row["missions_cancelled"] = count["cancelled"]
+        row["average_completion_seconds"] = (
+            round(count["average_completion"], 2)
+            if count["average_completion"] is not None
+            else 0
+        )
+
+    # Acknowledgement time is a gap between two columns, so it is averaged in
+    # Python rather than by the database.
+    acknowledged = missions.filter(
+        assigned_at__isnull=False, acknowledged_at__isnull=False
+    ).prefetch_related("assigned_to")
+    gaps = {}
+    for mission in acknowledged:
+        seconds = (mission.acknowledged_at - mission.assigned_at).total_seconds()
+        for officer in mission.assigned_to.all():
+            gaps.setdefault(officer.id, []).append(seconds)
+    for officer_pk, values in gaps.items():
+        row = rows.get(officer_pk)
+        if row is not None:
+            row["average_acknowledgement_seconds"] = round(sum(values) / len(values), 2)
+
+    panics = PanicEvent.objects.filter(
+        triggered_at__date__gte=start_date,
+        triggered_at__date__lte=end_date,
+    )
+    if officer_id is not None:
+        panics = panics.filter(officer_id=officer_id)
+    for count in panics.values("officer_id").annotate(count=Count("id")):
+        row = rows.get(count["officer_id"])
+        if row is not None:
+            row["panic_events"] = count["count"]
+
+    officers = sorted(rows.values(), key=lambda row: row["officer_name"])
+    for row in officers:
+        row["hours_on_duty"] = round(row["hours_on_duty"], 2)
+    return officers

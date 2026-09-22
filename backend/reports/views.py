@@ -109,15 +109,22 @@ class WeeklySummaryView(APIView):
                 required=True,
                 type=str,
             ),
+            OpenApiParameter(
+                name="officer_id",
+                description="Narrow the whole report to one officer.",
+                required=False,
+                type=int,
+            ),
         ],
         responses=WeeklySummarySerializer,
     )
     def get(self, request):
-        start_date, end_date = weekly_params(request)
+        start_date, end_date, officer_id = weekly_params(request)
 
         report = services.generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
+            officer_id=officer_id,
         )
 
         return Response(
@@ -288,10 +295,11 @@ class WeeklySummaryCSVView(APIView):
         responses={(200, "text/csv"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date, end_date = weekly_params(request)
+        start_date, end_date, officer_id = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
+            officer_id=officer_id,
         )
 
         response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -369,10 +377,11 @@ class WeeklySummaryPDFView(APIView):
         responses={(200, "application/pdf"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date, end_date = weekly_params(request)
+        start_date, end_date, officer_id = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
+            officer_id=officer_id,
         )
 
         response = HttpResponse(content_type="application/pdf")
