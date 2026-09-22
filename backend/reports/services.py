@@ -7,13 +7,28 @@ from core.geo import haversine_m
 
 from .activity import activity_feed
 from core.models import Area
-from missions.models import Mission
+from missions.models import Mission, MissionWork
 from panic.models import PanicEvent
 from shifts.models import Shift
 from django.db.models import Avg, Count, Q
 from shifts.services import trail_distance_m
 
 User = get_user_model()
+
+# A mission an urgent call interrupted is still work in hand, so both screens
+# and both filters treat paused as in progress. Only `missions_by_status` on
+# the weekly report keeps them apart, because that breakdown is about the
+# status machine rather than about what an officer is doing.
+IN_PROGRESS_STATUSES = [Mission.Status.IN_PROGRESS, Mission.Status.PAUSED]
+
+
+def filter_by_status(missions, status_filter):
+    """Apply the screens' status filter, where "in progress" includes paused."""
+    if not status_filter:
+        return missions
+    if status_filter == Mission.Status.IN_PROGRESS:
+        return missions.filter(status__in=IN_PROGRESS_STATUSES)
+    return missions.filter(status=status_filter)
 
 
 def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
@@ -79,13 +94,10 @@ def generate_daily_officer_report(*,date,officer_id,status_filter=None,):
     # ---------------------------------------------------------
     # MISSIONS
     # ---------------------------------------------------------
-    missions = Mission.objects.filter(
-        assigned_to=officer,
-        assigned_at__date=date,
+    missions = filter_by_status(
+        Mission.objects.filter(assigned_to=officer, assigned_at__date=date),
+        status_filter,
     )
-
-    if status_filter:
-        missions = missions.filter(status=status_filter)
 
     missions_assigned = missions.count()
 
@@ -262,7 +274,9 @@ def generate_daily_summary(*, date, status_filter=None, area_id=None):
                 "missions_assigned": 0,
                 "missions_completed": 0,
                 "missions_cancelled": 0,
+                "missions_in_progress": 0,
                 "panic_events": 0,
+                "areas": [],
             },
         )
 
@@ -289,12 +303,10 @@ def generate_daily_summary(*, date, status_filter=None, area_id=None):
 
     officer_ids = list(rows)
 
-    missions = Mission.objects.filter(
-        assigned_to__in=officer_ids,
-        assigned_at__date=date,
+    missions = filter_by_status(
+        Mission.objects.filter(assigned_to__in=officer_ids, assigned_at__date=date),
+        status_filter,
     )
-    if status_filter:
-        missions = missions.filter(status=status_filter)
     if area_id is not None:
         missions = missions.filter(area_id=area_id)
 
@@ -303,6 +315,7 @@ def generate_daily_summary(*, date, status_filter=None, area_id=None):
         assigned=Count("id", distinct=True),
         completed=Count("id", filter=Q(status=Mission.Status.COMPLETED), distinct=True),
         cancelled=Count("id", filter=Q(status=Mission.Status.CANCELLED), distinct=True),
+        in_progress=Count("id", filter=Q(status__in=IN_PROGRESS_STATUSES), distinct=True),
     ):
         row = rows.get(counts["assigned_to"])
         if row is None:
@@ -310,6 +323,24 @@ def generate_daily_summary(*, date, status_filter=None, area_id=None):
         row["missions_assigned"] = counts["assigned"]
         row["missions_completed"] = counts["completed"]
         row["missions_cancelled"] = counts["cancelled"]
+        row["missions_in_progress"] = counts["in_progress"]
+
+    # Where the officer worked. An officer can be in several districts in a
+    # day, so this is a list with a count each and the busiest first; the
+    # screen decides how to show that in one cell.
+    for counts in (
+        missions.values("assigned_to", "area_id", "area__name")
+        .annotate(missions=Count("id", distinct=True))
+        .order_by("assigned_to", "-missions")
+    ):
+        row = rows.get(counts["assigned_to"])
+        if row is None:
+            continue
+        row["areas"].append({
+            "area_id": counts["area_id"],
+            "name": counts["area__name"],
+            "missions": counts["missions"],
+        })
 
     panics = PanicEvent.objects.filter(
         officer_id__in=officer_ids, triggered_at__date=date
@@ -337,6 +368,7 @@ def generate_daily_summary(*, date, status_filter=None, area_id=None):
         "missions_assigned": sum(row["missions_assigned"] for row in officers),
         "missions_completed": sum(row["missions_completed"] for row in officers),
         "missions_cancelled": sum(row["missions_cancelled"] for row in officers),
+        "missions_in_progress": sum(row["missions_in_progress"] for row in officers),
         "panic_events": sum(row["panic_events"] for row in officers),
     }
 
@@ -541,14 +573,9 @@ def generate_officer_report(*, officer_id, start_date, end_date, status_filter=N
         .select_related("area")
         .order_by("-assigned_at")
     )
-    if status_filter:
-        missions = missions.filter(status=status_filter)
+    missions = filter_by_status(missions, status_filter)
 
-    # A paused mission is still work in hand, not a finished one, so the
-    # screen's "in progress" covers both.
-    in_progress = missions.filter(
-        status__in=[Mission.Status.IN_PROGRESS, Mission.Status.PAUSED]
-    ).count()
+    in_progress = missions.filter(status__in=IN_PROGRESS_STATUSES).count()
 
     history = [
         {
@@ -573,6 +600,8 @@ def generate_officer_report(*, officer_id, start_date, end_date, status_filter=N
         else []
     )
 
+    current_status, current_mission = officer_availability(officer)
+
     return {
         "officer": {
             "id": officer.id,
@@ -581,6 +610,8 @@ def generate_officer_report(*, officer_id, start_date, end_date, status_filter=N
         },
         "start_date": start_date,
         "end_date": end_date,
+        "current_status": current_status,
+        "current_mission": current_mission,
         "summary": {
             "hours_on_duty": row["hours_on_duty"],
             "distance_covered_m": row["distance_covered_m"],
@@ -596,4 +627,40 @@ def generate_officer_report(*, officer_id, start_date, end_date, status_filter=N
         },
         "timeline": timeline,
         "missions": history,
+    }
+
+
+
+def officer_availability(officer):
+    """
+    Where the officer stands right now: (status, current mission or None).
+
+    Same order of precedence as the live map, so the officer page and the map
+    can never label the same person differently: an open panic alert beats
+    everything, then whether they are on duty at all, then whether they are on
+    a mission.
+    """
+    if PanicEvent.objects.filter(
+        officer=officer, status=PanicEvent.Status.ACTIVE
+    ).exists():
+        return "panic", None
+
+    on_duty = Shift.objects.filter(
+        officer=officer, status=Shift.Status.ACTIVE
+    ).exists()
+    if not on_duty:
+        return "off_duty", None
+
+    work = (
+        MissionWork.objects.filter(officer=officer, ended_at__isnull=True)
+        .select_related("mission")
+        .first()
+    )
+    if work is None:
+        return "available", None
+
+    return "on_mission", {
+        "mission_id": work.mission_id,
+        "title": work.mission.title,
+        "status": work.mission.status,
     }

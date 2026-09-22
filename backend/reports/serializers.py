@@ -69,7 +69,20 @@ class DailySummaryTotalsSerializer(serializers.Serializer):
     missions_assigned = serializers.IntegerField()
     missions_completed = serializers.IntegerField()
     missions_cancelled = serializers.IntegerField()
+    missions_in_progress = serializers.IntegerField()
     panic_events = serializers.IntegerField()
+
+
+class OfficerAreaSerializer(serializers.Serializer):
+    """
+    One district an officer worked in, and how many of their missions were
+    there. `area_id` and `name` are null for a mission that fell outside every
+    district.
+    """
+
+    area_id = serializers.IntegerField(allow_null=True)
+    name = serializers.CharField(allow_null=True)
+    missions = serializers.IntegerField()
 
 
 class DailySummaryOfficerSerializer(serializers.Serializer):
@@ -91,7 +104,11 @@ class DailySummaryOfficerSerializer(serializers.Serializer):
     missions_assigned = serializers.IntegerField()
     missions_completed = serializers.IntegerField()
     missions_cancelled = serializers.IntegerField()
+    missions_in_progress = serializers.IntegerField()
     panic_events = serializers.IntegerField()
+
+    # Busiest district first. Several rows when the officer moved around.
+    areas = OfficerAreaSerializer(many=True)
 
 
 class DailySummarySerializer(serializers.Serializer):
@@ -156,17 +173,30 @@ class OfficerMissionSerializer(serializers.Serializer):
     cancelled_at = serializers.DateTimeField(allow_null=True)
 
 
+class OfficerCurrentMissionSerializer(serializers.Serializer):
+    """What the officer is on right now, when they are on something."""
+
+    mission_id = serializers.IntegerField()
+    title = serializers.CharField()
+    status = serializers.CharField()
+
+
 class OfficerReportSerializer(serializers.Serializer):
     """
     GET /api/v1/reports/officer/ - one officer over a day or a range.
 
     `timeline` is only filled for a single day; over a longer range it is empty
     and the client asks /reports/activity/ for whatever slice it needs.
+
+    `current_status` is where the officer stands now, not during the range:
+    available, on_mission, panic or off_duty.
     """
 
     officer = OfficerBriefSerializer()
     start_date = serializers.DateField()
     end_date = serializers.DateField()
+    current_status = serializers.CharField()
+    current_mission = OfficerCurrentMissionSerializer(allow_null=True)
     summary = OfficerReportSummarySerializer()
     performance = OfficerPerformanceSerializer()
     timeline = ActivityRowSerializer(many=True)
