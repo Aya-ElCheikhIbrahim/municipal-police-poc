@@ -19,6 +19,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.registry import get_setting
 from shifts import services
@@ -71,6 +72,11 @@ class Command(BaseCommand):
 
         walkers = []
         for officer in officers:
+            # A simulated officer never logs in, so nothing would issue them a
+            # refresh token — and end_expired_shifts() would close the shift on
+            # the dispatcher's next poll. Issuing one gives them a live session
+            # for the same 12 hours a real login would.
+            RefreshToken.for_user(officer)
             shift, _ = services.start_shift(officer)
             walkers.append(
                 Walker(

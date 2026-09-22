@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from .models import LocationPing, Shift
 
@@ -132,6 +134,52 @@ def end_shift(officer, latitude=None, longitude=None) -> Shift:
     shift.end_longitude = _as_decimal(longitude)
     shift.save(update_fields=["ended_at", "status", "end_latitude", "end_longitude"])
     return shift
+
+
+
+def _live_tokens(now):
+    return OutstandingToken.objects.filter(expires_at__gt=now, blacklistedtoken__isnull=True)
+
+
+def end_expired_shifts(now=None) -> list[Shift]:
+    """
+    Close active shifts whose officer no longer has a usable refresh token.
+    Token expiry is passive (nothing fires at hour 12), so this runs as a
+    sweep. Safe to call repeatedly.
+    """
+    now = now or timezone.now()
+    live_officer_ids = _live_tokens(now).values("user_id")
+    candidate_ids = list(
+        Shift.objects.filter(status=Shift.Status.ACTIVE)
+        .exclude(officer_id__in=live_officer_ids)
+        .values_list("id", flat=True)
+    )
+
+    ended = []
+    for shift_id in candidate_ids:
+        with transaction.atomic():
+            shift = (
+                Shift.objects.select_for_update()
+                .filter(pk=shift_id, status=Shift.Status.ACTIVE)
+                .first()
+            )
+            if shift is None:  # officer ended it themselves meanwhile
+                continue
+            if _live_tokens(now).filter(user_id=shift.officer_id).exists():
+                continue  # refreshed between the query and the lock
+
+            last_expiry = OutstandingToken.objects.filter(
+                user_id=shift.officer_id
+            ).aggregate(m=Max("expires_at"))["m"]
+            # End at the moment the session died, not when the sweep noticed.
+            # min() covers logout (blacklisted token still has a future expiry);
+            # max() keeps the shift_ends_after_it_starts constraint happy.
+            shift.ended_at = max(min(last_expiry or now, now), shift.started_at)
+            shift.status = Shift.Status.ENDED
+            shift.ended_automatically = True
+            shift.save(update_fields=["ended_at", "status", "ended_automatically"])
+            ended.append(shift)
+    return ended
 
 
 def ingest_pings(officer, rows):
