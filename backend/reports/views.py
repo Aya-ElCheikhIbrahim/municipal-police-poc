@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from core.permissions import IsSupervisor
 from . import services
 from .serializers import (
+    ActivityRowSerializer,
     DailyOfficerReportSerializer,
     WeeklySummarySerializer,
     DailySummarySerializer,
@@ -33,7 +34,13 @@ from .arabic import (
     pdf_value,
     written_date,
 )
-from .params import daily_params, daily_summary_params, weekly_params
+from . import activity
+from .params import (
+    activity_params,
+    daily_params,
+    daily_summary_params,
+    weekly_params,
+)
 class DailyOfficerReportView(APIView):
     """
     GET /api/v1/reports/daily/
@@ -509,3 +516,65 @@ class DailySummaryView(APIView):
         )
 
         return Response(DailySummarySerializer(report).data)
+
+class ActivityFeedView(APIView):
+    """
+    GET /api/v1/reports/activity/ - what happened on one day, in order.
+
+    Backs the Time Snapshot screen ("what went on in this area between these
+    hours") and the officer report's timeline ("what did this officer do
+    today"). Same question, different filters.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSupervisor,
+    ]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                description="Day to look at, YYYY-MM-DD.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="from_time",
+                description="Start of the window, HH:MM. Defaults to the start of the day.",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="to_time",
+                description="End of the window, HH:MM. Defaults to the end of the day.",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="officer_id",
+                description="Only what this officer took part in.",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="area_id",
+                description="Only what happened in this area.",
+                required=False,
+                type=int,
+            ),
+        ],
+        responses=ActivityRowSerializer(many=True),
+    )
+    def get(self, request):
+        date, from_time, to_time, officer_id, area_id = activity_params(request)
+
+        rows = activity.activity_feed(
+            date=date,
+            from_time=from_time,
+            to_time=to_time,
+            officer_id=officer_id,
+            area_id=area_id,
+        )
+
+        return Response(ActivityRowSerializer(rows, many=True).data)

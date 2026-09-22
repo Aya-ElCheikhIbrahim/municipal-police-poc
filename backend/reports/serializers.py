@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.serializers import OfficerBriefSerializer
+
 
 class DailyOfficerReportSerializer(serializers.Serializer):
     officer_id = serializers.IntegerField()
@@ -98,3 +100,22 @@ class DailySummarySerializer(serializers.Serializer):
     date = serializers.DateField()
     totals = DailySummaryTotalsSerializer()
     officers = DailySummaryOfficerSerializer(many=True)
+
+class ActivityRowSerializer(serializers.Serializer):
+    """
+    One line of the activity feed: who did what, when and where.
+
+    `officer` is who acted, and is null for the things the system did by
+    itself, such as the unacknowledged-mission alert. `area` is null when the
+    position falls outside every district.
+    """
+
+    at = serializers.DateTimeField()
+    activity = serializers.CharField()
+    activity_label = serializers.CharField()
+    officer = OfficerBriefSerializer(allow_null=True)
+    area = serializers.CharField(allow_null=True)
+    area_id = serializers.IntegerField(allow_null=True)
+    details = serializers.CharField(allow_blank=True)
+    mission_id = serializers.IntegerField(allow_null=True)
+    panic_id = serializers.IntegerField(allow_null=True)

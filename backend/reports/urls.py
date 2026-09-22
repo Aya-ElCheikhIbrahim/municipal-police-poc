@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ActivityFeedView,
     DailyOfficerReportView,
     DailySummaryView,
     WeeklySummaryView,
@@ -11,6 +12,11 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "reports/activity/",
+        ActivityFeedView.as_view(),
+        name="activity-feed",
+    ),
     path(
         "reports/daily/",
         DailyOfficerReportView.as_view(),

@@ -6,7 +6,7 @@ A bad value raises ParseError, which DRF turns into a 400 with
 {"detail": "..."}, the same shape the rest of the API uses.
 """
 
-from datetime import datetime
+from datetime import datetime, time
 
 from rest_framework.exceptions import ParseError
 
@@ -82,6 +82,37 @@ def weekly_params(request):
     return (
         start_date,
         end_date,
+        int(raw_officer_id) if raw_officer_id else None,
+        _parse_area(request),
+    )
+
+def _parse_time(request, name):
+    """HH:MM, or None when the caller wants the whole day."""
+    raw = request.query_params.get(name)
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%H:%M").time()
+    except ValueError:
+        raise ParseError(f"Use {name}=HH:MM.")
+
+
+def activity_params(request):
+    """(date, from_time, to_time, officer_id, area_id) for the activity feed."""
+    date = _parse_date(request, "date")
+    from_time = _parse_time(request, "from_time")
+    to_time = _parse_time(request, "to_time")
+    if from_time and to_time and from_time > to_time:
+        raise ParseError("from_time cannot be after to_time.")
+
+    raw_officer_id = request.query_params.get("officer_id")
+    if raw_officer_id and not raw_officer_id.isdigit():
+        raise ParseError("officer_id must be a number.")
+
+    return (
+        date,
+        from_time,
+        to_time,
         int(raw_officer_id) if raw_officer_id else None,
         _parse_area(request),
     )
