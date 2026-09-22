@@ -14,6 +14,7 @@ from . import services
 from .serializers import (
     DailyOfficerReportSerializer,
     WeeklySummarySerializer,
+    DailySummarySerializer,
 )
 from reportlab.pdfgen import canvas
 
@@ -32,7 +33,7 @@ from .arabic import (
     pdf_value,
     written_date,
 )
-from .params import daily_params, weekly_params    
+from .params import daily_params, daily_summary_params, weekly_params
 class DailyOfficerReportView(APIView):
     """
     GET /api/v1/reports/daily/
@@ -440,3 +441,46 @@ class WeeklySummaryPDFView(APIView):
         pdf.save()
 
         return response
+
+
+
+
+class DailySummaryView(APIView):
+    """
+    GET /api/v1/reports/daily/summary/ - section 4.8, the whole shift for one day.
+
+    The per-officer report answers for one person and backs the exports; this
+    one backs the dashboard table listing everyone who was on duty.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSupervisor,
+    ]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                description="Report date, YYYY-MM-DD.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="status",
+                description="Filter missions by status.",
+                required=False,
+                type=str,
+            ),
+        ],
+        responses=DailySummarySerializer,
+    )
+    def get(self, request):
+        date, status_filter = daily_summary_params(request)
+
+        report = services.generate_daily_summary(
+            date=date,
+            status_filter=status_filter,
+        )
+
+        return Response(DailySummarySerializer(report).data)
