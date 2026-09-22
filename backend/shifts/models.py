@@ -16,6 +16,7 @@ class Shift(models.Model):
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.ACTIVE)
     started_at = models.DateTimeField(default=timezone.now)
     ended_at = models.DateTimeField(null=True, blank=True)
+    ended_automatically = models.BooleanField(default=False)
 
     
     start_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
