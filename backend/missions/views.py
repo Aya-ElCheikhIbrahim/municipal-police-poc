@@ -73,13 +73,16 @@ class MissionListCreateView(APIView):
             OpenApiParameter("priority", description="low, medium, high, urgent"),
             OpenApiParameter("category", description="Municipal, Sanitation, Traffic, Infrastructure"),
             OpenApiParameter("officer_id", description="Filter by assigned officer.", type=int),
+            OpenApiParameter("area_id", description="Filter by the district the mission is in.", type=int),
             OpenApiParameter("date", description="Missions created on this day, YYYY-MM-DD."),
             OpenApiParameter("open", description="true for missions not yet closed."),
         ],
         responses=MissionListSerializer(many=True),
     )
     def get(self, request):
-        queryset = Mission.objects.select_related("created_by").prefetch_related("assigned_to")
+        queryset = Mission.objects.select_related("created_by", "area").prefetch_related(
+            "assigned_to"
+        )
 
         if request.user.role == "officer":
             queryset = queryset.filter(assigned_to=request.user)
@@ -92,6 +95,13 @@ class MissionListCreateView(APIView):
             queryset = queryset.filter(priority=value)
         if value := request.query_params.get("category"):
             queryset = queryset.filter(category=value)
+        if value := request.query_params.get("area_id"):
+            if not value.isdigit():
+                return Response(
+                    {"detail": "area_id must be a number."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            queryset = queryset.filter(area_id=value)
         if request.query_params.get("open") == "true":
             queryset = queryset.exclude(
                 status__in=[Mission.Status.COMPLETED, Mission.Status.CANCELLED]
