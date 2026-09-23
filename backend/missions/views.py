@@ -31,6 +31,19 @@ from .serializers import (
 User = get_user_model()
  
  
+def _detail(mission, request):
+    """
+    One mission, serialized for a client.
+
+    The request has to reach the serializer: without it DRF renders the photo
+    FileField as the relative "/media/...", which a browser resolves against
+    the dashboard's own origin rather than the API's, and every piece of photo
+    evidence comes out as a broken image. With it, each client is handed a URL
+    that works from where it is asking.
+    """
+    return MissionDetailSerializer(mission, context={"request": request}).data
+
+
 class MissionActionMixin:
     """
     Shared plumbing for the transition endpoints.
@@ -50,7 +63,7 @@ class MissionActionMixin:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except services.MissionError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(MissionDetailSerializer(mission).data)
+        return Response(_detail(mission, self.request))
  
  
 class FilterError(Exception):
@@ -191,9 +204,7 @@ class MissionListCreateView(APIView):
         except services.MissionError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
  
-        return Response(
-            MissionDetailSerializer(mission).data, status=status.HTTP_201_CREATED
-        )
+        return Response(_detail(mission, request), status=status.HTTP_201_CREATED)
  
  
 class MissionDetailView(APIView, MissionActionMixin):
@@ -219,7 +230,7 @@ class MissionDetailView(APIView, MissionActionMixin):
                 status=status.HTTP_403_FORBIDDEN,
             )
  
-        return Response(MissionDetailSerializer(mission).data)
+        return Response(_detail(mission, request))
  
  
 class MissionAssignView(APIView, MissionActionMixin):
@@ -355,7 +366,7 @@ class MissionNoteView(APIView, MissionActionMixin):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
  
         mission.refresh_from_db()
-        return Response(MissionDetailSerializer(mission).data)
+        return Response(_detail(mission, request))
  
  
 class MissionPhotoView(APIView, MissionActionMixin):
