@@ -28,23 +28,12 @@
             app:layout_constraintBottom_toBottomOf="parent" />
 
         <TextView
+            android:id="@+id/tvTopBarTitle"
             style="@style/AppTopBar.Title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:text="@string/missions_title"
             app:layout_constraintStart_toEndOf="@id/btnBack"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
-
-        <TextView
-            android:id="@+id/tvMissionCount"
-            style="@style/AppTopBar.Title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=""
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
 
