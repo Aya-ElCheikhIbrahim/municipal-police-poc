@@ -10,7 +10,7 @@ interface WeeklySummaryProps {
   onOfficerSelect?: (officerName: string) => void;
 }
 
-type WeeklySort = 'dutyHours' | 'completed' | 'avgAcknowledgement' | 'avgTime' | 'panic';
+type WeeklySort = 'name' | 'dutyHours' | 'completed' | 'avgAcknowledgement' | 'avgTime' | 'panic';
 
 function dateDaysBefore(dateString: string, days: number) {
   const date = new Date(`${dateString}T00:00:00`);
@@ -50,6 +50,17 @@ function durationToMinutes(value: string) {
   return (hours ? Number(hours[1]) * 60 : 0) + (minutes ? Number(minutes[1]) : 0) + (seconds ? Number(seconds[1]) / 60 : 0);
 }
 
+
+function missionKey(mission: (typeof officerMissionData)[number]) {
+  return mission.id;
+}
+
+function uniqueMissions(missions: typeof officerMissionData) {
+  return Array.from(
+    new Map(missions.map((mission) => [missionKey(mission), mission])).values()
+  );
+}
+
 function averageAcknowledgement(missions: typeof officerMissionData) {
   const values = missions
     .filter((mission) => mission.acknowledgedAt !== '—')
@@ -82,8 +93,16 @@ function SortHeader({
   onSort: (field: WeeklySort) => void;
 }) {
   return (
-    <th className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100" onClick={() => onSort(field)}>
-      {label} <span className="text-xs text-slate-400">{currentField === field ? (asc ? '▲' : '▼') : '↕'}</span>
+    <th
+      className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100"
+      onClick={() => onSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        <span>{label}</span>
+        <span className="text-[11px] leading-none text-slate-400">
+          {currentField === field ? (asc ? '▲' : '▼') : '↕'}
+        </span>
+      </span>
     </th>
   );
 }
@@ -143,6 +162,7 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
   const sortedData = useMemo(() => {
     const getValue = (row: (typeof filteredData)[number]) => {
       switch (sortField) {
+        case 'name': return row.name.toLowerCase();
         case 'dutyHours': return durationToMinutes(row.dutyHours);
         case 'completed': return row.completed;
         case 'avgAcknowledgement': return durationToMinutes(row.avgAcknowledgement);
@@ -152,7 +172,9 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
     };
 
     return [...filteredData].sort((a, b) => {
-      const diff = getValue(a) - getValue(b);
+      const aValue = getValue(a);
+      const bValue = getValue(b);
+      const diff = typeof aValue === 'string' ? aValue.localeCompare(String(bValue)) : aValue - Number(bValue);
       return sortAsc ? diff : -diff;
     });
   }, [filteredData, sortField, sortAsc]);
@@ -161,26 +183,34 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
     if (sortField === field) setSortAsc((prev) => !prev);
     else {
       setSortField(field);
-      setSortAsc(false);
+      setSortAsc(field === 'name');
     }
   };
 
-  const totalCompleted = weeklyMissions.filter((m) => m.status === 'COMPLETED').length;
+  const uniqueWeeklyMissions = uniqueMissions(weeklyMissions);
+  const totalCompleted = uniqueWeeklyMissions.filter((m) => m.status === 'COMPLETED').length;
   const totalPanic = filteredData.reduce((acc, row) => acc + row.panic, 0);
-  const avgAcknowledgement = averageAcknowledgement(weeklyMissions);
-  const avgCompletion = averageCompletion(weeklyMissions);
+  const avgAcknowledgement = averageAcknowledgement(uniqueWeeklyMissions);
+  const avgCompletion = averageCompletion(uniqueWeeklyMissions);
 
   const priorityItems = [
-    { label: 'Urgent', value: weeklyMissions.filter((m) => m.priority === 'URGENT').length },
-    { label: 'High', value: weeklyMissions.filter((m) => m.priority === 'HIGH').length },
-    { label: 'Low', value: weeklyMissions.filter((m) => m.priority === 'LOW').length },
+    { label: 'Urgent', value: uniqueWeeklyMissions.filter((m) => m.priority === 'URGENT').length },
+    { label: 'High', value: uniqueWeeklyMissions.filter((m) => m.priority === 'HIGH').length },
+    { label: 'Low', value: uniqueWeeklyMissions.filter((m) => m.priority === 'LOW').length },
   ];
 
   const statusItems = [
-    { label: 'Completed', value: weeklyMissions.filter((m) => m.status === 'COMPLETED').length },
-    { label: 'In Progress', value: weeklyMissions.filter((m) => m.status === 'IN_PROGRESS').length },
-    { label: 'Cancelled', value: weeklyMissions.filter((m) => m.status === 'CANCELLED').length },
+    { label: 'Completed', value: uniqueWeeklyMissions.filter((m) => m.status === 'COMPLETED').length },
+    { label: 'In Progress', value: uniqueWeeklyMissions.filter((m) => m.status === 'IN_PROGRESS').length },
+    { label: 'Cancelled', value: uniqueWeeklyMissions.filter((m) => m.status === 'CANCELLED').length },
   ];
+
+  const typeItems = Array.from(new Set(uniqueWeeklyMissions.map((m) => m.category)))
+    .sort()
+    .map((category) => ({
+      label: category.charAt(0) + category.slice(1).toLowerCase(),
+      value: uniqueWeeklyMissions.filter((m) => m.category === category).length,
+    }));
 
   return (
     <div className="space-y-4">
@@ -191,9 +221,10 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
         <SummaryCard value={totalPanic} label="Panic events" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <BreakdownCard title="Missions by Status" items={statusItems} />
         <BreakdownCard title="Missions by Priority" items={priorityItems} />
+        <BreakdownCard title="Missions by Type" items={typeItems} />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
@@ -205,7 +236,7 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[670px]">
             <thead>
               <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
-                <th className="px-4 py-3">Officer</th>
+                <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Hours" field="dutyHours" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Avg Acknowledgement" field="avgAcknowledgement" currentField={sortField} asc={sortAsc} onSort={handleSort} />
@@ -228,7 +259,7 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
                   </td>
                   <td className="px-4 py-3">{row.avgAcknowledgement}</td>
                   <td className="px-4 py-3">{row.avgTime}</td>
-                  <td className="px-4 py-3">{row.panic}</td>
+                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.panic}</span></td>
                 </tr>
               ))}
 
