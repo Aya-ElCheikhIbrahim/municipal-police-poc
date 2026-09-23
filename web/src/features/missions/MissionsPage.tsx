@@ -19,7 +19,9 @@ export function MissionsPage() {
   const { missions, isLoading, error, refresh, createMission } = useMissions(filters);
 
   
-  const { officers } = useActiveOfficers(false);
+  // Polled only on the create form, where the officer dots on the map have to
+  // keep up with the officers. The list and detail views need the names once.
+  const { officers } = useActiveOfficers(view.kind === 'create');
 
   async function handleCreate(payload: CreateMissionRequest) {
     const created = await createMission(payload);
