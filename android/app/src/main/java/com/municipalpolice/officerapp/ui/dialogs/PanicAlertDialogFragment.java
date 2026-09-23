@@ -1,6 +1,8 @@
 package com.municipalpolice.officerapp.ui.dialogs;
 
+import android.Manifest;
 import android.app.Dialog;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.LayoutInflater;
@@ -9,12 +11,14 @@ import android.view.Window;
 import android.widget.Button;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
 import com.municipalpolice.officerapp.data.RetrofitPanicRepository;
-import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 
 /** "Panic active" confirmation for the hold-2-seconds panic button, screen "Panic sent". */
 public class PanicAlertDialogFragment extends DialogFragment {
@@ -26,6 +30,7 @@ public class PanicAlertDialogFragment extends DialogFragment {
     private static final long AUTO_DISMISS_MILLIS = 10_000;
     private CountDownTimer countDownTimer;
     private RetrofitPanicRepository panicRepository;
+    private FusedLocationProviderClient fusedLocationClient;
 
     public static PanicAlertDialogFragment newInstance() {
         return new PanicAlertDialogFragment();
@@ -36,7 +41,23 @@ public class PanicAlertDialogFragment extends DialogFragment {
         super.onStart();
         
         panicRepository = new RetrofitPanicRepository(requireContext());
-        panicRepository.triggerPanic(null, null, new Callback<Object>() {
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext());
+
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+                if (location != null) {
+                    sendPanicWithLocation(location.getLatitude(), location.getLongitude());
+                } else {
+                    sendPanicWithLocation(null, null);
+                }
+            }).addOnFailureListener(e -> sendPanicWithLocation(null, null));
+        } else {
+            sendPanicWithLocation(null, null);
+        }
+    }
+
+    private void sendPanicWithLocation(Double lat, Double lon) {
+        panicRepository.triggerPanic(lat, lon, new Callback<Object>() {
             @Override
             public void onSuccess(Object result) {
                 if (getActivity() instanceof PanicListener) {
@@ -45,7 +66,7 @@ public class PanicAlertDialogFragment extends DialogFragment {
             }
             @Override
             public void onError(Throwable error) {
-                // Silent fail or toast
+                // Silent fail or handled by the caller
             }
         });
     }

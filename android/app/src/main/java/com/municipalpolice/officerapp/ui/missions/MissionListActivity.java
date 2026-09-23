@@ -513,7 +513,24 @@ public class MissionListActivity extends BaseActivity
     // END SHIFT
     // =========================================================
 
+    private boolean hasActiveOrAssignedMissions() {
+        for (Mission mission : allMissions) {
+            if (mission.getStatus() == MissionStatus.NEW ||
+                mission.getStatus() == MissionStatus.ASSIGNED ||
+                mission.getStatus() == MissionStatus.ACKNOWLEDGED ||
+                mission.getStatus() == MissionStatus.IN_PROGRESS ||
+                mission.getStatus() == MissionStatus.PAUSED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void checkMissionsBeforeEndShift() {
+        if (hasActiveOrAssignedMissions()) {
+            Toast.makeText(this, R.string.end_shift_error_active_missions, Toast.LENGTH_LONG).show();
+            return;
+        }
 
         EndShiftDialogFragment
                 .newInstance()

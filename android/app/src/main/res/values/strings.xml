@@ -13,6 +13,22 @@
     <string name="login_error_required">Enter your username and password</string>
     <string name="login_error_incorrect">Incorrect, try again</string>
 
+    <!-- Forgot Password -->
+    <string name="reset_password_title">Reset password</string>
+    <string name="reset_password_heading">Enter your code</string>
+    <string name="reset_password_badge_label">BADGE NUMBER</string>
+    <string name="reset_password_code_label">RESET CODE</string>
+    <string name="reset_password_new_password_label">NEW PASSWORD</string>
+    <string name="reset_password_repeat_password_label">REPEAT NEW PASSWORD</string>
+    <string name="reset_password_new_password_hint">At least 8 characters</string>
+    <string name="reset_password_repeat_password_hint">••••••••</string>
+    <string name="reset_password_button">Set new password</string>
+    <string name="reset_password_error_msg">Incorrect or expired code. Ask your supervisor for a new one.</string>
+    <string name="forgot_password_error_required">Please fill in all fields</string>
+    <string name="forgot_password_success">Password updated successfully</string>
+    <string name="forgot_password_error_blocked">Too many attempts. Locked out for 1 minute.</string>
+    <string name="forgot_password_error_failed">Incorrect or expired code. Ask your supervisor for a new one. Attempts left: %1$d</string>
+
     <!-- Shift / on-duty -->
     <string name="shift_off_duty_subtitle">Tracking begins now</string>
     <string name="shift_start_button">Start shift</string>

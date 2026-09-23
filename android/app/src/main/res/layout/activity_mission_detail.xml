@@ -309,7 +309,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/space_m"
-                        android:text="Add photo" />
+                        android:text="@string/mission_take_photo" />
 
 
                     <!-- COMPLETE MISSION -->

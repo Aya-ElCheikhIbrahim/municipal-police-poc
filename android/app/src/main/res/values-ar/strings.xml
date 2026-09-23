@@ -13,6 +13,22 @@
     <string name="login_error_required">أدخل اسم المستخدم وكلمة المرور</string>
     <string name="login_error_incorrect">البيانات غير صحيحة، حاول مرة أخرى</string>
 
+    <!-- إعادة تعيين كلمة المرور -->
+    <string name="reset_password_title">إعادة تعيين كلمة المرور</string>
+    <string name="reset_password_heading">أدخل الرمز الخاص بك</string>
+    <string name="reset_password_badge_label">رقم الشارة</string>
+    <string name="reset_password_code_label">رمز إعادة التعيين</string>
+    <string name="reset_password_new_password_label">كلمة المرور الجديدة</string>
+    <string name="reset_password_repeat_password_label">تكرار كلمة المرور الجديدة</string>
+    <string name="reset_password_new_password_hint">8 أحرف على الأقل</string>
+    <string name="reset_password_repeat_password_hint">••••••••</string>
+    <string name="reset_password_button">تعيين كلمة المرور الجديدة</string>
+    <string name="reset_password_error_msg">رمز غير صحيح أو منتهي الصلاحية. اطلب رمزًا جديدًا من مشرفك.</string>
+    <string name="forgot_password_error_required">يرجى ملء جميع الحقول</string>
+    <string name="forgot_password_success">تم تحديث كلمة المرور بنجاح</string>
+    <string name="forgot_password_error_blocked">محاولات كثيرة جدا. تم الحظر لمدة دقيقة واحدة.</string>
+    <string name="forgot_password_error_failed">رمز غير صحيح أو منتهي الصلاحية. اطلب رمزًا جديدًا من مشرفك. المحاولات المتبقية: %1$d</string>
+
     <!-- الدوام -->
     <string name="shift_off_duty_subtitle">سيبدأ تتبع الموقع الآن</string>
     <string name="shift_start_button">بدء الدوام</string>
