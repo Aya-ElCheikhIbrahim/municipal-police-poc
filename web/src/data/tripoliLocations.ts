@@ -188,6 +188,14 @@ export const LOCATION_COORDS: Record<TripoliLocation, [number, number]> = {
 };
 
 /**
+ * Where a neighbourhood sits, or null for a name that is not one of the
+ * nineteen — free text the supervisor typed, most of the time.
+ */
+export function locationCoords(name: string): [number, number] | null {
+  return LOCATION_COORDS[name as TripoliLocation] ?? null;
+}
+
+/**
  * The name of the closest neighbourhood to a point.
  *
  * Flat-earth distance on purpose: over a city this size the error is metres,

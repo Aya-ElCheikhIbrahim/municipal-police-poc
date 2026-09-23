@@ -4,12 +4,15 @@ import { useLeafletMap } from '../map/useLeafletMap';
 import { useMissionPin } from '../map/useMissionPin';
 import { useOfficerMarkers } from '../map/useOfficerMarkers';
 import { reverseGeocode } from '../map/reverseGeocode';
-import { searchTripoliLocations } from '../../data/tripoliLocations';
+import { locationCoords, searchTripoliLocations } from '../../data/tripoliLocations';
 import { MISSION_PRIORITIES, priorityLabel } from './types';
 import type { CreateMissionRequest, MissionPriority } from './types';
 import type { ActiveOfficer } from '../officers/types';
 
 const TRIPOLI_CENTRE: [number, number] = [34.4367, 35.8497];
+
+/** Close enough to see the streets of the chosen neighbourhood. */
+const AREA_ZOOM = 15;
 
 interface CreateMissionPageProps {
   officers: ActiveOfficer[];
@@ -39,8 +42,10 @@ export function CreateMissionPage({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Only the map writes this; typing in the Address field leaves it alone.
-  const [addressSource, setAddressSource] = useState<'typed' | 'osm' | 'offline'>('typed');
+  // How the Address field was filled, which decides the hint beside its label.
+  // Typing resets it: what the supervisor wrote is their own.
+  const [addressSource, setAddressSource] =
+    useState<'typed' | 'osm' | 'offline' | 'area'>('typed');
   const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
   const lookupRef = useRef<AbortController | null>(null);
 
@@ -115,12 +120,39 @@ export function CreateMissionPage({
     followSelected: false,
   });
 
+  /**
+   * Picking a neighbourhood places the pin too. The address alone carries no
+   * coordinates, and latitude and longitude are what the mission is actually
+   * saved with — so a supervisor who only chose a name would otherwise be
+   * stopped at the Create button with a mission that looks complete.
+   *
+   * The pin lands on the centre of the area, near enough to identify it and
+   * close enough to drag the eye to the right part of the map; clicking the
+   * map afterwards still sets the exact spot.
+   */
+  const pickSuggestion = useCallback((location: string) => {
+    setAddress(location);
+    setSuggestions([]);
+
+    const centre = locationCoords(location);
+    if (!centre) return;
+
+    lookupRef.current?.abort();
+    setIsLookingUpAddress(false);
+    setCoords(centre);
+    setAddressSource('area');
+    mapRef.current?.flyTo(centre, AREA_ZOOM);
+  }, [mapRef]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
 
     if (!coords) {
-      setErrors({ detail: 'Click the map to set where the mission is.' });
+      setErrors({
+        detail:
+          'Set where the mission is: click the map, or pick an area from the address list.',
+      });
       return;
     }
 
@@ -283,6 +315,11 @@ export function CreateMissionPage({
                 {!isLookingUpAddress && addressSource === 'offline' && (
                   <span className="ml-1.5 font-normal text-amber-600">nearest area</span>
                 )}
+                {!isLookingUpAddress && addressSource === 'area' && (
+                  <span className="ml-1.5 font-normal text-slate-400">
+                    pinned on the area — click the map for the exact spot
+                  </span>
+                )}
               </label>
               <input
                 type="text"
@@ -301,10 +338,7 @@ export function CreateMissionPage({
                     <button
                       key={location}
                       type="button"
-                      onClick={() => {
-                        setAddress(location);
-                        setSuggestions([]);
-                      }}
+                      onClick={() => pickSuggestion(location)}
                       className="w-full text-left px-4 py-2.5 hover:bg-gray-100 text-sm sm:text-base cursor-pointer"
                     >
                       {location}
