@@ -35,6 +35,16 @@
         </activity>
 
         <activity
+            android:name=".ui.login.ForgotPasswordActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OfficerApp.NoActionBar" />
+
+        <activity
+            android:name=".ui.login.PasswordResetConfirmActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OfficerApp.NoActionBar" />
+
+        <activity
             android:name=".ui.shift.ShiftActivity"
             android:exported="false"
             android:theme="@style/Theme.OfficerApp.NoActionBar" />

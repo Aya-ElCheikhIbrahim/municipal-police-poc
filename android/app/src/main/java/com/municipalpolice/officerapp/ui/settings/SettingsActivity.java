@@ -186,7 +186,12 @@ public class SettingsActivity extends BaseActivity {
     // ---------------------------------------------------------
 
     public void onLanguageChanged() {
-        recreate();
+        Intent intent = getBaseContext().getPackageManager().getLaunchIntentForPackage(getBaseContext().getPackageName());
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+        }
+        finish();
     }
 
     // ---------------------------------------------------------
