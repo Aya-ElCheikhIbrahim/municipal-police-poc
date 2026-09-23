@@ -2,12 +2,19 @@ import { useState } from 'react';
 import { useUsers } from './useUsers';
 import { AddUserForm } from './AddUserForm';
 import { roleLabel } from '../auth/types';
+import { ResetPasswordModal } from './password_res';
 import type { CreateUserRequest, UserFilters } from './types';
+import { usersApi } from './api';
 
 export function UsersPage() {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [resetUser, setResetUser] = useState<any | null>(null);
 
+  const handleGenerateResetCode = async (userId: string | number) => {
+  const badgeNumber = resetUser?.badge_number || String(userId);
+  return await usersApi.generateResetCode(badgeNumber);
+};
   const filters: UserFilters = showActiveOnly ? { is_active: true } : {};
   const { users, isLoading, error, createUser, setActive } = useUsers(filters);
 
@@ -83,8 +90,14 @@ export function UsersPage() {
                 </div>
                 <div className="text-sm text-slate-600 font-mono">{user.phone || '—'}</div>
                 <button
+                  onClick={() => setResetUser(user)}
+                  className="text-indigo-600 hover:text-indigo-800 text-xs font-medium cursor-pointer mr-3"
+                >
+                  Reset password
+                </button>
+                <button
                   onClick={() => setActive(user.id, !user.is_active)}
-                  className="text-indigo-600 hover:text-indigo-800 font-semibold text-base cursor-pointer pt-1"
+                  className="text-indigo-600 hover:text-indigo-800 text-xs font-medium cursor-pointer"
                 >
                   {user.is_active ? 'Deactivate' : 'Activate'}
                 </button>
@@ -135,13 +148,19 @@ export function UsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setActive(user.id, !user.is_active)}
-                        className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm lg:text-base cursor-pointer"
-                      >
-                        {user.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                    </td>
+                  <button
+                    onClick={() => setResetUser(user)}
+                    className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm lg:text-base cursor-pointer mr-3"
+                  >
+                    Reset password
+                  </button>
+                  <button
+                    onClick={() => setActive(user.id, !user.is_active)}
+                    className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm lg:text-base cursor-pointer"
+                  >
+                    {user.is_active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </td>
                   </tr>
                 ))
               )}
@@ -149,6 +168,20 @@ export function UsersPage() {
           </table>
         </div>
       </div>
+      <ResetPasswordModal
+        user={
+          resetUser
+            ? {
+                id: resetUser.id,
+                name: resetUser.full_name || resetUser.username,
+                badge: resetUser.badge_number || '—',
+                role: typeof roleLabel === 'function' ? roleLabel(resetUser.role) : (roleLabel as Record<string, any>)[resetUser.role] || resetUser.role,              }
+            : null
+        }
+        isOpen={Boolean(resetUser)}
+        onClose={() => setResetUser(null)}
+        onGenerateCode={handleGenerateResetCode}
+      />
     </div>
   );
 }
