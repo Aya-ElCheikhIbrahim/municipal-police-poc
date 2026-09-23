@@ -356,7 +356,7 @@ public class MissionListActivity extends BaseActivity
 
 
     // =========================================================
-    // START / STOP ACTION
+    // START / RESUME / STOP ACTION
     // =========================================================
 
     private void handleMissionAction(
@@ -364,12 +364,18 @@ public class MissionListActivity extends BaseActivity
     ) {
 
         /*
-         * START WORK
+         * NEW / ASSIGNED
+         *      -> Start mission
+         *
+         * PAUSED
+         *      -> Resume mission using the existing start endpoint
          */
         if (mission.getStatus() ==
                 MissionStatus.NEW ||
                 mission.getStatus() ==
-                        MissionStatus.ASSIGNED) {
+                        MissionStatus.ASSIGNED ||
+                mission.getStatus() ==
+                        MissionStatus.PAUSED) {
 
             startMission(
                     mission
@@ -380,10 +386,9 @@ public class MissionListActivity extends BaseActivity
 
 
         /*
-         * STOP WORK
+         * RUNNING MISSION
          *
-         * In the current workflow, Stop means:
-         * Complete this mission.
+         * Current Stop behavior completes the mission.
          */
         if (mission.getStatus() ==
                 MissionStatus.ACKNOWLEDGED ||
@@ -398,12 +403,16 @@ public class MissionListActivity extends BaseActivity
 
 
     // =========================================================
-    // START MISSION
+    // START / RESUME MISSION
     // =========================================================
 
     private void startMission(
             Mission mission
     ) {
+
+        boolean wasPaused =
+                mission.getStatus() ==
+                        MissionStatus.PAUSED;
 
         missionRepository.startMission(
                 String.valueOf(
@@ -420,7 +429,9 @@ public class MissionListActivity extends BaseActivity
 
                             Toast.makeText(
                                     MissionListActivity.this,
-                                    "Mission started",
+                                    wasPaused
+                                            ? "Mission resumed"
+                                            : "Mission started",
                                     Toast.LENGTH_SHORT
                             ).show();
 
@@ -438,10 +449,11 @@ public class MissionListActivity extends BaseActivity
 
                                 Toast.makeText(
                                         MissionListActivity.this,
-                                        "Failed: " +
-                                                safeMessage(
-                                                        error
-                                                ),
+                                        wasPaused
+                                                ? "Resume failed: " +
+                                                safeMessage(error)
+                                                : "Failed: " +
+                                                safeMessage(error),
                                         Toast.LENGTH_LONG
                                 ).show()
                         );
@@ -771,6 +783,7 @@ public class MissionListActivity extends BaseActivity
                                     // =====================================
                                     // TEMPORARY TIMER DEBUG
                                     // =====================================
+
                                     Log.d(
                                             TAG_MISSION_TIMER,
                                             "id=" + mission.getId()

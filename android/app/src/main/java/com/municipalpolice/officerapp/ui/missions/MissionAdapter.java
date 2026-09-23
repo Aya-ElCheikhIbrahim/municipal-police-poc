@@ -50,19 +50,12 @@ public class MissionAdapter
     /*
      * duration_seconds comes from the backend.
      *
-     * Example:
-     * backend sends 1004 seconds
+     * Android stores the duration received from the backend
+     * together with the current elapsedRealtime().
      *
-     * Android remembers:
-     * base = 1004
-     * receivedAt = current elapsedRealtime()
+     * While a mission is running, the displayed timer is:
      *
-     * Then while mission is running:
-     *
-     * 1004
-     * 1005
-     * 1006
-     * ...
+     * backend duration + locally elapsed seconds
      */
 
     private final Map<Integer, Long> timerBaseSeconds =
@@ -72,7 +65,7 @@ public class MissionAdapter
             new HashMap<>();
 
 
-    // Refresh the visible timer every second.
+    // Refresh visible timers every second.
     private final Handler timerHandler =
             new Handler(Looper.getMainLooper());
 
@@ -158,8 +151,8 @@ public class MissionAdapter
 
 
                     /*
-                     * First time we receive this running mission:
-                     * use duration_seconds as the starting value.
+                     * First time receiving this running mission:
+                     * initialize its timer from duration_seconds.
                      */
                     if (oldBase == null ||
                             oldRealtime == null) {
@@ -177,10 +170,6 @@ public class MissionAdapter
 
                     else {
 
-                        /*
-                         * Calculate what Android currently believes
-                         * the timer should be.
-                         */
                         long localElapsed =
                                 Math.max(
                                         0,
@@ -194,11 +183,11 @@ public class MissionAdapter
 
 
                         /*
-                         * Only reset the baseline when the backend
-                         * has moved ahead of our local timer.
+                         * Only move the baseline forward when the
+                         * backend duration is ahead of Android.
                          *
                          * This prevents RecyclerView refreshes from
-                         * restarting the timer every second.
+                         * resetting the timer.
                          */
                         if (backendDuration >
                                 localCurrent) {
@@ -219,11 +208,11 @@ public class MissionAdapter
                 else {
 
                     /*
-                     * Mission isn't running anymore.
-                     * Remove its live baseline.
+                     * PAUSED and COMPLETED missions must not have
+                     * a live timer.
                      *
-                     * Paused/completed missions use the fixed
-                     * duration_seconds returned by the backend.
+                     * Their duration stays fixed at the value
+                     * returned by the backend.
                      */
                     timerBaseSeconds.remove(
                             missionId
@@ -238,8 +227,8 @@ public class MissionAdapter
 
 
         /*
-         * Remove timer information for missions that disappeared
-         * from this adapter's list.
+         * Remove timer information belonging to missions that
+         * disappeared from this adapter.
          */
         List<Integer> existingTimerIds =
                 new ArrayList<>(
@@ -283,6 +272,12 @@ public class MissionAdapter
     // ACTIVE MISSION
     // =========================================================
 
+    /*
+     * PAUSED missions are intentionally NOT considered active.
+     *
+     * This is important because after an urgent mission finishes,
+     * the previously paused mission must become resumable.
+     */
     private boolean hasActiveMission() {
 
         for (Mission mission : missions) {
@@ -497,11 +492,20 @@ public class MissionAdapter
                                 MissionStatus.ASSIGNED;
 
 
+        /*
+         * Normal NEW/ASSIGNED missions are locked while another
+         * mission is running.
+         *
+         * Urgent missions remain available.
+         *
+         * A paused mission is handled separately below.
+         */
         boolean shouldLock =
                 activeMissionExists &&
                         !isRunning &&
                         !isUrgent &&
-                        !isCompleted;
+                        !isCompleted &&
+                        !isPaused;
 
 
         // =====================================================
@@ -600,23 +604,16 @@ public class MissionAdapter
 
         else if (isPaused) {
 
+            /*
+             * The old implementation displayed "Paused" and
+             * disabled the button permanently.
+             *
+             * Now the mission becomes resumable after the
+             * currently active mission finishes.
+             */
+
             holder.btnAction.setText(
-                    "Paused"
-            );
-
-
-            holder.btnAction.setEnabled(
-                    false
-            );
-
-
-            holder.btnAction.setAlpha(
-                    0.55f
-            );
-
-
-            holder.itemView.setAlpha(
-                    0.70f
+                    "Resume work"
             );
 
 
@@ -637,6 +634,69 @@ public class MissionAdapter
                             )
                     )
             );
+
+
+            /*
+             * If another mission is still running, this paused
+             * mission cannot resume yet.
+             */
+            if (activeMissionExists) {
+
+                holder.btnAction.setEnabled(
+                        false
+                );
+
+                holder.btnAction.setAlpha(
+                        0.35f
+                );
+
+                holder.itemView.setAlpha(
+                        0.70f
+                );
+
+
+                holder.lockRow.setVisibility(
+                        View.VISIBLE
+                );
+            }
+
+            /*
+             * No mission is currently running.
+             * Allow the officer to resume this mission.
+             */
+            else {
+
+                holder.btnAction.setEnabled(
+                        true
+                );
+
+                holder.btnAction.setAlpha(
+                        1f
+                );
+
+                holder.itemView.setAlpha(
+                        1f
+                );
+
+                holder.itemView.setEnabled(
+                        true
+                );
+
+
+                holder.btnAction.setBackgroundTintList(
+                        ColorStateList.valueOf(
+                                ContextCompat.getColor(
+                                        holder.itemView.getContext(),
+                                        R.color.active_ok
+                                )
+                        )
+                );
+
+
+                holder.lockRow.setVisibility(
+                        View.GONE
+                );
+            }
         }
 
 
@@ -798,9 +858,37 @@ public class MissionAdapter
         holder.btnAction.setOnClickListener(
                 v -> {
 
-                    if (!shouldLock &&
-                            !isPaused &&
-                            !isCompleted) {
+                    /*
+                     * Completed missions never have an action.
+                     */
+                    if (isCompleted) {
+                        return;
+                    }
+
+
+                    /*
+                     * PAUSED:
+                     *
+                     * Resume only when there is no currently
+                     * running mission.
+                     */
+                    if (isPaused) {
+
+                        if (!activeMissionExists) {
+
+                            listener.onActionClick(
+                                    mission
+                            );
+                        }
+
+                        return;
+                    }
+
+
+                    /*
+                     * NEW / ASSIGNED / RUNNING / URGENT
+                     */
+                    if (!shouldLock) {
 
                         listener.onActionClick(
                                 mission
@@ -861,9 +949,8 @@ public class MissionAdapter
 
 
         /*
-         * Safety fallback in case the mission reached
-         * onBindViewHolder before submitList initialized
-         * its timer baseline.
+         * Safety fallback in case onBindViewHolder is called
+         * before submitList initializes the timer.
          */
         if (base == null ||
                 baseRealtime == null) {
@@ -911,7 +998,7 @@ public class MissionAdapter
     ) {
 
         /*
-         * The Missions list API currently provides
+         * Missions list API currently provides
          * duration_seconds.
          */
         long duration =
@@ -922,7 +1009,7 @@ public class MissionAdapter
 
 
         /*
-         * Fallback for responses that may contain
+         * Fallback for API responses containing
          * worked_seconds instead.
          */
         if (duration == 0) {
