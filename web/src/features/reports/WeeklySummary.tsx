@@ -1,9 +1,6 @@
-import { useMemo, useState } from 'react';
-import {
-  officerMissionData,
-  officerPeriodData,
-  type FilterState,
-} from './mockData';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchWeeklySummary } from './api';
+import type { FilterState, WeeklySummaryResponse } from './types';
 
 interface WeeklySummaryProps {
   filters?: FilterState;
@@ -12,71 +9,20 @@ interface WeeklySummaryProps {
 
 type WeeklySort = 'name' | 'dutyHours' | 'completed' | 'avgAcknowledgement' | 'avgTime' | 'panic';
 
-function dateDaysBefore(dateString: string, days: number) {
-  const date = new Date(`${dateString}T00:00:00`);
-  date.setDate(date.getDate() - days);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function timeToMinutes(value: string) {
-  const [hours, minutes] = value.split(':').map(Number);
-  return hours * 60 + minutes;
-}
-
 function formatDuration(totalMinutes: number) {
-  if (!Number.isFinite(totalMinutes)) return '—';
+  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return '—';
   const rounded = Math.round(totalMinutes);
   const hours = Math.floor(rounded / 60);
   const minutes = rounded % 60;
   return hours > 0 ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`;
 }
 
-function formatAcknowledgement(totalMinutes: number) {
-  if (!Number.isFinite(totalMinutes)) return '—';
-  const totalSeconds = Math.round(totalMinutes * 60);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
-}
-
-function durationToMinutes(value: string) {
-  if (value === '—') return -1;
-  const hours = value.match(/(\d+)h/);
-  const minutes = value.match(/(\d+)m/);
-  const seconds = value.match(/(\d+)s/);
-  return (hours ? Number(hours[1]) * 60 : 0) + (minutes ? Number(minutes[1]) : 0) + (seconds ? Number(seconds[1]) / 60 : 0);
-}
-
-
-function missionKey(mission: (typeof officerMissionData)[number]) {
-  return mission.id;
-}
-
-function uniqueMissions(missions: typeof officerMissionData) {
-  return Array.from(
-    new Map(missions.map((mission) => [missionKey(mission), mission])).values()
-  );
-}
-
-function averageAcknowledgement(missions: typeof officerMissionData) {
-  const values = missions
-    .filter((mission) => mission.acknowledgedAt !== '—')
-    .map((mission) => timeToMinutes(mission.acknowledgedAt) - timeToMinutes(mission.assignedAt))
-    .filter((value) => value >= 0);
-  if (values.length === 0) return '—';
-  return formatAcknowledgement(values.reduce((sum, value) => sum + value, 0) / values.length);
-}
-
-function averageCompletion(missions: typeof officerMissionData) {
-  const values = missions
-    .filter((mission) => mission.completedAt !== '—')
-    .map((mission) => timeToMinutes(mission.completedAt) - timeToMinutes(mission.assignedAt))
-    .filter((value) => value >= 0);
-  if (values.length === 0) return '—';
-  return formatDuration(values.reduce((sum, value) => sum + value, 0) / values.length);
+function formatAcknowledgement(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '—';
+  const rounded = Math.round(seconds);
+  const minutes = Math.floor(rounded / 60);
+  const secs = rounded % 60;
+  return `${minutes}m ${String(secs).padStart(2, '0')}s`;
 }
 
 function SortHeader({
@@ -111,70 +57,50 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
   const [sortField, setSortField] = useState<WeeklySort>('completed');
   const [sortAsc, setSortAsc] = useState(false);
 
+  const [loading, setLoading] = useState(false);
+  const [summaryData, setSummaryData] = useState<WeeklySummaryResponse | null>(null);
+
   const endDate = filters?.endDate || new Date().toISOString().slice(0, 10);
-  const startDate = dateDaysBefore(endDate, 6);
-  const officerFilter = filters?.officer ?? 'ALL';
-  const locationFilter = filters?.location ?? 'ALL';
+  const startDate = filters?.startDate || endDate;
 
-  const allWeekMissions = officerMissionData.filter((mission) => {
-    if (mission.date < startDate || mission.date > endDate) return false;
-    if (officerFilter !== 'ALL' && mission.officerName !== officerFilter) return false;
-    return true;
-  });
-
-  const weeklyMissions = allWeekMissions.filter(
-    (mission) => locationFilter === 'ALL' || mission.location === locationFilter
-  );
-
-  const officerNames = Array.from(
-    new Set(
-      officerPeriodData
-        .filter((row) => row.date >= startDate && row.date <= endDate)
-        .map((row) => row.officerName)
-    )
-  ).filter((name) => officerFilter === 'ALL' || name === officerFilter);
-
-  const filteredData = officerNames
-    .map((name) => {
-      const periodRows = officerPeriodData.filter(
-        (row) => row.officerName === name && row.date >= startDate && row.date <= endDate
-      );
-      const officerMissions = weeklyMissions.filter((mission) => mission.officerName === name);
-
-      // When an area is selected, an officer is shown only if they actually had
-      // a mission in that area during the selected week.
-      if (locationFilter !== 'ALL' && officerMissions.length === 0) return null;
-
-      const dutyMinutes = periodRows.reduce((sum, row) => sum + row.dutyMinutes, 0);
-      const panic = periodRows.reduce((sum, row) => sum + row.panicEvents, 0);
-
-      return {
-        name,
-        dutyHours: formatDuration(dutyMinutes),
-        completed: officerMissions.filter((mission) => mission.status === 'COMPLETED').length,
-        avgAcknowledgement: averageAcknowledgement(officerMissions),
-        avgTime: averageCompletion(officerMissions),
-        panic,
-      };
+  useEffect(() => {
+    setLoading(true);
+    fetchWeeklySummary({
+      start_date: startDate,
+      end_date: endDate,
     })
-    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+      .then((data) => setSummaryData(data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [startDate, endDate]);
+
+  const filteredData = useMemo(() => {
+    if (!summaryData?.officers) return [];
+    return summaryData.officers.map((officer) => ({
+      id: officer.officer_id,
+      name: officer.officer_name,
+      dutyHours: formatDuration(officer.hours_on_duty * 60),
+      dutyMinutes: officer.hours_on_duty * 60,
+      completed: officer.missions_completed,
+      avgAcknowledgement: formatAcknowledgement(officer.average_acknowledgement_seconds),
+      avgAckSecs: officer.average_acknowledgement_seconds,
+      avgTime: formatDuration(officer.average_completion_seconds / 60),
+      avgCompSecs: officer.average_completion_seconds,
+      panic: officer.panic_events,
+    }));
+  }, [summaryData]);
 
   const sortedData = useMemo(() => {
-    const getValue = (row: (typeof filteredData)[number]) => {
-      switch (sortField) {
-        case 'name': return row.name.toLowerCase();
-        case 'dutyHours': return durationToMinutes(row.dutyHours);
-        case 'completed': return row.completed;
-        case 'avgAcknowledgement': return durationToMinutes(row.avgAcknowledgement);
-        case 'avgTime': return durationToMinutes(row.avgTime);
-        case 'panic': return row.panic;
-      }
-    };
-
     return [...filteredData].sort((a, b) => {
-      const aValue = getValue(a);
-      const bValue = getValue(b);
-      const diff = typeof aValue === 'string' ? aValue.localeCompare(String(bValue)) : aValue - Number(bValue);
+      let diff = 0;
+      switch (sortField) {
+        case 'name': diff = a.name.localeCompare(b.name); break;
+        case 'dutyHours': diff = a.dutyMinutes - b.dutyMinutes; break;
+        case 'completed': diff = a.completed - b.completed; break;
+        case 'avgAcknowledgement': diff = a.avgAckSecs - b.avgAckSecs; break;
+        case 'avgTime': diff = a.avgCompSecs - b.avgCompSecs; break;
+        case 'panic': diff = a.panic - b.panic; break;
+      }
       return sortAsc ? diff : -diff;
     });
   }, [filteredData, sortField, sortAsc]);
@@ -187,44 +113,53 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
     }
   };
 
-  const uniqueWeeklyMissions = uniqueMissions(weeklyMissions);
-  const totalCompleted = uniqueWeeklyMissions.filter((m) => m.status === 'COMPLETED').length;
-  const totalPanic = filteredData.reduce((acc, row) => acc + row.panic, 0);
-  const avgAcknowledgement = averageAcknowledgement(uniqueWeeklyMissions);
-  const avgCompletion = averageCompletion(uniqueWeeklyMissions);
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500 font-semibold">Loading weekly summary...</div>;
+  }
+
+  const totals = summaryData?.totals;
 
   const priorityItems = [
-    { label: 'Urgent', value: uniqueWeeklyMissions.filter((m) => m.priority === 'URGENT').length },
-    { label: 'High', value: uniqueWeeklyMissions.filter((m) => m.priority === 'HIGH').length },
-    { label: 'Low', value: uniqueWeeklyMissions.filter((m) => m.priority === 'LOW').length },
+    { label: 'Urgent', value: summaryData?.missions_by_priority?.URGENT || summaryData?.missions_by_priority?.urgent || 0 },
+    { label: 'High', value: summaryData?.missions_by_priority?.HIGH || summaryData?.missions_by_priority?.high || 0 },
+    { label: 'Low', value: summaryData?.missions_by_priority?.LOW || summaryData?.missions_by_priority?.low || 0 },
   ];
 
   const statusItems = [
-    { label: 'Completed', value: uniqueWeeklyMissions.filter((m) => m.status === 'COMPLETED').length },
-    { label: 'In Progress', value: uniqueWeeklyMissions.filter((m) => m.status === 'IN_PROGRESS').length },
-    { label: 'Cancelled', value: uniqueWeeklyMissions.filter((m) => m.status === 'CANCELLED').length },
+    { label: 'Completed', value: totals?.missions_completed ?? 0 },
+    { label: 'In Progress', value: summaryData?.missions_by_status?.IN_PROGRESS || summaryData?.missions_by_status?.in_progress || 0 },
+    { label: 'Cancelled', value: totals?.missions_cancelled ?? 0 },
   ];
 
-  const typeItems = Array.from(new Set(uniqueWeeklyMissions.map((m) => m.category)))
-    .sort()
-    .map((category) => ({
-      label: category.charAt(0) + category.slice(1).toLowerCase(),
-      value: uniqueWeeklyMissions.filter((m) => m.category === category).length,
-    }));
+  const typeItems = Object.entries(summaryData?.missions_by_category || {}).map(([category, value]) => ({
+    label: category.charAt(0).toUpperCase() + category.slice(1).toLowerCase(),
+    value: Number(value),
+  }));
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard value={totalCompleted} label="Total completed missions" />
-        <SummaryCard value={avgAcknowledgement} label="Avg acknowledgement" />
-        <SummaryCard value={avgCompletion} label="Avg completion" />
-        <SummaryCard value={totalPanic} label="Panic events" />
+        <SummaryCard value={totals?.missions_completed ?? 0} label="Total completed missions" />
+        <SummaryCard value={formatAcknowledgement(summaryData?.average_acknowledgement_seconds ?? 0)} label="Avg acknowledgement" />
+        <SummaryCard value={formatDuration((summaryData?.average_completion_seconds ?? 0) / 60)} label="Avg completion" />
+        <SummaryCard value={totals?.panic_events ?? 0} label="Panic events" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <BreakdownCard title="Missions by Status" items={statusItems} />
         <BreakdownCard title="Missions by Priority" items={priorityItems} />
-        <BreakdownCard title="Missions by Type" items={typeItems} />
+        {typeItems.length > 0 ? (
+          <BreakdownCard title="Missions by Type" items={typeItems} />
+        ) : (
+          <BreakdownCard
+            title="Missions by Type"
+            items={[
+              { label: 'Security', value: 0 },
+              { label: 'Traffic', value: 0 },
+              { label: 'Patrol', value: 0 },
+            ]}
+          />
+        )}
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
@@ -247,9 +182,15 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
 
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {sortedData.map((row) => (
-                <tr key={row.name} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={row.id || row.name} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3">
-                    <button type="button" onClick={() => onOfficerSelect?.(row.name)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">{row.name}</button>
+                    <button
+                      type="button"
+                      onClick={() => onOfficerSelect?.(row.name)}
+                      className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
+                    >
+                      {row.name}
+                    </button>
                   </td>
                   <td className="px-4 py-3 font-medium">{row.dutyHours}</td>
                   <td className="px-4 py-3">
@@ -259,17 +200,27 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
                   </td>
                   <td className="px-4 py-3">{row.avgAcknowledgement}</td>
                   <td className="px-4 py-3">{row.avgTime}</td>
-                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.panic}</span></td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
+                      {row.panic}
+                    </span>
+                  </td>
                 </tr>
               ))}
 
               {sortedData.length === 0 && (
-                <tr><td colSpan={6} className="p-6 text-center text-slate-400">No records match the selected filters.</td></tr>
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-slate-400">
+                    No records match the selected filters.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">Click an officer’s name to view details.</div>
+        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">
+          Click an officer’s name to view details.
+        </div>
       </div>
     </div>
   );

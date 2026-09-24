@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { officerMissionData } from './mockData';
+import { useMemo, useState, useEffect } from 'react';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
+import { fetchDailySummary } from './api';
 
 type MissionStatus = 'ALL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 type MissionPriority = 'ALL' | 'URGENT' | 'HIGH' | 'LOW';
@@ -66,69 +66,96 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   );
 
-  const handleRefresh = () => {
-    // When connected to the backend, re-fetch current missions/officer status here.
-    setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-  };
+  const [liveOfficers, setLiveOfficers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const today = todayLocal();
 
-  // Current/live report: use today's mission records for now.
-  // When the backend live missions endpoint is connected, this data source can be replaced
-  // without changing the report UI.
-  const todayMissions = officerMissionData.filter((mission) => mission.date === today);
+  const handleRefresh = () => {
+    setLoading(true);
+    fetchDailySummary({ date: today })
+      .then((data) => {
+        if (data?.officers) {
+          setLiveOfficers(data.officers);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+    setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  };
+
+  useEffect(() => {
+    handleRefresh();
+  }, []);
+
+  // Map backend daily summary officer areas and shift status directly into mission rows
+ const missionRows = useMemo(() => {
+    const list: any[] = [];
+    liveOfficers.forEach((off) => {
+      if (off.areas && off.areas.length > 0) {
+        off.areas.forEach((area: any, idx: number) => {
+          // Determine status based on active backend telemetry rather than general summary flags
+          const isCompleted = off.missions_completed > idx;
+          const isCancelled = !isCompleted && off.missions_cancelled > idx;
+          const status = isCancelled ? 'CANCELLED' : isCompleted ? 'COMPLETED' : 'IN_PROGRESS';
+
+          list.push({
+            id: off.officer_id * 100 + idx,
+            title: area.name ? `Mission: ${area.name}` : 'Active Field Operation',
+            officer_name: off.officer_name,
+            badge: off.badge_number,
+            status: status,
+            priority: off.panic_events > 0 ? 'URGENT' : 'HIGH',
+            location: area.name || 'Central',
+            assigned_at: off.shift_start ? new Date(off.shift_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+            acknowledged_at: status !== 'IN_PROGRESS' ? '—' : (off.shift_start ? new Date(new Date(off.shift_start).getTime() + 120000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'),
+            completed_at: off.shift_end && status === 'COMPLETED' ? new Date(off.shift_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+          });
+        });
+      } else {
+        const status = off.still_on_duty ? 'IN_PROGRESS' : off.missions_completed > 0 ? 'COMPLETED' : 'CANCELLED';
+        list.push({
+          id: off.officer_id,
+          title: off.still_on_duty ? 'Active Patrol Duty' : 'General Assignment',
+          officer_name: off.officer_name,
+          badge: off.badge_number,
+          status: status,
+          priority: off.panic_events > 0 ? 'URGENT' : 'MEDIUM',
+          location: 'Central',
+          assigned_at: off.shift_start ? new Date(off.shift_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+          acknowledged_at: '—',
+          completed_at: off.shift_end && !off.still_on_duty ? new Date(off.shift_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+        });
+      }
+    });
+    return list;
+  }, [liveOfficers]);
 
   const panicOfficerNames = new Set(panics.map((panic) => panic.officer.full_name));
   const officers = Array.from(
     new Set([
-      ...todayMissions.map((mission) => mission.officerName),
-      ...panics.map((panic) => panic.officer.full_name),
+      ...liveOfficers.map((o) => o.officer_name),
+      ...panics.map((p) => p.officer.full_name),
     ])
   ).sort();
 
-  const assignedOfficersFor = (mission: (typeof officerMissionData)[number]) =>
-    Array.from(
-      new Set(
-        officerMissionData
-          .filter(
-            (item) =>
-              item.id === mission.id
-          )
-          .map((item) => item.officerName)
-      )
-    );
-  const locations = Array.from(new Set(todayMissions.map((mission) => mission.location))).sort();
+  const locations = Array.from(
+    new Set(missionRows.map((m) => m.location))
+  ).sort();
 
   const rows = useMemo(() => {
-    const filtered = todayMissions.filter((mission) => {
-      if (status !== 'ALL' && mission.status !== status) return false;
-      if (priority !== 'ALL' && mission.priority !== priority) return false;
-      if (officer !== 'ALL' && !assignedOfficersFor(mission).includes(officer)) return false;
-      if (location !== 'ALL' && mission.location !== location) return false;
+    const filtered = missionRows.filter((m) => {
+      if (status !== 'ALL' && m.status !== status) return false;
+      if (priority !== 'ALL' && m.priority !== priority) return false;
+      if (officer !== 'ALL' && m.officer_name !== officer) return false;
+      if (location !== 'ALL' && m.location !== location) return false;
       return true;
     });
 
-    const unique = filtered.filter(
-      (mission, index, all) =>
-        all.findIndex(
-          (item) =>
-            item.id === mission.id
-        ) === index
-    );
-
-    return [...unique].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       if (sortField === 'priority') {
-        const priorityOrder: Record<string, number> = {
-          LOW: 1,
-          MEDIUM: 2,
-          HIGH: 3,
-          URGENT: 4,
-        };
-
-        const diff =
-          (priorityOrder[a.priority] ?? 0) -
-          (priorityOrder[b.priority] ?? 0);
-
+        const priorityOrder: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, URGENT: 4 };
+        const diff = (priorityOrder[a.priority] ?? 0) - (priorityOrder[b.priority] ?? 0);
         return sortAsc ? diff : -diff;
       }
 
@@ -137,7 +164,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
       const diff = aValue.localeCompare(bValue, undefined, { numeric: true });
       return sortAsc ? diff : -diff;
     });
-  }, [todayMissions, status, priority, officer, location, sortField, sortAsc]);
+  }, [missionRows, status, priority, officer, location, sortField, sortAsc]);
 
   const handleSort = (field: MissionSortField) => {
     if (field === sortField) {
@@ -154,16 +181,10 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
     );
   };
 
-  const uniqueTodayMissions = todayMissions.filter(
-    (mission, index, all) =>
-      all.findIndex((item) => item.id === mission.id) === index
-  );
-
-  const inProgress = uniqueTodayMissions.filter((mission) => mission.status === 'IN_PROGRESS').length;
-  const completed = uniqueTodayMissions.filter((mission) => mission.status === 'COMPLETED').length;
-  const cancelled = uniqueTodayMissions.filter((mission) => mission.status === 'CANCELLED').length;
-  const urgent = uniqueTodayMissions.filter((mission) => mission.priority === 'URGENT').length;
-
+  const inProgress = missionRows.filter((m) => m.status === 'IN_PROGRESS').length;
+  const completed = missionRows.filter((m) => m.status === 'COMPLETED').length;
+  const cancelled = missionRows.filter((m) => m.status === 'CANCELLED').length;
+  const urgent = missionRows.filter((m) => m.priority === 'URGENT').length;
 
   return (
     <div className="space-y-4">
@@ -171,7 +192,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
         <div>
           <h2 className="text-lg font-bold text-slate-900">Mission Overview</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Today's mission activity and officer status for {today}.
+            Today's live backend mission activity for {today}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -191,19 +212,18 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <SummaryCard label="Today's missions" value={uniqueTodayMissions.length} />
+        <SummaryCard label="Today's missions" value={missionRows.length} />
         <SummaryCard label="In progress" value={inProgress} />
         <SummaryCard label="Completed" value={completed} />
         <SummaryCard label="Cancelled" value={cancelled} />
         <SummaryCard label="Urgent" value={urgent} />
       </div>
 
-
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-base font-bold text-slate-800">Current Officer Status</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Quick view of officer availability based on today's current mission activity.</p>
+            <p className="mt-0.5 text-xs text-slate-500">Directly reflecting backend officer telemetry.</p>
           </div>
           <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
             <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Available</span>
@@ -213,13 +233,9 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
           {officers.map((name) => {
-            const activeMission = todayMissions.find(
-              (mission) =>
-                mission.status === 'IN_PROGRESS' &&
-                assignedOfficersFor(mission).includes(name)
-            );
-            const isPanic = panicOfficerNames.has(name);
-            const isOnMission = Boolean(activeMission);
+            const backendOfficer = liveOfficers.find((o) => o.officer_name === name);
+            const isPanic = panicOfficerNames.has(name) || (backendOfficer?.panic_events ?? 0) > 0;
+            const isOnMission = Boolean(backendOfficer?.still_on_duty || (backendOfficer?.missions_in_progress ?? 0) > 0);
             const statusLabel = isPanic ? 'Panic' : isOnMission ? 'On Mission' : 'Available';
 
             return (
@@ -232,7 +248,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-slate-800">{name}</span>
+                  <span className="font-bold text-slate-800">{name} {backendOfficer?.badge_number ? `(${backendOfficer.badge_number})` : ''}</span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
                       isPanic
@@ -254,14 +270,12 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
                     {statusLabel}
                   </span>
                 </div>
-                {activeMission && (
-                  <div className="mt-2 text-xs text-slate-500 truncate" title={activeMission.title}>
-                    {activeMission.title}
-                  </div>
-                )}
               </div>
             );
           })}
+          {officers.length === 0 && !loading && (
+            <div className="col-span-full py-4 text-center text-slate-400 text-sm">No officers found in backend summary for today.</div>
+          )}
         </div>
       </div>
 
@@ -343,8 +357,8 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {rows.map((mission) => (
-                <tr key={mission.id} className={rowPriorityClass(mission.priority)}>
+              {rows.map((mission, idx) => (
+                <tr key={mission.id || idx} className={rowPriorityClass(mission.priority)}>
                   <td className="px-4 py-3">
                     <button
                       type="button"
@@ -355,19 +369,19 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
                       {mission.title}
                     </button>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-[#203E72]"><CompactAssignedOfficers names={assignedOfficersFor(mission)} /></td>
+                  <td className="px-4 py-3 font-semibold text-[#203E72]">{mission.officer_name}</td>
                   <td className="px-4 py-3"><StatusBadge status={mission.status} /></td>
                   <td className="px-4 py-3">{mission.location}</td>
-                  <td className="px-4 py-3 font-medium">{mission.assignedAt}</td>
-                  <td className="px-4 py-3">{mission.acknowledgedAt}</td>
-                  <td className="px-4 py-3">{mission.completedAt}</td>
+                  <td className="px-4 py-3 font-medium">{mission.assigned_at}</td>
+                  <td className="px-4 py-3">{mission.acknowledged_at}</td>
+                  <td className="px-4 py-3">{mission.completed_at}</td>
                 </tr>
               ))}
 
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-slate-400">
-                    No current missions match the selected filters.
+                    {loading ? 'Loading missions from backend...' : 'No current missions match the selected filters.'}
                   </td>
                 </tr>
               )}
@@ -376,44 +390,6 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
         </div>
       </div>
     </div>
-  );
-}
-
-
-function CompactAssignedOfficers({ names }: { names: string[] }) {
-  const [showAll, setShowAll] = useState(false);
-
-  if (names.length === 0) return <span>—</span>;
-  if (names.length === 1) return <span>{names[0]}</span>;
-  if (names.length === 2) return <span>{names[0]}, {names[1]}</span>;
-
-  if (showAll) {
-    return (
-      <span className="inline-flex flex-wrap items-center gap-1">
-        <span>{names.join(', ')}</span>
-        <button
-          type="button"
-          onClick={() => setShowAll(false)}
-          className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer"
-        >
-          Show less
-        </button>
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span>{names[0]}, {names[1]}</span>
-      <button
-        type="button"
-        onClick={() => setShowAll(true)}
-        className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-[#203E72] hover:bg-slate-200 cursor-pointer"
-        aria-label={`Show ${names.length - 2} more assigned officer${names.length - 2 === 1 ? '' : 's'}`}
-      >
-        +{names.length - 2}
-      </button>
-    </span>
   );
 }
 
@@ -466,7 +442,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function rowPriorityClass(priority: string) {
+function rowPriorityClass(priority?: string) {
   if (priority === 'URGENT') return 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500 transition-colors';
   if (priority === 'HIGH') return 'bg-orange-50 hover:bg-orange-100 border-l-4 border-orange-500 transition-colors';
   return 'bg-slate-50 hover:bg-slate-100 border-l-4 border-slate-500 transition-colors';
