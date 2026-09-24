@@ -77,12 +77,14 @@ class ShiftSerializer(serializers.ModelSerializer):
             "status",
             "started_at",
             "ended_at",
+            "ended_automatically",
             "duration_seconds",
             "start_latitude",
             "start_longitude",
             "end_latitude",
             "end_longitude",
         ]
+        read_only_fields = ["ended_automatically"]
  
  
 class CurrentMissionSerializer(serializers.Serializer):

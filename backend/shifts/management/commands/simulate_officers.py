@@ -7,7 +7,15 @@ This decouples the web squad from Android's schedule and doubles as the demo
 harness on the day.
 
     python manage.py simulate_officers --officers 3 --minutes 30
-    python manage.py simulate_officers --stop
+    python manage.py simulate_officers --badges TP-20028,TP-012AT8 --backfill-minutes 90
+    python manage.py simulate_officers --stop --badges TP-20028,TP-012AT8
+
+--backfill-minutes writes the route an officer "already walked" before the
+live loop starts, so the day's trail has a shape to show from the first second
+of a demo instead of being a single dot until the command has run a while.
+
+--badges drives officers who already exist, so the officer carrying a mission
+in the demo is the same one leaving the trail on the map.
 """
 
 import math
@@ -17,8 +25,10 @@ import uuid
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.registry import get_setting
 from shifts import services
@@ -41,6 +51,19 @@ SIM_NAMES = [
 ]
 
 
+def _split_badges(raw: str) -> list[str]:
+    return [badge.strip() for badge in raw.split(",") if badge.strip()]
+
+
+def _has_live_token(officer) -> bool:
+    """The test end_expired_shifts() applies: unexpired and not blacklisted."""
+    return OutstandingToken.objects.filter(
+        user=officer,
+        expires_at__gt=timezone.now(),
+        blacklistedtoken__isnull=True,
+    ).exists()
+
+
 class Command(BaseCommand):
     help = "Create simulated officers on shift and stream location pings (§11)."
 
@@ -56,21 +79,54 @@ class Command(BaseCommand):
             help="Seconds between pings. Defaults to the SystemSetting value.",
         )
         parser.add_argument(
+            "--backfill-minutes",
+            type=int,
+            default=0,
+            help="Minutes of past route to write before going live, for the trail.",
+        )
+        parser.add_argument(
+            "--backfill-interval",
+            type=int,
+            default=30,
+            help="Seconds between backfilled pings. Separate from --interval, which "
+            "is usually shortened for the camera.",
+        )
+        parser.add_argument(
+            "--badges",
+            default="",
+            help="Comma-separated badge numbers of existing officers to drive "
+            "instead of creating simulated ones.",
+        )
+        parser.add_argument(
             "--stop",
             action="store_true",
-            help="End all simulated shifts and exit.",
+            help="End simulated shifts, and any --badges shifts, then exit.",
         )
 
     def handle(self, *args, **options):
-        if options["stop"]:
-            return self._stop()
+        badges = _split_badges(options["badges"])
 
-        count = min(options["officers"], len(SIM_NAMES))
+        if options["stop"]:
+            return self._stop(badges)
+
         interval = options["interval"] or get_setting("location_ping_interval_seconds")
-        officers = [self._ensure_officer(i) for i in range(count)]
+
+        if badges:
+            officers = [self._existing_officer(badge) for badge in badges]
+        else:
+            count = min(options["officers"], len(SIM_NAMES))
+            officers = [self._ensure_officer(i) for i in range(count)]
 
         walkers = []
         for officer in officers:
+            # A simulated officer never logs in, so nothing would issue them a
+            # refresh token — and end_expired_shifts() would close the shift on
+            # the dispatcher's next poll. Issuing one gives them a live session
+            # for the same 12 hours a real login would. An officer already
+            # signed in on a phone has one, and a second would outlive the
+            # session their shift belongs to.
+            if not _has_live_token(officer):
+                RefreshToken.for_user(officer)
             shift, _ = services.start_shift(officer)
             walkers.append(
                 Walker(
@@ -82,11 +138,23 @@ class Command(BaseCommand):
                 )
             )
 
+        self._backfill(
+            walkers,
+            minutes=options["backfill_minutes"],
+            spacing=max(options["backfill_interval"], 1),
+        )
+
         self.stdout.write(
             self.style.SUCCESS(
-                f"{count} officers on shift, pinging every {interval}s. Ctrl-C to stop."
+                f"{len(walkers)} officers on shift, pinging every {interval}s. "
+                "Ctrl-C to stop."
             )
         )
+        # Badges only, never full_name: a Windows console is cp1252 and an
+        # Arabic name raises UnicodeEncodeError, which would kill the run
+        # after the shifts had already been started.
+        for walker in walkers:
+            self.stdout.write(f"  {walker.user.badge_number}")
 
         deadline = timezone.now() + timedelta(minutes=options["minutes"])
         try:
@@ -108,6 +176,62 @@ class Command(BaseCommand):
 
         self.stdout.write("Done. Shifts left active — run --stop to end them.")
 
+    def _backfill(self, walkers, minutes: int, spacing: int):
+        """
+        Walk each officer from `minutes` ago up to now, so the trail already
+        has a shape the moment the dispatcher clicks them.
+
+        Two clamps on how far back that reaches: local midnight, because the
+        trail endpoint serves one calendar day and anything earlier would be
+        stored but never shown; and the shift, whose start is pulled back to
+        match so the trail does not predate the duty period it belongs to. A
+        shift that has been running longer already keeps its own start.
+        """
+        if minutes <= 0:
+            return
+
+        now = timezone.now()
+        midnight = timezone.localtime(now).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        earliest = max(now - timedelta(minutes=minutes), midnight)
+
+        rows = []
+        for walker in walkers:
+            if walker.shift.started_at > earliest:
+                walker.shift.started_at = earliest
+                walker.shift.save(update_fields=["started_at"])
+
+            start = max(earliest, walker.shift.started_at)
+            steps = int((now - start).total_seconds() // spacing)
+            rows.extend(
+                walker.step(start + timedelta(seconds=step * spacing))
+                for step in range(steps)
+            )
+
+        LocationPing.objects.bulk_create(rows, ignore_conflicts=True)
+        for walker in walkers:
+            walker.shift.distance_m = services.shift_distance_m(walker.shift)
+            walker.shift.save(update_fields=["distance_m"])
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Backfilled {len(rows)} pings covering the last "
+                f"{int((now - earliest).total_seconds() // 60)} minutes."
+            )
+        )
+
+    def _existing_officer(self, badge: str) -> "User":
+        officer = User.objects.filter(badge_number__iexact=badge, role="officer").first()
+        if officer is None:
+            known = ", ".join(
+                User.objects.filter(role="officer", is_active=True)
+                .order_by("badge_number")
+                .values_list("badge_number", flat=True)[:20]
+            )
+            raise CommandError(f"No officer with badge {badge}. Known badges: {known}")
+        return officer
+
     def _ensure_officer(self, index: int) -> "User":
         username = f"{SIM_USERNAME_PREFIX}{index + 1}"
         officer = User.objects.filter(username=username).first()
@@ -122,13 +246,19 @@ class Command(BaseCommand):
             role="officer",
         )
 
-    def _stop(self):
+    def _stop(self, badges):
+        officers = list(User.objects.filter(username__startswith=SIM_USERNAME_PREFIX))
+        # Only the badges asked for: ending every officer's shift would put a
+        # real officer off duty on the strength of a demo command.
+        for badge in badges:
+            officers.append(self._existing_officer(badge))
+
         ended = 0
-        for officer in User.objects.filter(username__startswith=SIM_USERNAME_PREFIX):
+        for officer in officers:
             if Shift.objects.filter(officer=officer, status=Shift.Status.ACTIVE).exists():
                 services.end_shift(officer)
                 ended += 1
-        self.stdout.write(self.style.SUCCESS(f"Ended {ended} simulated shifts."))
+        self.stdout.write(self.style.SUCCESS(f"Ended {ended} shifts."))
 
 
 class Walker:

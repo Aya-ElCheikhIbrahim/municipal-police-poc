@@ -4,12 +4,21 @@ import { officerIcon } from './leafletIcons';
 import { displayOfficerStatus, pingToCoords } from '../officers/types';
 import type { ActiveOfficer } from '../officers/types';
 
+/** Module-level so the default never changes identity between renders. */
+const NO_EXTRA_SELECTION: number[] = [];
+
 interface UseOfficerMarkersOptions {
   mapRef: React.RefObject<L.Map | null>;
   officers: ActiveOfficer[];
   selectedOfficerId: number | null;
   onSelect: (officerId: number) => void;
   followSelected?: boolean;
+  /**
+   * Extra officers drawn as selected. The live map follows one officer at a
+   * time, but the create mission form assigns several at once and highlights
+   * every one of them.
+   */
+  selectedOfficerIds?: number[];
 }
 export function useOfficerMarkers({
   mapRef,
@@ -17,6 +26,7 @@ export function useOfficerMarkers({
   selectedOfficerId,
   onSelect,
   followSelected = true,
+  selectedOfficerIds = NO_EXTRA_SELECTION,
 }: UseOfficerMarkersOptions) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
   const onSelectRef = useRef(onSelect);
@@ -39,7 +49,8 @@ export function useOfficerMarkers({
       const id = entry.officer.id;
       seen.add(id);
 
-      const icon = officerIcon(displayOfficerStatus(entry), id === selectedOfficerId);
+      const isSelected = id === selectedOfficerId || selectedOfficerIds.includes(id);
+      const icon = officerIcon(displayOfficerStatus(entry), isSelected);
       const existing = markers.get(id);
 
       if (existing) {
@@ -59,7 +70,7 @@ export function useOfficerMarkers({
         markers.delete(id);
       }
     }
-  }, [mapRef, officers, selectedOfficerId]);
+  }, [mapRef, officers, selectedOfficerId, selectedOfficerIds]);
 
   // Pan to the selected officer. Separate effect so a poll updating positions
   // does not yank the map back every 15 seconds.

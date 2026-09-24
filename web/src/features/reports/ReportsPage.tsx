@@ -9,6 +9,7 @@ import { DailyActivity, type DailyViewMode } from './DailyActivity';
 import { WeeklySummary } from './WeeklySummary';
 import { OfficerReport } from './OfficerReport';
 import { CustomRangeReport } from './CustomRangeReport';
+import { MissionsReport } from './MissionsReport';
 
 function getLocalDateString(date: Date) {
   const year = date.getFullYear();
@@ -17,8 +18,14 @@ function getLocalDateString(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function ReportsPage() {
-  const [reportSubTab, setReportSubTab] = useState<ReportSubTab>('Daily activity');
+type ReportsView = ReportSubTab | 'Missions';
+
+interface ReportsPageProps {
+  onMissionSelect: (missionId: number) => void;
+}
+
+export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
+  const [reportSubTab, setReportSubTab] = useState<ReportsView>('Daily activity');
   const [dailyView, setDailyView] = useState<DailyViewMode>('SUMMARY');
   const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
 
@@ -56,7 +63,7 @@ export function ReportsPage() {
     });
   };
 
-  const handleTabChange = (tab: ReportSubTab) => {
+  const handleTabChange = (tab: ReportsView) => {
     setReportSubTab(tab);
     setSelectedOfficer(null);
     setFilters((prev) => ({
@@ -90,9 +97,10 @@ export function ReportsPage() {
       <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto">
         <OfficerReport
           officerName={selectedOfficer}
-          sourceTab={reportSubTab}
+          sourceTab={reportSubTab === 'Missions' ? 'Daily activity' : reportSubTab}
           filters={filters}
           onBack={() => setSelectedOfficer(null)}
+          onMissionSelect={onMissionSelect}
         />
       </div>
     );
@@ -101,20 +109,35 @@ export function ReportsPage() {
   return (
     <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="bg-white/80 p-0.5 rounded-md border border-slate-200 flex items-center">
-          {(['Daily activity', 'Weekly summary', 'Custom range'] as ReportSubTab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => handleTabChange(tab)}
-              className={`px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold transition-all cursor-pointer ${
-                reportSubTab === tab
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="bg-white/80 p-0.5 rounded-md border border-slate-200 flex items-center">
+            {(['Daily activity', 'Weekly summary', 'Custom range'] as ReportSubTab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={`px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold transition-all cursor-pointer ${
+                  reportSubTab === tab
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('Missions')}
+            className={`ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer border ${
+              reportSubTab === 'Missions'
+                ? 'bg-[#203E72] text-white border-[#203E72] shadow-sm'
+                : 'bg-blue-50 text-[#203E72] border-blue-200 hover:bg-blue-100'
+            }`}
+          >
+            <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70" />
+            Mission Overview
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -158,7 +181,9 @@ export function ReportsPage() {
         </div>
       )}
 
-      <div className="bg-white/90 backdrop-blur rounded-lg border border-slate-200/80 shadow-xs">
+      {reportSubTab !== 'Missions' && (
+        <div>
+          <div className="bg-white/90 backdrop-blur rounded-lg border border-slate-200/80 shadow-xs">
         <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
           <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">
             Filter Report
@@ -286,6 +311,9 @@ export function ReportsPage() {
         </div>
       </div>
 
+        </div>
+      )}
+
       {reportSubTab === 'Daily activity' && (
         <DailyActivity
           filters={filters}
@@ -300,6 +328,10 @@ export function ReportsPage() {
 
       {reportSubTab === 'Custom range' && (
         <CustomRangeReport filters={filters} onOfficerSelect={setSelectedOfficer} />
+      )}
+
+      {reportSubTab === 'Missions' && (
+        <MissionsReport onMissionSelect={onMissionSelect} />
       )}
 
       <style>{`

@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../shared/api/client';
 import { useLeafletMap } from '../map/useLeafletMap';
 import { useMissionPin } from '../map/useMissionPin';
-import { searchTripoliLocations } from '../../data/tripoliLocations';
+import { useOfficerMarkers } from '../map/useOfficerMarkers';
+import { reverseGeocode } from '../map/reverseGeocode';
+import { locationCoords, searchTripoliLocations } from '../../data/tripoliLocations';
 import { MISSION_PRIORITIES, priorityLabel } from './types';
 import type { CreateMissionRequest, MissionPriority } from './types';
 import type { ActiveOfficer } from '../officers/types';
 
 const TRIPOLI_CENTRE: [number, number] = [34.4367, 35.8497];
+
+/** Close enough to see the streets of the chosen neighbourhood. */
+const AREA_ZOOM = 15;
 
 interface CreateMissionPageProps {
   officers: ActiveOfficer[];
@@ -29,29 +34,128 @@ export function CreateMissionPage({
   const [address, setAddress] = useState('');
   const [selectedOfficerIds, setSelectedOfficerIds] = useState<number[]>([]);
   const [deadline, setDeadline] = useState('');
-  const [coords, setCoords] = useState<[number, number]>(TRIPOLI_CENTRE);
+  // Null until the supervisor clicks: the mission has no location yet, and the
+  // map shows no pin.
+  const [coords, setCoords] = useState<[number, number] | null>(null);
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // How the Address field was filled, which decides the hint beside its label.
+  // Typing resets it: what the supervisor wrote is their own.
+  const [addressSource, setAddressSource] =
+    useState<'typed' | 'osm' | 'offline' | 'area'>('typed');
+  const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
+  const lookupRef = useRef<AbortController | null>(null);
+
+  const toggleOfficer = useCallback((id: number) => {
+    setSelectedOfficerIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }, []);
+
+  /**
+   * Clicking an officer on the map ticks the same box as clicking their name.
+   * The list scrolls to them as well, otherwise a supervisor with a screen
+   * full of officers ticks a name that is out of sight and sees nothing
+   * happen.
+   */
+  const officerListRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleOfficerFromMap = useCallback(
+    (id: number) => {
+      toggleOfficer(id);
+      officerListRef.current
+        ?.querySelector(`[data-officer-id="${id}"]`)
+        ?.scrollIntoView({ block: 'nearest' });
+    },
+    [toggleOfficer]
+  );
+
+  /**
+   * A click both moves the pin and names the spot. The lookup is fired and
+   * forgotten: the pin must not wait for the network, and a second click
+   * aborts the first so a slow reply cannot overwrite a newer address.
+   */
+  const handleMapClick = useCallback(async (next: [number, number]) => {
+    setCoords(next);
+    setSuggestions([]);
+
+    lookupRef.current?.abort();
+    const controller = new AbortController();
+    lookupRef.current = controller;
+    setIsLookingUpAddress(true);
+
+    try {
+      const result = await reverseGeocode(next[0], next[1], controller.signal);
+      setAddress(result.address);
+      setAddressSource(result.source);
+      setIsLookingUpAddress(false);
+    } catch {
+      // Aborted — the click that replaced this one owns the field now.
+    }
+  }, []);
+
+  // Leaving the form mid-lookup must not leave a fetch running.
+  useEffect(() => () => lookupRef.current?.abort(), []);
+
   const { containerRef, mapRef } = useLeafletMap({
     centre: TRIPOLI_CENTRE,
     zoom: 14,
-    onClick: setCoords,
+    onClick: handleMapClick,
   });
 
   useMissionPin({ mapRef, coords });
 
-  const toggleOfficer = (id: number) => {
-    setSelectedOfficerIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  // Officers on duty, as on the live map: green is available, blue is on a
+  // mission. followSelected is off because panning to a ticked officer would
+  // pull the map away from the pin the supervisor just placed.
+  useOfficerMarkers({
+    mapRef,
+    officers,
+    selectedOfficerId: null,
+    selectedOfficerIds,
+    onSelect: toggleOfficerFromMap,
+    followSelected: false,
+  });
+
+  /**
+   * Picking a neighbourhood places the pin too. The address alone carries no
+   * coordinates, and latitude and longitude are what the mission is actually
+   * saved with — so a supervisor who only chose a name would otherwise be
+   * stopped at the Create button with a mission that looks complete.
+   *
+   * The pin lands on the centre of the area, near enough to identify it and
+   * close enough to drag the eye to the right part of the map; clicking the
+   * map afterwards still sets the exact spot.
+   */
+  const pickSuggestion = useCallback((location: string) => {
+    setAddress(location);
+    setSuggestions([]);
+
+    const centre = locationCoords(location);
+    if (!centre) return;
+
+    lookupRef.current?.abort();
+    setIsLookingUpAddress(false);
+    setCoords(centre);
+    setAddressSource('area');
+    mapRef.current?.flyTo(centre, AREA_ZOOM);
+  }, [mapRef]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
+
+    if (!coords) {
+      setErrors({
+        detail:
+          'Set where the mission is: click the map, or pick an area from the address list.',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -166,7 +270,10 @@ export function CreateMissionPage({
             <label className="block text-xs font-medium text-slate-500 mb-0.5">
               Assign to ({selectedOfficerIds.length} selected)
             </label>
-            <div className="border border-slate-200 rounded-md max-h-32 lg:max-h-none lg:flex-1 lg:min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 p-1 bg-white">
+            <div
+              ref={officerListRef}
+              className="border border-slate-200 rounded-md max-h-32 lg:max-h-none lg:flex-1 lg:min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 p-1 bg-white"
+            >
               {officers.length === 0 ? (
                 <p className="p-3 text-xs sm:text-sm text-amber-600">
                   No officers on duty right now.
@@ -177,7 +284,10 @@ export function CreateMissionPage({
                   return (
                     <label
                       key={entry.officer.id}
-                      className="flex items-center gap-2 px-2.5 py-1 hover:bg-slate-50 cursor-pointer rounded-sm"
+                      data-officer-id={entry.officer.id}
+                      className={`flex items-center gap-2 px-2.5 py-1 hover:bg-slate-50 cursor-pointer rounded-sm ${
+                        isChecked ? 'bg-slate-50' : ''
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -199,12 +309,24 @@ export function CreateMissionPage({
             <div className="relative">
               <label className="block text-xs font-medium text-slate-500 mb-0.5">
                 Address
+                {isLookingUpAddress && (
+                  <span className="ml-1.5 font-normal text-slate-400">finding…</span>
+                )}
+                {!isLookingUpAddress && addressSource === 'offline' && (
+                  <span className="ml-1.5 font-normal text-amber-600">nearest area</span>
+                )}
+                {!isLookingUpAddress && addressSource === 'area' && (
+                  <span className="ml-1.5 font-normal text-slate-400">
+                    pinned on the area — click the map for the exact spot
+                  </span>
+                )}
               </label>
               <input
                 type="text"
                 value={address}
                 onChange={(e) => {
                   setAddress(e.target.value);
+                  setAddressSource('typed');
                   setSuggestions(searchTripoliLocations(e.target.value));
                 }}
                 placeholder="Neighbourhood or street"
@@ -216,10 +338,7 @@ export function CreateMissionPage({
                     <button
                       key={location}
                       type="button"
-                      onClick={() => {
-                        setAddress(location);
-                        setSuggestions([]);
-                      }}
+                      onClick={() => pickSuggestion(location)}
                       className="w-full text-left px-4 py-2.5 hover:bg-gray-100 text-sm sm:text-base cursor-pointer"
                     >
                       {location}
@@ -271,12 +390,19 @@ export function CreateMissionPage({
 
           <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 z-10 pointer-events-none">
             <div className="bg-white/95 backdrop-blur px-3 sm:px-4 py-2 sm:py-3 rounded-md shadow-md text-sm sm:text-base text-slate-700 border border-slate-200">
-              Click anywhere on the map to set the mission location.
+              Click the map to place the mission and fill in the address. The dots
+              are officers on duty — click one to assign them.
             </div>
           </div>
 
-          <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-10 bg-white/95 backdrop-blur px-3 py-1.5 rounded text-xs sm:text-sm text-slate-700 font-mono shadow-xs border border-slate-200">
-            {coords[0].toFixed(4)}, {coords[1].toFixed(4)}
+          <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-10 bg-white/95 backdrop-blur px-3 py-1.5 rounded text-xs sm:text-sm shadow-xs border border-slate-200">
+            {coords ? (
+              <span className="text-slate-700 font-mono">
+                {coords[0].toFixed(4)}, {coords[1].toFixed(4)}
+              </span>
+            ) : (
+              <span className="text-slate-500">No location set</span>
+            )}
           </div>
         </div>
       </div>

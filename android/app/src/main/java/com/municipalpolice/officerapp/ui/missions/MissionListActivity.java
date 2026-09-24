@@ -25,11 +25,13 @@ import com.municipalpolice.officerapp.data.Callback;
 import com.municipalpolice.officerapp.data.MissionRepository;
 import com.municipalpolice.officerapp.data.NetworkMonitor;
 import com.municipalpolice.officerapp.data.RealLocationTracker;
+import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
 import com.municipalpolice.officerapp.data.ShiftRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
+import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.model.Shift;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.EndShiftDialogFragment;
@@ -54,6 +56,7 @@ public class MissionListActivity extends BaseActivity
 
     private ViewFlipper flipper;
     private SwipeRefreshLayout swipeRefresh;
+    private TextView tvTopBarTitle;
     private TextView tvStatusPill;
     private View groupOfflineNotice;
 
@@ -68,6 +71,15 @@ public class MissionListActivity extends BaseActivity
 
     private final Handler handler =
             new Handler(Looper.getMainLooper());
+
+    private static final long POLL_INTERVAL_MS = 5000L; // 5 seconds polling interval
+    private final Runnable pollingRunnable = new Runnable() {
+        @Override
+        public void run() {
+            loadMissionsQuietly();
+            handler.postDelayed(this, POLL_INTERVAL_MS);
+        }
+    };
 
     private final List<Mission> allMissions =
             new ArrayList<>();
@@ -135,6 +147,24 @@ public class MissionListActivity extends BaseActivity
                 findViewById(
                         R.id.tvStatusPill
                 );
+
+        tvTopBarTitle =
+                findViewById(
+                        R.id.tvTopBarTitle
+                );
+
+        Officer officer =
+                RetrofitAuthRepository
+                        .getInstance(prefs)
+                        .getCachedOfficer();
+
+        if (tvTopBarTitle != null) {
+            tvTopBarTitle.setText(
+                    officer != null
+                            ? officer.getFullName()
+                            : MissionListActivity.this.getString(R.string.app_name)
+            );
+        }
 
         groupOfflineNotice =
                 findViewById(
@@ -294,13 +324,19 @@ public class MissionListActivity extends BaseActivity
         if (panicButton != null) {
 
             panicButton.setOnClickListener(
-                    v ->
-                            PanicAlertDialogFragment
-                                    .newInstance()
-                                    .show(
-                                            getSupportFragmentManager(),
-                                            "panic"
-                                    )
+                    v -> {
+                        PrefsManager prefs = new PrefsManager(this);
+                        if (!prefs.isShiftActive()) {
+                            Toast.makeText(this, "Please start a shift before pressing the panic button.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        PanicAlertDialogFragment
+                                .newInstance()
+                                .show(
+                                        getSupportFragmentManager(),
+                                        "panic"
+                                );
+                    }
             );
         }
 
@@ -609,12 +645,18 @@ public class MissionListActivity extends BaseActivity
 
     @Override
     public void onPanicSent() {
-
         Toast.makeText(
                 this,
-                R.string.panic_toast_sent,
-                Toast.LENGTH_SHORT
+                "PANIC ACTIVE - DISPATCH NOTIFIED",
+                Toast.LENGTH_LONG
         ).show();
+
+        View panicButton = findViewById(R.id.btnPanicCircle);
+        if (panicButton instanceof android.widget.ImageView) {
+            ((android.widget.ImageView) panicButton).setColorFilter(
+                    ContextCompat.getColor(this, R.color.urgent_alert)
+            );
+        }
     }
 
 
@@ -639,11 +681,16 @@ public class MissionListActivity extends BaseActivity
         }
 
         updateUserLocation();
+
+        handler.removeCallbacks(pollingRunnable);
+        handler.postDelayed(pollingRunnable, POLL_INTERVAL_MS);
     }
 
 
     @Override
     protected void onStop() {
+
+        handler.removeCallbacks(pollingRunnable);
 
         if (networkMonitor != null) {
             networkMonitor.stop();
@@ -685,11 +732,11 @@ public class MissionListActivity extends BaseActivity
 
         super.onResume();
 
-        if (firstNetworkResultReceived &&
-                backendOnline) {
+        // Always fetch fresh missions when returning to screen/app
+        loadMissionsQuietly();
 
-            loadMissions();
-        }
+        handler.removeCallbacks(pollingRunnable);
+        handler.postDelayed(pollingRunnable, POLL_INTERVAL_MS);
     }
 
 
@@ -754,8 +801,18 @@ public class MissionListActivity extends BaseActivity
     // =========================================================
 
     private void loadMissions() {
+        loadMissionsInternal(true);
+    }
 
-        showLoading();
+    private void loadMissionsQuietly() {
+        loadMissionsInternal(false);
+    }
+
+    private void loadMissionsInternal(boolean showLoadingIndicator) {
+
+        if (showLoadingIndicator && allMissions.isEmpty()) {
+            showLoading();
+        }
 
         updateUserLocation();
 
@@ -774,8 +831,6 @@ public class MissionListActivity extends BaseActivity
                             );
 
                             allMissions.clear();
-
-                            int openMissionCount = 0;
 
                             if (result != null) {
 
@@ -796,28 +851,7 @@ public class MissionListActivity extends BaseActivity
                                                     + " workedSeconds=" + mission.getWorkedSeconds()
                                                     + " resumedAt=" + mission.getResumedAt()
                                     );
-
-                                    if (isOpenMission(
-                                            mission
-                                    )) {
-
-                                        openMissionCount++;
-                                    }
                                 }
-                            }
-
-                            TextView tvMissionCount =
-                                    findViewById(
-                                            R.id.tvMissionCount
-                                    );
-
-                            if (tvMissionCount != null) {
-
-                                tvMissionCount.setText(
-                                        String.valueOf(
-                                                openMissionCount
-                                        )
-                                );
                             }
 
                             renderFilteredList();
@@ -836,16 +870,18 @@ public class MissionListActivity extends BaseActivity
                                     false
                             );
 
-                            Toast.makeText(
-                                    MissionListActivity.this,
-                                    "Error: " +
-                                            safeMessage(
-                                                    error
-                                            ),
-                                    Toast.LENGTH_LONG
-                            ).show();
+                            if (showLoadingIndicator || allMissions.isEmpty()) {
+                                Toast.makeText(
+                                        MissionListActivity.this,
+                                        "Error: " +
+                                                safeMessage(
+                                                        error
+                                                ),
+                                        Toast.LENGTH_LONG
+                                ).show();
 
-                            showErrorPage();
+                                showErrorPage();
+                            }
                         });
                     }
                 }

@@ -12,8 +12,11 @@ from rest_framework.views import APIView
 from core.permissions import IsSupervisor
 from . import services
 from .serializers import (
+    ActivityRowSerializer,
     DailyOfficerReportSerializer,
+    OfficerReportSerializer,
     WeeklySummarySerializer,
+    DailySummarySerializer,
 )
 from reportlab.pdfgen import canvas
 
@@ -32,7 +35,14 @@ from .arabic import (
     pdf_value,
     written_date,
 )
-from .params import daily_params, weekly_params    
+from . import activity
+from .params import (
+    activity_params,
+    daily_params,
+    daily_summary_params,
+    officer_report_params,
+    weekly_params,
+)
 class DailyOfficerReportView(APIView):
     """
     GET /api/v1/reports/daily/
@@ -108,15 +118,29 @@ class WeeklySummaryView(APIView):
                 required=True,
                 type=str,
             ),
+            OpenApiParameter(
+                name="officer_id",
+                description="Narrow the whole report to one officer.",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="area_id",
+                description="Narrow the whole report to one area.",
+                required=False,
+                type=int,
+            ),
         ],
         responses=WeeklySummarySerializer,
     )
     def get(self, request):
-        start_date, end_date = weekly_params(request)
+        start_date, end_date, officer_id, area_id = weekly_params(request)
 
         report = services.generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
+            officer_id=officer_id,
+            area_id=area_id,
         )
 
         return Response(
@@ -287,10 +311,12 @@ class WeeklySummaryCSVView(APIView):
         responses={(200, "text/csv"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date, end_date = weekly_params(request)
+        start_date, end_date, officer_id, area_id = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
+            officer_id=officer_id,
+            area_id=area_id,
         )
 
         response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -368,10 +394,12 @@ class WeeklySummaryPDFView(APIView):
         responses={(200, "application/pdf"): OpenApiTypes.BINARY},
     )
     def get(self, request):
-        start_date, end_date = weekly_params(request)
+        start_date, end_date, officer_id, area_id = weekly_params(request)
         report = generate_weekly_summary(
             start_date=start_date,
             end_date=end_date,
+            officer_id=officer_id,
+            area_id=area_id,
         )
 
         response = HttpResponse(content_type="application/pdf")
@@ -440,3 +468,175 @@ class WeeklySummaryPDFView(APIView):
         pdf.save()
 
         return response
+
+
+
+
+class DailySummaryView(APIView):
+    """
+    GET /api/v1/reports/daily/summary/ - section 4.8, the whole shift for one day.
+
+    The per-officer report answers for one person and backs the exports; this
+    one backs the dashboard table listing everyone who was on duty.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSupervisor,
+    ]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                description="Report date, YYYY-MM-DD.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="status",
+                description="Filter missions by status.",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="area_id",
+                description="Only officers who worked in this area.",
+                required=False,
+                type=int,
+            ),
+        ],
+        responses=DailySummarySerializer,
+    )
+    def get(self, request):
+        date, status_filter, area_id = daily_summary_params(request)
+
+        report = services.generate_daily_summary(
+            date=date,
+            status_filter=status_filter,
+            area_id=area_id,
+        )
+
+        return Response(DailySummarySerializer(report).data)
+
+class ActivityFeedView(APIView):
+    """
+    GET /api/v1/reports/activity/ - what happened on one day, in order.
+
+    Backs the Time Snapshot screen ("what went on in this area between these
+    hours") and the officer report's timeline ("what did this officer do
+    today"). Same question, different filters.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSupervisor,
+    ]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                description="Day to look at, YYYY-MM-DD.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="from_time",
+                description="Start of the window, HH:MM. Defaults to the start of the day.",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="to_time",
+                description="End of the window, HH:MM. Defaults to the end of the day.",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="officer_id",
+                description="Only what this officer took part in.",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="area_id",
+                description="Only what happened in this area.",
+                required=False,
+                type=int,
+            ),
+        ],
+        responses=ActivityRowSerializer(many=True),
+    )
+    def get(self, request):
+        date, from_time, to_time, officer_id, area_id = activity_params(request)
+
+        rows = activity.activity_feed(
+            date=date,
+            from_time=from_time,
+            to_time=to_time,
+            officer_id=officer_id,
+            area_id=area_id,
+        )
+
+        return Response(ActivityRowSerializer(rows, many=True).data)
+
+
+class OfficerReportView(APIView):
+    """
+    GET /api/v1/reports/officer/ - the page behind an officer's name.
+
+    Day, week or custom range: the screen picks the span, this answers for it.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSupervisor,
+    ]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="officer_id",
+                description="The officer to report on.",
+                required=True,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="start_date",
+                description="Start date, YYYY-MM-DD. Use the same day twice for a single day.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="end_date",
+                description="End date, YYYY-MM-DD.",
+                required=True,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="status",
+                description="Only missions with this status, in the history and the counts.",
+                required=False,
+                type=str,
+            ),
+        ],
+        responses=OfficerReportSerializer,
+    )
+    def get(self, request):
+        officer_id, start_date, end_date, status_filter = officer_report_params(request)
+
+        report = services.generate_officer_report(
+            officer_id=officer_id,
+            start_date=start_date,
+            end_date=end_date,
+            status_filter=status_filter,
+        )
+
+        if report is None:
+            return Response(
+                {"detail": "Officer not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(OfficerReportSerializer(report).data)
