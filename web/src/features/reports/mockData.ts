@@ -1,3 +1,4 @@
+/*
 import type { TripoliLocation } from '../../data/tripoliLocations';
 
 export type ReportSubTab =
@@ -42,7 +43,7 @@ export interface FilterState {
 
 /* =========================================================
    DAILY ACTIVITY
-========================================================= */
+========================================================= 
 
 export interface DailyOfficerRecord {
   name: string;
@@ -70,7 +71,7 @@ export interface DailyOfficerRecord {
 
 /* =========================================================
    WEEKLY SUMMARY
-========================================================= */
+========================================================= 
 
 export interface WeeklyOfficerRecord {
   name: string;
@@ -88,7 +89,7 @@ export interface WeeklyOfficerRecord {
 
 /* =========================================================
    OFFICER REPORT
-========================================================= */
+========================================================= 
 
 export interface OfficerMissionRecord {
   id: number;
@@ -134,7 +135,7 @@ export interface OfficerActivityEvent {
 
 /* =========================================================
    DATE HELPERS
-========================================================= */
+========================================================= 
 
 const formatLocalDate = (date: Date) => {
   const year = date.getFullYear();
@@ -154,7 +155,7 @@ const dateDaysAgo = (daysAgo: number) => {
 
 /* =========================================================
    OFFICER PROFILES
-========================================================= */
+========================================================= 
 
 export const officerProfiles: Record<string, OfficerProfile> = {
   'Karim Haddad': {
@@ -187,7 +188,7 @@ export const officerProfiles: Record<string, OfficerProfile> = {
 
    One row = one officer's activity for the selected day.
    It is NOT one mission.
-========================================================= */
+========================================================= 
 
 export const dailyOfficerData: DailyOfficerRecord[] = [
   {
@@ -357,7 +358,7 @@ export const dailyOfficerData: DailyOfficerRecord[] = [
 
 /* =========================================================
    WEEKLY OFFICER DATA
-========================================================= */
+========================================================= 
 
 export const weeklyOfficerData: WeeklyOfficerRecord[] = [
   {
@@ -430,10 +431,10 @@ export const weeklyOfficerData: WeeklyOfficerRecord[] = [
    - duty hours
    - distance
    - panic totals
-========================================================= */
+========================================================= 
 
 export const officerPeriodData: OfficerPeriodRecord[] = [
-  /* ---------------- KARIM ---------------- */
+  /* ---------------- KARIM ---------------- 
 
   {
     officerName: 'Karim Haddad',
@@ -523,7 +524,7 @@ export const officerPeriodData: OfficerPeriodRecord[] = [
     panicEvents: 0,
   },
 
-  /* ---------------- LAYLA ---------------- */
+  /* ---------------- LAYLA ---------------- 
 
   {
     officerName: 'Layla Mansour',
@@ -589,7 +590,7 @@ export const officerPeriodData: OfficerPeriodRecord[] = [
     panicEvents: 0,
   },
 
-  /* ---------------- SAMIR ---------------- */
+  /* ---------------- SAMIR ---------------- 
 
   {
     officerName: 'Samir Youssef',
@@ -639,7 +640,7 @@ export const officerPeriodData: OfficerPeriodRecord[] = [
     panicEvents: 0,
   },
 
-  /* ---------------- NABIL ---------------- */
+  /* ---------------- NABIL ---------------- 
 
   {
     officerName: 'Nabil Khoury',
@@ -697,7 +698,7 @@ export const officerPeriodData: OfficerPeriodRecord[] = [
    opening an officer's report.
 
    TODAY < 7 DAYS < 30 DAYS
-========================================================= */
+========================================================= 
 
 export const officerMissionData: OfficerMissionRecord[] = [
   /* =======================================================
@@ -706,7 +707,7 @@ export const officerMissionData: OfficerMissionRecord[] = [
      Today:   2
      7 days:  5
      30 days: 8
-  ======================================================= */
+  ======================================================= 
 
   {
     id: 1,
@@ -826,7 +827,7 @@ export const officerMissionData: OfficerMissionRecord[] = [
      Today:   2
      7 days:  6
      30 days: 9
-  ======================================================= */
+  ======================================================= 
 
   {
     id: 20,
@@ -960,7 +961,7 @@ export const officerMissionData: OfficerMissionRecord[] = [
      Today:   2
      7 days:  5
      30 days: 8
-  ======================================================= */
+  ======================================================= 
 
   {
     id: 30,
@@ -1080,7 +1081,7 @@ export const officerMissionData: OfficerMissionRecord[] = [
      Today:   2
      7 days:  5
      30 days: 8
-  ======================================================= */
+  ======================================================= 
 
   {
     id: 40,
@@ -1200,7 +1201,7 @@ export const officerMissionData: OfficerMissionRecord[] = [
 
    Used by the web report prototype to demonstrate historical
    area/time lookups and "what was the officer doing?" details.
-========================================================= */
+========================================================= 
 
 export const officerActivityData: OfficerActivityEvent[] = [
   { id: 1001, officerName: 'Karim Haddad', date: dateDaysAgo(0), time: '08:00', location: 'Mina, Tripoli, Lebanon', activity: 'Started duty', details: 'Officer came on duty.' },
@@ -1234,3 +1235,4 @@ export const officerActivityData: OfficerActivityEvent[] = [
   { id: 1305, officerName: 'Nabil Khoury', date: dateDaysAgo(0), time: '22:10', location: 'Central, Tripoli, Lebanon', activity: 'Mission assigned', details: 'Emergency detachment patrol', missionId: 41 },
   { id: 1306, officerName: 'Nabil Khoury', date: dateDaysAgo(0), time: '01:15', location: 'Central, Tripoli, Lebanon', activity: 'Ended duty', details: 'Officer went off duty.' },
 ];
+*/

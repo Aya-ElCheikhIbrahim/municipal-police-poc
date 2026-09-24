@@ -1,14 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import {
-  type ReportSubTab,
-  type FilterState,
-  dailyOfficerData,
-} from './mockData';
 import { TRIPOLI_LOCATIONS } from '../../data/tripoliLocations';
-import { DailyActivity, type DailyViewMode } from './DailyActivity';
-import { WeeklySummary } from './WeeklySummary';
-import { OfficerReport } from './OfficerReport';
+import { useActiveOfficers } from '../officers/useOfficers';
+import { exportWeeklyCSV, exportWeeklyPDF } from './api';
 import { CustomRangeReport } from './CustomRangeReport';
+import { DailyActivity, type DailyViewMode } from './DailyActivity';
+import { OfficerReport } from './OfficerReport';
+import type { FilterState, ReportSubTab } from './types';
+import { WeeklySummary } from './WeeklySummary';
 
 function getLocalDateString(date: Date) {
   const year = date.getFullYear();
@@ -22,6 +20,7 @@ export function ReportsPage() {
   const [dailyView, setDailyView] = useState<DailyViewMode>('SUMMARY');
   const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
 
+  const { officers } = useActiveOfficers(false);
   const todayStr = getLocalDateString(new Date());
 
   const [filters, setFilters] = useState<FilterState>({
@@ -35,8 +34,6 @@ export function ReportsPage() {
     fromTime: '',
     toTime: '',
   });
-
-  const officerOptions = Array.from(new Set(dailyOfficerData.map((d) => d.name)));
 
   const handleFilterChange = (key: keyof FilterState, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -82,7 +79,11 @@ export function ReportsPage() {
   };
 
   const handleExportFiltered = (format: 'CSV' | 'PDF') => {
-    alert(`${format} export is not connected yet. The web app will download the file once the reports export endpoint is implemented.`);
+    if (format === 'CSV') {
+      exportWeeklyCSV(filters.startDate, filters.endDate);
+    } else {
+      exportWeeklyPDF(filters.startDate, filters.endDate);
+    }
   };
 
   if (selectedOfficer) {
@@ -184,7 +185,7 @@ export function ReportsPage() {
               />
               <OfficerFilter
                 value={filters.officer}
-                options={officerOptions}
+                options={officers}
                 onChange={(value) => handleFilterChange('officer', value)}
               />
               <LocationFilter
@@ -228,7 +229,7 @@ export function ReportsPage() {
               />
               <OfficerFilter
                 value={filters.officer}
-                options={officerOptions}
+                options={officers}
                 onChange={(value) => handleFilterChange('officer', value)}
               />
             </div>
@@ -245,7 +246,7 @@ export function ReportsPage() {
               </FilterField>
               <OfficerFilter
                 value={filters.officer}
-                options={officerOptions}
+                options={officers}
                 onChange={(value) => handleFilterChange('officer', value)}
               />
               <LocationFilter
@@ -274,7 +275,7 @@ export function ReportsPage() {
               </FilterField>
               <OfficerFilter
                 value={filters.officer}
-                options={officerOptions}
+                options={officers}
                 onChange={(value) => handleFilterChange('officer', value)}
               />
               <LocationFilter
@@ -383,12 +384,16 @@ function CalendarDateInput({
   );
 }
 
-function OfficerFilter({ value, options, onChange }: { value: string; options: string[]; onChange: (value: string) => void }) {
+function OfficerFilter({ value, options, onChange }: { value: string; options: any[]; onChange: (value: string) => void }) {
   return (
     <FilterField label="Officer">
       <select value={value} onChange={(e) => onChange(e.target.value)} className="filter-control">
         <option value="ALL">All Officers</option>
-        {options.map((name) => <option key={name} value={name}>{name}</option>)}
+        {options.map((off: any) => (
+          <option key={off.id || off.user_id || off.name} value={off.name || String(off.id)}>
+            {off.name}
+          </option>
+        ))}
       </select>
     </FilterField>
   );

@@ -1,10 +1,6 @@
-import { useMemo, useState } from 'react';
-import {
-  dailyOfficerData,
-  officerMissionData,
-  officerPeriodData,
-  type FilterState,
-} from './mockData';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchWeeklySummary } from './api';
+import type { FilterState, WeeklySummaryResponse } from './types';
 
 interface CustomRangeReportProps {
   filters: FilterState;
@@ -21,48 +17,18 @@ type CustomSortField =
   | 'avgAcknowledgement'
   | 'avgCompletion';
 
-
 function formatMinutes(totalMinutes: number) {
   const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  const minutes = Math.round(totalMinutes % 60);
   return `${hours}h ${String(minutes).padStart(2, '0')}m`;
 }
 
-function durationToMinutes(value: string) {
-  if (value === '—') return -1;
-  const hours = value.match(/(\d+)h/);
-  const minutes = value.match(/(\d+)m/);
-  const seconds = value.match(/(\d+)s/);
-  return (hours ? Number(hours[1]) * 60 : 0) + (minutes ? Number(minutes[1]) : 0) + (seconds ? Number(seconds[1]) / 60 : 0);
-}
-
-function timeToMinutes(value: string) {
-  const [hours, minutes] = value.split(':').map(Number);
-  return hours * 60 + minutes;
-}
-
-function averageAcknowledgement(missions: typeof officerMissionData) {
-  const values = missions
-    .filter((mission) => mission.acknowledgedAt !== '—')
-    .map((mission) => timeToMinutes(mission.acknowledgedAt) - timeToMinutes(mission.assignedAt))
-    .filter((value) => value >= 0);
-  if (values.length === 0) return '—';
-  const totalSeconds = Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 60);
-  return `${Math.floor(totalSeconds / 60)}m ${String(totalSeconds % 60).padStart(2, '0')}s`;
-}
-
-function averageCompletion(missions: typeof officerMissionData) {
-  const values = missions
-    .filter((mission) => mission.completedAt !== '—')
-    .map((mission) => timeToMinutes(mission.completedAt) - timeToMinutes(mission.assignedAt))
-    .filter((value) => value >= 0);
-  if (values.length === 0) return '—';
-  const avg = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
-  return formatMinutes(avg);
-}
-
-function inRange(date: string, startDate: string, endDate: string) {
-  return date >= startDate && date <= endDate;
+function formatAcknowledgement(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '—';
+  const rounded = Math.round(seconds);
+  const minutes = Math.floor(rounded / 60);
+  const secs = rounded % 60;
+  return `${minutes}m ${String(secs).padStart(2, '0')}s`;
 }
 
 function SortHeader({
@@ -89,67 +55,52 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
   const [sortField, setSortField] = useState<CustomSortField>('dutyMinutes');
   const [sortAsc, setSortAsc] = useState(false);
 
-  const officerNames = Array.from(new Set(officerPeriodData.map((row) => row.officerName)))
-    .filter((name) => filters.officer === 'ALL' || name === filters.officer);
+  const [loading, setLoading] = useState(false);
+  const [summaryData, setSummaryData] = useState<WeeklySummaryResponse | null>(null);
 
-  const rows = officerNames
-    .map((name) => {
-      const periodRows = officerPeriodData.filter(
-        (row) => row.officerName === name && inRange(row.date, filters.startDate, filters.endDate)
-      );
-
-      const allRangeMissions = officerMissionData.filter(
-        (mission) => mission.officerName === name && inRange(mission.date, filters.startDate, filters.endDate)
-      );
-      const rangeMissions = allRangeMissions.filter(
-        (mission) => filters.location === 'ALL' || mission.location === filters.location
-      );
-
-      // With an area selected, only officers with missions in that area are included,
-      // and mission counts/averages are calculated from those same missions.
-      if (filters.location !== 'ALL' && rangeMissions.length === 0) return null;
-
-      const daily = dailyOfficerData.find((row) => row.name === name);
-
-      const dutyMinutes = periodRows.reduce((sum, row) => sum + row.dutyMinutes, 0);
-      const distanceKm = periodRows.reduce((sum, row) => sum + row.distanceKm, 0);
-      const panic = periodRows.reduce((sum, row) => sum + row.panicEvents, 0);
-      const avgAcknowledgement = averageAcknowledgement(rangeMissions);
-      const avgCompletion = averageCompletion(rangeMissions);
-
-      return {
-        name,
-        dutyPeriod: daily ? `${daily.shiftStart} → ${daily.shiftEnd}` : '—',
-        dutyMinutes,
-        distanceKm,
-        assigned: rangeMissions.length,
-        completed: rangeMissions.filter((m) => m.status === 'COMPLETED').length,
-        cancelled: rangeMissions.filter((m) => m.status === 'CANCELLED').length,
-        panic,
-        avgAcknowledgement,
-        avgCompletion,
-        avgAcknowledgementMinutes: avgAcknowledgement === '—' ? -1 : durationToMinutes(avgAcknowledgement),
-        avgCompletionMinutes: avgCompletion === '—' ? -1 : durationToMinutes(avgCompletion),
-      };
+  useEffect(() => {
+    setLoading(true);
+    fetchWeeklySummary({
+      start_date: filters.startDate,
+      end_date: filters.endDate,
     })
-    .filter((row): row is NonNullable<typeof row> => Boolean(row && (row.dutyMinutes > 0 || row.assigned > 0)));
+      .then((data) => setSummaryData(data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [filters.startDate, filters.endDate]);
+
+  const rows = useMemo(() => {
+    if (!summaryData?.officers) return [];
+    return summaryData.officers.map((officer) => ({
+      id: officer.officer_id,
+      name: officer.officer_name,
+      dutyPeriod: 'Range Total',
+      dutyMinutes: officer.hours_on_duty * 60,
+      distanceKm: officer.distance_covered_m / 1000,
+      assigned: officer.missions_assigned,
+      completed: officer.missions_completed,
+      cancelled: officer.missions_cancelled,
+      panic: officer.panic_events,
+      avgAcknowledgement: formatAcknowledgement(officer.average_acknowledgement_seconds),
+      avgAckSecs: officer.average_acknowledgement_seconds,
+      avgCompletion: formatMinutes(officer.average_completion_seconds / 60),
+      avgCompSecs: officer.average_completion_seconds,
+    }));
+  }, [summaryData]);
 
   const sortedRows = useMemo(() => {
-    const getValue = (row: (typeof rows)[number]) => {
-      switch (sortField) {
-        case 'dutyMinutes': return row.dutyMinutes;
-        case 'distanceKm': return row.distanceKm;
-        case 'assigned': return row.assigned;
-        case 'completed': return row.completed;
-        case 'cancelled': return row.cancelled;
-        case 'panic': return row.panic;
-        case 'avgAcknowledgement': return row.avgAcknowledgementMinutes;
-        case 'avgCompletion': return row.avgCompletionMinutes;
-      }
-    };
-
     return [...rows].sort((a, b) => {
-      const diff = getValue(a) - getValue(b);
+      let diff = 0;
+      switch (sortField) {
+        case 'dutyMinutes': diff = a.dutyMinutes - b.dutyMinutes; break;
+        case 'distanceKm': diff = a.distanceKm - b.distanceKm; break;
+        case 'assigned': diff = a.assigned - b.assigned; break;
+        case 'completed': diff = a.completed - b.completed; break;
+        case 'cancelled': diff = a.cancelled - b.cancelled; break;
+        case 'panic': diff = a.panic - b.panic; break;
+        case 'avgAcknowledgement': diff = a.avgAckSecs - b.avgAckSecs; break;
+        case 'avgCompletion': diff = a.avgCompSecs - b.avgCompSecs; break;
+      }
       return sortAsc ? diff : -diff;
     });
   }, [rows, sortField, sortAsc]);
@@ -162,29 +113,30 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
     }
   };
 
-  const totals = rows.reduce(
-    (acc, row) => {
-      acc.dutyMinutes += row.dutyMinutes;
-      acc.distanceKm += row.distanceKm;
-      acc.assigned += row.assigned;
-      acc.completed += row.completed;
-      acc.cancelled += row.cancelled;
-      acc.panic += row.panic;
-      return acc;
-    },
-    { dutyMinutes: 0, distanceKm: 0, assigned: 0, completed: 0, cancelled: 0, panic: 0 }
-  );
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500 font-semibold">Loading range report...</div>;
+  }
+
+  const totals = summaryData?.totals || {
+    officers: 0,
+    hours_on_duty: 0,
+    distance_covered_m: 0,
+    missions_assigned: 0,
+    missions_completed: 0,
+    missions_cancelled: 0,
+    panic_events: 0,
+  };
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-        <SummaryCard value={rows.length} label="Officers" />
-        <SummaryCard value={formatMinutes(totals.dutyMinutes)} label="Duty hours" />
-        <SummaryCard value={`${totals.distanceKm.toFixed(1)} km`} label="Distance" />
-        <SummaryCard value={totals.assigned} label="Assigned" />
-        <SummaryCard value={totals.completed} label="Completed" />
-        <SummaryCard value={totals.cancelled} label="Cancelled" />
-        <SummaryCard value={totals.panic} label="Panic events" />
+        <SummaryCard value={totals.officers} label="Officers" />
+        <SummaryCard value={formatMinutes(totals.hours_on_duty * 60)} label="Duty hours" />
+        <SummaryCard value={`${(totals.distance_covered_m / 1000).toFixed(1)} km`} label="Distance" />
+        <SummaryCard value={totals.missions_assigned} label="Assigned" />
+        <SummaryCard value={totals.missions_completed} label="Completed" />
+        <SummaryCard value={totals.missions_cancelled} label="Cancelled" />
+        <SummaryCard value={totals.panic_events} label="Panic events" />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
@@ -211,7 +163,7 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
 
             <tbody className="divide-y divide-slate-100">
               {sortedRows.map((row) => (
-                <tr key={row.name} className="hover:bg-slate-50/70 transition-colors">
+                <tr key={row.id || row.name} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3">
                     <button type="button" onClick={() => onOfficerSelect?.(row.name)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">{row.name}</button>
                   </td>

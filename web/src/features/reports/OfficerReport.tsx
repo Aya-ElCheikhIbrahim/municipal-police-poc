@@ -1,15 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MissionDetailPage } from '../missions/MissionDetailPage';
 import { useActiveOfficers } from '../officers/useOfficers';
-import {
-  officerActivityData,
-  officerMissionData,
-  officerPeriodData,
-  officerProfiles,
-  type FilterState,
-  type OfficerMissionRecord,
-  type ReportSubTab,
-} from './mockData';
+import { exportDailyCSV, exportDailyPDF, fetchOfficerReport } from './api';
+import type {
+  FilterState,
+  OfficerReportResponse,
+  ReportSubTab,
+} from './types';
 
 interface OfficerReportProps {
   officerName: string;
@@ -44,23 +41,17 @@ function dateDaysBefore(dateString: string, days: number) {
 
 function formatMinutes(totalMinutes: number) {
   const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  const minutes = Math.round(totalMinutes % 60);
   if (hours === 0) return `${minutes}m`;
   return `${hours}h ${minutes}m`;
 }
 
-function timeToMinutes(value: string) {
-  const [hours, minutes] = value.split(':').map(Number);
-  return hours * 60 + minutes;
-}
-
-function differenceMinutes(start: string, end: string) {
-  if (!start || !end || end === '—') return null;
-  return Math.max(0, timeToMinutes(end) - timeToMinutes(start));
+function formatTime(isoString: string | null) {
+  if (!isoString) return '—';
+  return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export function OfficerReport({ officerName, sourceTab, filters, onBack }: OfficerReportProps) {
-  const profile = officerProfiles[officerName];
   const today = localDateString(new Date());
 
   const initialMode: PeriodMode = sourceTab === 'Daily activity' ? 'DAY' : sourceTab === 'Weekly summary' ? 'WEEK' : 'CUSTOM';
@@ -72,6 +63,9 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
   const [missionStatus, setMissionStatus] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'CANCELLED'>('ALL');
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null);
   const { officers } = useActiveOfficers(false);
+
+  const [loading, setLoading] = useState(false);
+  const [reportData, setReportData] = useState<OfficerReportResponse | null>(null);
 
   const periodStart = periodMode === 'DAY'
     ? dayDate
@@ -85,66 +79,33 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
     ? weekEnd
     : customEnd;
 
-  const missions = useMemo(() => {
-    return officerMissionData.filter((mission) => {
-      if (mission.officerName !== officerName) return false;
-      if (mission.date < periodStart || mission.date > periodEnd) return false;
-      if (missionStatus !== 'ALL' && mission.status !== missionStatus) return false;
-      if (filters.location !== 'ALL' && mission.location !== filters.location) return false;
-      return true;
-    });
-  }, [officerName, periodStart, periodEnd, filters.location, missionStatus]);
+  // Safely find officer ID matching name or ID string
+  const activeOfficer = officers.find((o: any) => o.name === officerName || String(o.id || o.user_id) === officerName);
+  const officerId = (activeOfficer as any)?.id || (activeOfficer as any)?.user_id || Number.parseInt(officerName, 10) || 1;
 
-  const timeline = useMemo(() => {
-    if (periodMode !== 'DAY') return [];
-
-    const matchingMissionIds = new Set(missions.map((mission) => mission.id));
-
-    return officerActivityData.filter((event) => {
-      if (event.officerName !== officerName || event.date !== periodStart) return false;
-      if (filters.location !== 'ALL' && event.location !== filters.location) return false;
-      if (missionStatus !== 'ALL') {
-        return event.missionId !== undefined && matchingMissionIds.has(event.missionId);
-      }
-      return true;
-    });
-  }, [officerName, periodStart, filters.location, periodMode, missions, missionStatus]);
-
-  const periodRecords = officerPeriodData.filter((row) =>
-    row.officerName === officerName && row.date >= periodStart && row.date <= periodEnd
-  );
-
-  const totalDutyMinutes = periodRecords.reduce((sum, row) => sum + row.dutyMinutes, 0);
-  const totalDistance = periodRecords.reduce((sum, row) => sum + row.distanceKm, 0);
-  const panicEvents = periodRecords.reduce((sum, row) => sum + row.panicEvents, 0);
-
-  const completedCount = missions.filter((mission) => mission.status === 'COMPLETED').length;
-  const cancelledCount = missions.filter((mission) => mission.status === 'CANCELLED').length;
-  const inProgressCount = missions.filter((mission) => mission.status === 'IN_PROGRESS').length;
-
-  const acknowledgementTimes = missions
-    .map((mission) => differenceMinutes(mission.assignedAt, mission.acknowledgedAt))
-    .filter((value): value is number => value !== null);
-
-  const completionTimes = missions
-    .filter((mission) => mission.status === 'COMPLETED')
-    .map((mission) => differenceMinutes(mission.assignedAt, mission.completedAt))
-    .filter((value): value is number => value !== null);
-
-  const avgAcknowledgement = acknowledgementTimes.length
-    ? Math.round(acknowledgementTimes.reduce((sum, value) => sum + value, 0) / acknowledgementTimes.length)
-    : null;
-
-  const avgCompletion = completionTimes.length
-    ? Math.round(completionTimes.reduce((sum, value) => sum + value, 0) / completionTimes.length)
-    : null;
+  useEffect(() => {
+    setLoading(true);
+    fetchOfficerReport({
+      officer_id: officerId,
+      start_date: periodStart,
+      end_date: periodEnd,
+      status: missionStatus !== 'ALL' ? missionStatus : undefined,
+    })
+      .then((data) => setReportData(data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [officerId, periodStart, periodEnd, missionStatus]);
 
   const selectedRangeText = periodStart === periodEnd
     ? formatDate(periodStart)
     : `${formatDate(periodStart)} — ${formatDate(periodEnd)}`;
 
   const handleExport = (format: 'CSV' | 'PDF') => {
-    alert(`Exporting ${officerName}'s filtered activity as ${format}.`);
+    if (format === 'CSV') {
+      exportDailyCSV(periodStart, officerId, missionStatus);
+    } else {
+      exportDailyPDF(periodStart, officerId, missionStatus);
+    }
   };
 
   if (selectedMissionId !== null) {
@@ -157,6 +118,20 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
       />
     );
   }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500 font-semibold">Loading officer report...</div>;
+  }
+
+  const summary = reportData?.summary;
+  const performance = reportData?.performance;
+  const officerInfo = reportData?.officer;
+  const missions = reportData?.missions || [];
+  const timeline = reportData?.timeline || [];
+
+  const completedCount = summary?.missions_completed ?? 0;
+  const cancelledCount = summary?.missions_cancelled ?? 0;
+  const inProgressCount = summary?.missions_in_progress ?? 0;
 
   return (
     <div className="space-y-4">
@@ -180,9 +155,9 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
         <div className="p-5 flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1">Officer Details</div>
-            <h2 className="text-base font-bold text-slate-900">{officerName}</h2>
+            <h2 className="text-base font-bold text-slate-900">{officerInfo?.name || officerName}</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Badge {profile?.badge ?? '—'}
+              Badge {officerInfo?.badge_number || '—'}
             </p>
           </div>
 
@@ -221,13 +196,13 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
 
       <section>
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-          <MetricCard value={formatMinutes(totalDutyMinutes)} label="Hours on duty" />
-          <MetricCard value={`${totalDistance.toFixed(1)} km`} label="Distance covered" />
-          <MetricCard value={missions.length} label="Missions" />
+          <MetricCard value={formatMinutes((summary?.hours_on_duty ?? 0) * 60)} label="Hours on duty" />
+          <MetricCard value={`${((summary?.distance_covered_m ?? 0) / 1000).toFixed(1)} km`} label="Distance covered" />
+          <MetricCard value={summary?.missions_assigned ?? 0} label="Missions" />
           <MetricCard value={completedCount} label="Completed" />
           <MetricCard value={cancelledCount} label="Cancelled" />
           <MetricCard value={inProgressCount} label="In progress" />
-          <MetricCard value={panicEvents} label="Panic events" />
+          <MetricCard value={summary?.panic_events ?? 0} label="Panic events" />
         </div>
       </section>
 
@@ -249,18 +224,13 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {timeline.map((event) => (
-                  <tr key={event.id} className="hover:bg-slate-50/70">
-                    <td className="px-4 py-3 font-bold text-slate-800">{event.time}</td>
-                    <td className="px-4 py-3 text-slate-600">{event.location}</td>
+                {timeline.map((event, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/70">
+                    <td className="px-4 py-3 font-bold text-slate-800">{formatTime(event.at)}</td>
+                    <td className="px-4 py-3 text-slate-600">{event.area || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 rounded-md text-sm font-bold ${
-                        event.activity.includes('completed') ? 'bg-emerald-50 text-emerald-700' :
-                        event.activity.includes('cancelled') ? 'bg-rose-50 text-rose-700' :
-                        event.activity === 'Available' ? 'bg-sky-50 text-sky-700' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
-                        {event.activity}
+                      <span className="inline-flex px-2 py-1 rounded-md text-sm font-bold bg-slate-100 text-slate-700">
+                        {event.activity_label || event.activity}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{event.details}</td>
@@ -288,8 +258,14 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-5">
           <h3 className="text-base font-bold text-slate-900 mb-4">Performance</h3>
           <div className="grid grid-cols-2 gap-3">
-            <ResponseCard value={avgAcknowledgement !== null ? `${avgAcknowledgement}m` : '—'} label="Avg acknowledgement" />
-            <ResponseCard value={avgCompletion !== null ? `${avgCompletion}m` : '—'} label="Avg completion" />
+            <ResponseCard
+              value={performance?.average_acknowledgement_seconds ? `${Math.round(performance.average_acknowledgement_seconds / 60)}m` : '—'}
+              label="Avg acknowledgement"
+            />
+            <ResponseCard
+              value={performance?.average_completion_seconds ? `${Math.round(performance.average_completion_seconds / 60)}m` : '—'}
+              label="Avg completion"
+            />
           </div>
         </div>
       </div>
@@ -330,9 +306,9 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
             <tbody className="divide-y divide-slate-100">
               {missions.map((mission) => (
                 <MissionRow
-                  key={mission.id}
+                  key={mission.mission_id}
                   mission={mission}
-                  onSelect={() => setSelectedMissionId(mission.id)}
+                  onSelect={() => setSelectedMissionId(mission.mission_id)}
                 />
               ))}
               {missions.length === 0 && (
@@ -345,7 +321,6 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
     </div>
   );
 }
-
 
 function CalendarDateInput({
   value,
@@ -421,9 +396,7 @@ function ResponseCard({ value, label }: { value: string; label: string }) {
   );
 }
 
-function MissionRow({ mission, onSelect }: { mission: OfficerMissionRecord; onSelect: () => void }) {
-  // Match the Missions page row colors exactly for the priorities that
-  // currently exist in Reports: URGENT, HIGH, and LOW.
+function MissionRow({ mission, onSelect }: { mission: any; onSelect: () => void }) {
   const priorityRowStyle =
     mission.priority === 'URGENT'
       ? 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500'
@@ -440,7 +413,7 @@ function MissionRow({ mission, onSelect }: { mission: OfficerMissionRecord; onSe
 
   return (
     <tr className={`transition-colors ${priorityRowStyle}`}>
-      <td className="px-4 py-3 text-slate-600">{formatDate(mission.date)}</td>
+      <td className="px-4 py-3 text-slate-600">{formatDate(mission.assigned_at ? mission.assigned_at.slice(0, 10) : '')}</td>
       <td className="px-4 py-3 font-semibold text-slate-900">
         <button
           type="button"
@@ -451,10 +424,10 @@ function MissionRow({ mission, onSelect }: { mission: OfficerMissionRecord; onSe
         </button>
       </td>
       <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded text-sm font-bold ${statusStyle}`}>{mission.status.replace('_', ' ')}</span></td>
-      <td className="px-4 py-3 text-slate-600">{mission.location}</td>
-      <td className="px-4 py-3 text-slate-600">{mission.assignedAt}</td>
-      <td className="px-4 py-3 text-slate-600">{mission.acknowledgedAt}</td>
-      <td className="px-4 py-3 text-slate-600">{mission.completedAt}</td>
+      <td className="px-4 py-3 text-slate-600">{mission.area || '—'}</td>
+      <td className="px-4 py-3 text-slate-600">{formatTime(mission.assigned_at)}</td>
+      <td className="px-4 py-3 text-slate-600">{formatTime(mission.acknowledged_at)}</td>
+      <td className="px-4 py-3 text-slate-600">{formatTime(mission.completed_at)}</td>
     </tr>
   );
 }
