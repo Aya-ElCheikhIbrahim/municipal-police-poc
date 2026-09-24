@@ -64,8 +64,8 @@ LABELS = {
     "seconds": "ثانية",
     "top_officers": "العناصر الأكثر إنجازا",
     "completed_missions": "المهام المنجزة",
-    "completed_count": "عدد المهام المنجزة",
-    "no_completed_missions": "المهام غير المنجزة",
+    "completed_count": "مهام منجزة",
+    "no_completed_missions": "لا توجد مهام منجزة.",
 }
 
 CATEGORIES = {

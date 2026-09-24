@@ -12,6 +12,8 @@ interface CustomRangeReportProps {
 }
 
 type CustomSortField =
+  | 'name'
+  | 'dutyPeriod'
   | 'dutyMinutes'
   | 'distanceKm'
   | 'assigned'
@@ -39,6 +41,17 @@ function durationToMinutes(value: string) {
 function timeToMinutes(value: string) {
   const [hours, minutes] = value.split(':').map(Number);
   return hours * 60 + minutes;
+}
+
+
+function missionKey(mission: (typeof officerMissionData)[number]) {
+  return mission.id;
+}
+
+function uniqueMissions(missions: typeof officerMissionData) {
+  return Array.from(
+    new Map(missions.map((mission) => [missionKey(mission), mission])).values()
+  );
 }
 
 function averageAcknowledgement(missions: typeof officerMissionData) {
@@ -79,8 +92,16 @@ function SortHeader({
   onSort: (field: CustomSortField) => void;
 }) {
   return (
-    <th className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100" onClick={() => onSort(field)}>
-      {label} <span className="text-[9px] text-slate-400">{currentField === field ? (asc ? '▲' : '▼') : '↕'}</span>
+    <th
+      className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100"
+      onClick={() => onSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        <span>{label}</span>
+        <span className="text-[11px] leading-none text-slate-400">
+          {currentField === field ? (asc ? '▲' : '▼') : '↕'}
+        </span>
+      </span>
     </th>
   );
 }
@@ -122,6 +143,7 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
         dutyPeriod: daily ? `${daily.shiftStart} → ${daily.shiftEnd}` : '—',
         dutyMinutes,
         distanceKm,
+        locationMissions: rangeMissions.length,
         assigned: rangeMissions.length,
         completed: rangeMissions.filter((m) => m.status === 'COMPLETED').length,
         cancelled: rangeMissions.filter((m) => m.status === 'CANCELLED').length,
@@ -137,6 +159,8 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
   const sortedRows = useMemo(() => {
     const getValue = (row: (typeof rows)[number]) => {
       switch (sortField) {
+        case 'name': return row.name.toLowerCase();
+        case 'dutyPeriod': return row.dutyPeriod === '—' ? '' : row.dutyPeriod.split(' → ')[0];
         case 'dutyMinutes': return row.dutyMinutes;
         case 'distanceKm': return row.distanceKm;
         case 'assigned': return row.assigned;
@@ -149,7 +173,9 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
     };
 
     return [...rows].sort((a, b) => {
-      const diff = getValue(a) - getValue(b);
+      const aValue = getValue(a);
+      const bValue = getValue(b);
+      const diff = typeof aValue === 'string' ? aValue.localeCompare(String(bValue)) : aValue - Number(bValue);
       return sortAsc ? diff : -diff;
     });
   }, [rows, sortField, sortAsc]);
@@ -158,21 +184,34 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
     if (sortField === field) setSortAsc((prev) => !prev);
     else {
       setSortField(field);
-      setSortAsc(false);
+      setSortAsc(field === 'name' || field === 'dutyPeriod');
     }
   };
+
+  const uniqueRangeMissions = uniqueMissions(
+    officerMissionData.filter((mission) => {
+      if (!inRange(mission.date, filters.startDate, filters.endDate)) return false;
+      if (filters.officer !== 'ALL' && mission.officerName !== filters.officer) return false;
+      if (filters.location !== 'ALL' && mission.location !== filters.location) return false;
+      return true;
+    })
+  );
 
   const totals = rows.reduce(
     (acc, row) => {
       acc.dutyMinutes += row.dutyMinutes;
       acc.distanceKm += row.distanceKm;
-      acc.assigned += row.assigned;
-      acc.completed += row.completed;
-      acc.cancelled += row.cancelled;
       acc.panic += row.panic;
       return acc;
     },
-    { dutyMinutes: 0, distanceKm: 0, assigned: 0, completed: 0, cancelled: 0, panic: 0 }
+    {
+      dutyMinutes: 0,
+      distanceKm: 0,
+      assigned: uniqueRangeMissions.length,
+      completed: uniqueRangeMissions.filter((mission) => mission.status === 'COMPLETED').length,
+      cancelled: uniqueRangeMissions.filter((mission) => mission.status === 'CANCELLED').length,
+      panic: 0,
+    }
   );
 
   return (
@@ -189,17 +228,18 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800">Officer Activity</h3>
+          <h3 className="text-base font-bold text-slate-800">Officer Activity</h3>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[1080px]">
+          <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[1080px]">
             <thead>
-              <tr className="bg-slate-50/80 text-slate-500 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                <th className="px-4 py-3">Officer</th>
-                <th className="px-4 py-3">Duty Period</th>
+              <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
+                <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Duty Period" field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Hours" field="dutyMinutes" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Distance" field="distanceKm" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                {filters.location !== 'ALL' && <th className="px-4 py-3">Missions at Location</th>}
                 <SortHeader label="Assigned" field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Cancelled" field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
@@ -212,28 +252,34 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
             <tbody className="divide-y divide-slate-100">
               {sortedRows.map((row) => (
                 <tr key={row.name} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-3">
                     <button type="button" onClick={() => onOfficerSelect?.(row.name)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">{row.name}</button>
                   </td>
-                  <td className="px-4 py-4 font-semibold text-slate-800 whitespace-nowrap">{row.dutyPeriod}</td>
-                  <td className="px-4 py-4 font-bold text-slate-800">{formatMinutes(row.dutyMinutes)}</td>
-                  <td className="px-4 py-4">{row.distanceKm.toFixed(1)} km</td>
-                  <td className="px-4 py-4 font-semibold">{row.assigned}</td>
-                  <td className="px-4 py-4"><span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{row.completed}</span></td>
-                  <td className="px-4 py-4"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.cancelled}</span></td>
-                  <td className="px-4 py-4">{row.panic}</td>
-                  <td className="px-4 py-4">{row.avgAcknowledgement}</td>
-                  <td className="px-4 py-4">{row.avgCompletion}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{row.dutyPeriod}</td>
+                  <td className="px-4 py-3 font-bold text-slate-800">{formatMinutes(row.dutyMinutes)}</td>
+                  <td className="px-4 py-3">{row.distanceKm.toFixed(1)} km</td>
+                  {filters.location !== 'ALL' && (
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-slate-800">{row.locationMissions}</div>
+                      <div className="mt-0.5 text-xs font-medium text-slate-500">{filters.location}</div>
+                    </td>
+                  )}
+                  <td className="px-4 py-3 font-semibold">{row.assigned}</td>
+                  <td className="px-4 py-3"><span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{row.completed}</span></td>
+                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.cancelled}</span></td>
+                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.panic}</span></td>
+                  <td className="px-4 py-3">{row.avgAcknowledgement}</td>
+                  <td className="px-4 py-3">{row.avgCompletion}</td>
                 </tr>
               ))}
 
               {sortedRows.length === 0 && (
-                <tr><td colSpan={10} className="px-5 py-10 text-center text-slate-400">No officer activity found in the selected date range.</td></tr>
+                <tr><td colSpan={filters.location !== 'ALL' ? 11 : 10} className="px-5 py-10 text-center text-slate-400">No officer activity found in the selected date range.</td></tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-500">Click an officer’s name to view details.</div>
+        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">Click an officer’s name to view details.</div>
       </div>
     </div>
   );
@@ -242,8 +288,8 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
 function SummaryCard({ value, label }: { value: string | number; label: string }) {
   return (
     <div className="bg-white/80 backdrop-blur p-4 rounded-lg border border-slate-200/80 shadow-xs">
-      <div className="text-xl font-bold text-slate-900">{value}</div>
-      <div className="text-[10px] text-slate-500 font-medium mt-1">{label}</div>
+      <div className="text-base font-bold text-slate-900">{value}</div>
+      <div className="text-xs text-slate-500 font-medium mt-1">{label}</div>
     </div>
   );
 }

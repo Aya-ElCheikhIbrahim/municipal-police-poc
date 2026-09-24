@@ -100,7 +100,15 @@ DEFINITIONS: dict[str, Definition] = {
         minimum=1,
         maximum=10,
     ),
-    # §4.6 — the dashboard map refreshes every 15-30 seconds.
+    
+    "panic_nearby_radius_m": Definition(
+        default=2000,
+        description="Officers on duty within this many metres of a panic alert are notified.",
+        coerce=int,
+        minimum=100,
+        maximum=20000,
+    ),
+    # the dashboard map refreshes every 5-15 seconds.
     # The 10-60 bounds are a guard rail, not a spec value: SCHEMA.md gives the
     # default only. They allow tuning either side of the range the
     # requirements ask for without letting every open dashboard poll hard

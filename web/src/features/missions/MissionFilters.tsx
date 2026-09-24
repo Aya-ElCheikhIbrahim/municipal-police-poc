@@ -13,6 +13,9 @@ interface MissionFiltersProps {
   onChange: (filters: Filters) => void;
   officers: ActiveOfficer[];
   onCreate: () => void;
+  prioritySortAsc: boolean;
+  prioritySortActive: boolean;
+  onPrioritySort: () => void;
 }
 
 export function MissionFilters({
@@ -20,6 +23,9 @@ export function MissionFilters({
   onChange,
   officers,
   onCreate,
+  prioritySortAsc,
+  prioritySortActive,
+  onPrioritySort,
 }: MissionFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(filters);
@@ -72,6 +78,14 @@ export function MissionFilters({
           className="px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm sm:text-base font-medium rounded-md cursor-pointer"
         >
           Filter
+        </button>
+
+        <button
+          type="button"
+          onClick={onPrioritySort}
+          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm sm:text-base font-medium rounded-md cursor-pointer transition-colors"
+        >
+          Priority <span className="text-xs">{prioritySortActive ? (prioritySortAsc ? '↑' : '↓') : '↕'}</span>
         </button>
 
         {isOpen && (

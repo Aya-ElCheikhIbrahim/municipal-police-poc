@@ -20,6 +20,8 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from missions import services as mission_services
 from missions.models import Mission, MissionWork
@@ -39,6 +41,18 @@ def make_user(username, role="officer", **extra):
         role=role,
         **extra,
     )
+
+
+def go_on_duty(officer, **kwargs):
+    """
+    Start a shift the way a real login does — with a refresh token.
+
+    ActiveShiftsView sweeps sessions that have no live token
+    (services.end_expired_shifts), so an officer who never got one is not on
+    duty as far as the map is concerned.
+    """
+    RefreshToken.for_user(officer)
+    return services.start_shift(officer, **kwargs)
 
 
 def ping_row(lat, lng, recorded_at, **extra):
@@ -235,7 +249,7 @@ class ActiveShiftsContractTests(TestCase):
 
     def test_shape_matches_the_agreed_contract(self):
         officer = make_user("officer5", full_name="سامر عبد الله", badge_number="TP-1001")
-        services.start_shift(officer)
+        go_on_duty(officer)
         services.ingest_pings(officer, [ping_row(34.4367, 35.8497, timezone.now())])
 
         client = APIClient()
@@ -263,7 +277,7 @@ class ActiveShiftsContractTests(TestCase):
 
     def test_officer_with_no_pings_yet_still_appears(self):
         """Just started a shift, no GPS fix yet — must not vanish from the map."""
-        services.start_shift(make_user("officer6"))
+        go_on_duty(make_user("officer6"))
 
         client = APIClient()
         client.force_authenticate(make_user("supervisor2", role="supervisor"))
@@ -275,7 +289,7 @@ class ActiveShiftsMissionTests(TestCase):
     def setUp(self):
         self.officer = make_user("mission_officer")
         self.dispatcher = make_user("mission_dispatcher", role="dispatcher")
-        services.start_shift(self.officer)
+        go_on_duty(self.officer)
         self.client = APIClient()
         self.client.force_authenticate(self.dispatcher)
 
@@ -416,7 +430,7 @@ class ActiveShiftsQueryCountTests(TestCase):
         officers = []
         for i in range(count):
             officer = make_user(f"{prefix}_officer_{i}")
-            services.start_shift(officer)
+            go_on_duty(officer)
             services.ingest_pings(
                 officer,
                 [ping_row(34.4367, 35.8497, timezone.now())],
@@ -541,7 +555,7 @@ class StartShiftRaceRecoveryTests(TestCase):
 class ActiveShiftsPanicTests(TestCase):
     def setUp(self):
         self.officer = make_user("panic_officer")
-        services.start_shift(self.officer)
+        go_on_duty(self.officer)
         self.client = APIClient()
         self.client.force_authenticate(make_user("panic_dispatcher", role="dispatcher"))
 
@@ -578,3 +592,80 @@ class ActiveShiftsPanicTests(TestCase):
         row = self._row()
         self.assertEqual(row["status"], "available")
         self.assertNotEqual(row["position_source"], "panic")
+
+
+class EndExpiredShiftsTests(TestCase):
+    """
+    §4.2 — a phone that dies mid-patrol never sends End Shift, so the officer
+    stays on the map for days. The refresh token is the only server-side
+    evidence the session is still alive, so its death ends the shift.
+    """
+
+    def setUp(self):
+        self.officer = make_user("expiry_officer")
+
+    def test_a_live_token_keeps_the_shift_active(self):
+        """An officer an hour into a 12-hour session is still on duty."""
+        RefreshToken.for_user(self.officer)
+        services.start_shift(self.officer)
+
+        ended = services.end_expired_shifts(now=timezone.now() + timedelta(hours=1))
+
+        self.assertEqual(ended, [])
+        shift = Shift.objects.get(officer=self.officer)
+        self.assertEqual(shift.status, Shift.Status.ACTIVE)
+        self.assertFalse(shift.ended_automatically)
+
+    def test_an_expired_token_ends_the_shift_when_the_token_died(self):
+        """Not when the sweep noticed — the report must show real hours."""
+        token = RefreshToken.for_user(self.officer)
+        services.start_shift(self.officer)
+        outstanding = OutstandingToken.objects.get(jti=token["jti"])
+
+        ended = services.end_expired_shifts(now=timezone.now() + timedelta(hours=13))
+
+        self.assertEqual(len(ended), 1)
+        shift = Shift.objects.get(officer=self.officer)
+        self.assertEqual(shift.status, Shift.Status.ENDED)
+        self.assertTrue(shift.ended_automatically)
+        self.assertEqual(shift.ended_at, outstanding.expires_at)
+
+    def test_logout_ends_the_shift_no_later_than_now(self):
+        """A blacklisted token still carries a future expiry; it must not win."""
+        token = RefreshToken.for_user(self.officer)
+        services.start_shift(self.officer)
+        token.blacklist()
+
+        now = timezone.now()
+        ended = services.end_expired_shifts(now=now)
+
+        self.assertEqual(len(ended), 1)
+        shift = Shift.objects.get(officer=self.officer)
+        self.assertEqual(shift.status, Shift.Status.ENDED)
+        self.assertTrue(shift.ended_automatically)
+        self.assertLessEqual(shift.ended_at, now)
+
+    def test_a_manually_ended_shift_is_left_alone(self):
+        """end_shift() is the officer's own record; the sweep must not rewrite it."""
+        RefreshToken.for_user(self.officer)
+        services.start_shift(self.officer)
+        manual = services.end_shift(self.officer)
+
+        ended = services.end_expired_shifts(now=timezone.now() + timedelta(hours=13))
+
+        self.assertEqual(ended, [])
+        shift = Shift.objects.get(pk=manual.pk)
+        self.assertEqual(shift.ended_at, manual.ended_at)
+        self.assertFalse(shift.ended_automatically)
+
+    def test_running_the_sweep_twice_ends_nothing_the_second_time(self):
+        """ActiveShiftsView calls this on every poll — it has to be a no-op."""
+        RefreshToken.for_user(self.officer)
+        services.start_shift(self.officer)
+        later = timezone.now() + timedelta(hours=13)
+
+        first = services.end_expired_shifts(now=later)
+        second = services.end_expired_shifts(now=later)
+
+        self.assertEqual(len(first), 1)
+        self.assertEqual(second, [])

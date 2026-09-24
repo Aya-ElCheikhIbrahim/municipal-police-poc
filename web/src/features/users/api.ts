@@ -29,4 +29,5 @@ export const usersApi = {
   activate: (id: number) => apiClient.post<User>(`/users/${id}/activate/`, {}),
 
   deactivate: (id: number) => apiClient.post<User>(`/users/${id}/deactivate/`, {}),
-};
+generateResetCode: (badgeNumber: string) => 
+  apiClient.post<{ code: string }>('/password-reset/', { badge_number: badgeNumber }),};

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { StatusBadge } from './MissionBadges';
 import { formatTime, formatMissionDuration } from './types';
 import type { MissionListItem, MissionPriority } from './types';
@@ -9,12 +10,49 @@ const ROW_PRIORITY_STYLES: Record<MissionPriority, string> = {
   low: 'bg-slate-50 hover:bg-slate-100 border-l-4 border-slate-500',
 };
 
+export type MissionSortField =
+  | 'title'
+  | 'category'
+  | 'status'
+  | 'duration'
+  | 'assignedTo'
+  | 'created';
+
+function SortHeader({
+  label,
+  field,
+  currentField,
+  asc,
+  onSort,
+}: {
+  label: string;
+  field: MissionSortField;
+  currentField: MissionSortField | null;
+  asc: boolean;
+  onSort: (field: MissionSortField) => void;
+}) {
+  return (
+    <th
+      className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100"
+      onClick={() => onSort(field)}
+    >
+      {label}{' '}
+      <span className="text-xs text-slate-400">
+        {currentField === field ? (asc ? '▲' : '▼') : '↕'}
+      </span>
+    </th>
+  );
+}
+
 interface MissionTableProps {
   missions: MissionListItem[];
   isLoading: boolean;
   onSelect: (missionId: number) => void;
   onClearFilters: () => void;
   onCreate: () => void;
+  activeSort: MissionSortField | 'priority';
+  sortAsc: boolean;
+  onHeaderSort: (field: MissionSortField) => void;
 }
 
 function getCategoryBadge(mission: MissionListItem) {
@@ -41,7 +79,44 @@ export function MissionTable({
   onSelect,
   onClearFilters,
   onCreate,
+  activeSort,
+  sortAsc,
+  onHeaderSort,
 }: MissionTableProps) {
+
+  const sortedMissions = useMemo(() => {
+    const priorityOrder: Record<MissionPriority, number> = {
+      low: 1,
+      medium: 2,
+      high: 3,
+      urgent: 4,
+    };
+
+    const getValue = (mission: MissionListItem): string | number => {
+      if (activeSort === 'priority') return priorityOrder[mission.priority];
+      switch (activeSort) {
+        case 'title': return mission.title.toLowerCase();
+        case 'category': return getCategoryBadge(mission).toLowerCase();
+        case 'status': return String(mission.status).toLowerCase();
+        case 'duration': return mission.duration_seconds ?? -1;
+        case 'assignedTo':
+          return mission.assigned_to?.map((officer) => officer.full_name).join(', ').toLowerCase() ?? '';
+        case 'created': return new Date(mission.created_at).getTime();
+      }
+    };
+
+    return [...missions].sort((a, b) => {
+      const av = getValue(a);
+      const bv = getValue(b);
+      const diff =
+        typeof av === 'string' && typeof bv === 'string'
+          ? av.localeCompare(bv)
+          : Number(av) - Number(bv);
+
+      return sortAsc ? diff : -diff;
+    });
+  }, [missions, activeSort, sortAsc]);
+
   if (isLoading) return <LoadingTable />;
 
   if (missions.length === 0) {
@@ -77,7 +152,7 @@ export function MissionTable({
     <>
       {/* Mobile: stacked cards */}
       <div className="md:hidden space-y-3">
-        {missions.map((mission) => {
+        {sortedMissions.map((mission) => {
           const desc = 'description' in mission ? (mission as { description?: string }).description : undefined;
           const category = getCategoryBadge(mission);
           return (
@@ -135,16 +210,16 @@ export function MissionTable({
                 <table className="w-full text-left text-sm lg:text-base border-collapse">
           <thead>
             <tr className="text-slate-500 font-bold uppercase tracking-wider text-xs lg:text-sm *:sticky *:top-0 *:z-10 *:bg-slate-50 *:shadow-[inset_0_-1px_0_var(--color-slate-200)]">
-              <th className="px-4 py-3">Title</th>
-              <th className="px-4 py-3">Category</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Mission Duration</th>
-              <th className="px-4 py-3">Assigned To</th>
-              <th className="px-4 py-3">Created</th>
+              <SortHeader label="Title" field="title" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+              <SortHeader label="Category" field="category" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+              <SortHeader label="Status" field="status" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+              <SortHeader label="Mission Duration" field="duration" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+              <SortHeader label="Assigned To" field="assignedTo" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+              <SortHeader label="Created" field="created" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {missions.map((mission) => {
+            {sortedMissions.map((mission) => {
               const desc = 'description' in mission ? (mission as { description?: string }).description : undefined;
               const category = getCategoryBadge(mission);
               return (

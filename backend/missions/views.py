@@ -31,6 +31,19 @@ from .serializers import (
 User = get_user_model()
  
  
+def _detail(mission, request):
+    """
+    One mission, serialized for a client.
+
+    The request has to reach the serializer: without it DRF renders the photo
+    FileField as the relative "/media/...", which a browser resolves against
+    the dashboard's own origin rather than the API's, and every piece of photo
+    evidence comes out as a broken image. With it, each client is handed a URL
+    that works from where it is asking.
+    """
+    return MissionDetailSerializer(mission, context={"request": request}).data
+
+
 class MissionActionMixin:
     """
     Shared plumbing for the transition endpoints.
@@ -50,9 +63,38 @@ class MissionActionMixin:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except services.MissionError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(MissionDetailSerializer(mission).data)
+        return Response(_detail(mission, self.request))
  
  
+class FilterError(Exception):
+    """A query parameter the list cannot honour; the view answers 400."""
+
+
+def _one_of(request, name, allowed):
+    """
+    A filter whose value must come from a fixed set.
+
+    An unknown value is a mistake worth reporting: returning an empty list
+    instead would look like "no missions match" and hide the typo.
+    """
+    value = request.query_params.get(name)
+    if not value:
+        return None
+    if value not in allowed:
+        raise FilterError(f"{name} must be one of: {', '.join(allowed)}.")
+    return value
+
+
+def _an_id(request, name):
+    """An id filter. A non-numeric value used to reach the database and 500."""
+    value = request.query_params.get(name)
+    if not value:
+        return None
+    if not value.isdigit():
+        raise FilterError(f"{name} must be a number.")
+    return int(value)
+
+
 class MissionListCreateView(APIView):
     """
     GET  /api/v1/missions/  - list, filtered. Officers see only their own.
@@ -73,25 +115,39 @@ class MissionListCreateView(APIView):
             OpenApiParameter("priority", description="low, medium, high, urgent"),
             OpenApiParameter("category", description="Municipal, Sanitation, Traffic, Infrastructure"),
             OpenApiParameter("officer_id", description="Filter by assigned officer.", type=int),
+            OpenApiParameter("area_id", description="Filter by the district the mission is in.", type=int),
             OpenApiParameter("date", description="Missions created on this day, YYYY-MM-DD."),
             OpenApiParameter("open", description="true for missions not yet closed."),
         ],
         responses=MissionListSerializer(many=True),
     )
     def get(self, request):
-        queryset = Mission.objects.select_related("created_by").prefetch_related("assigned_to")
+        queryset = Mission.objects.select_related("created_by", "area").prefetch_related(
+            "assigned_to"
+        )
+
+        try:
+            officer_id = _an_id(request, "officer_id")
+            area_id = _an_id(request, "area_id")
+            mission_status = _one_of(request, "status", Mission.Status.values)
+            priority = _one_of(request, "priority", Mission.Priority.values)
+            category = _one_of(request, "category", Mission.Category.values)
+        except FilterError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         if request.user.role == "officer":
             queryset = queryset.filter(assigned_to=request.user)
-        elif officer_id := request.query_params.get("officer_id"):
+        elif officer_id is not None:
             queryset = queryset.filter(assigned_to__id=officer_id)
- 
-        if value := request.query_params.get("status"):
-            queryset = queryset.filter(status=value)
-        if value := request.query_params.get("priority"):
-            queryset = queryset.filter(priority=value)
-        if value := request.query_params.get("category"):
-            queryset = queryset.filter(category=value)
+
+        if mission_status:
+            queryset = queryset.filter(status=mission_status)
+        if priority:
+            queryset = queryset.filter(priority=priority)
+        if category:
+            queryset = queryset.filter(category=category)
+        if area_id is not None:
+            queryset = queryset.filter(area_id=area_id)
         if request.query_params.get("open") == "true":
             queryset = queryset.exclude(
                 status__in=[Mission.Status.COMPLETED, Mission.Status.CANCELLED]
@@ -148,9 +204,7 @@ class MissionListCreateView(APIView):
         except services.MissionError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
  
-        return Response(
-            MissionDetailSerializer(mission).data, status=status.HTTP_201_CREATED
-        )
+        return Response(_detail(mission, request), status=status.HTTP_201_CREATED)
  
  
 class MissionDetailView(APIView, MissionActionMixin):
@@ -176,7 +230,7 @@ class MissionDetailView(APIView, MissionActionMixin):
                 status=status.HTTP_403_FORBIDDEN,
             )
  
-        return Response(MissionDetailSerializer(mission).data)
+        return Response(_detail(mission, request))
  
  
 class MissionAssignView(APIView, MissionActionMixin):
@@ -312,7 +366,7 @@ class MissionNoteView(APIView, MissionActionMixin):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
  
         mission.refresh_from_db()
-        return Response(MissionDetailSerializer(mission).data)
+        return Response(_detail(mission, request))
  
  
 class MissionPhotoView(APIView, MissionActionMixin):

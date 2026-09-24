@@ -5,7 +5,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .permissions import IsSupervisor
+from .models import Area
 from .registry import DEFINITIONS, SettingError, all_settings, set_settings
+from .serializers import AreaSerializer
 from .serializers import SystemSettingSerializer
 
 
@@ -87,3 +89,19 @@ class SystemSettingSchemaView(APIView):
                 for key, d in DEFINITIONS.items()
             ]
         )
+
+class AreaListView(APIView):
+    """
+    GET /api/v1/areas/ - the districts, for the dashboard's area filters.
+
+    Any signed-in user: the officer app shows the same names on a mission, and
+    there is nothing sensitive in a list of neighbourhoods.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AreaSerializer
+
+    @extend_schema(responses=AreaSerializer(many=True))
+    def get(self, request):
+        areas = Area.objects.filter(is_active=True)
+        return Response(AreaSerializer(areas, many=True).data)

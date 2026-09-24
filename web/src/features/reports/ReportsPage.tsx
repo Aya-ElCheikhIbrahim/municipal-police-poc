@@ -9,6 +9,7 @@ import { DailyActivity, type DailyViewMode } from './DailyActivity';
 import { WeeklySummary } from './WeeklySummary';
 import { OfficerReport } from './OfficerReport';
 import { CustomRangeReport } from './CustomRangeReport';
+import { MissionsReport } from './MissionsReport';
 
 function getLocalDateString(date: Date) {
   const year = date.getFullYear();
@@ -17,8 +18,14 @@ function getLocalDateString(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function ReportsPage() {
-  const [reportSubTab, setReportSubTab] = useState<ReportSubTab>('Daily activity');
+type ReportsView = ReportSubTab | 'Missions';
+
+interface ReportsPageProps {
+  onMissionSelect: (missionId: number) => void;
+}
+
+export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
+  const [reportSubTab, setReportSubTab] = useState<ReportsView>('Daily activity');
   const [dailyView, setDailyView] = useState<DailyViewMode>('SUMMARY');
   const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
 
@@ -56,7 +63,7 @@ export function ReportsPage() {
     });
   };
 
-  const handleTabChange = (tab: ReportSubTab) => {
+  const handleTabChange = (tab: ReportsView) => {
     setReportSubTab(tab);
     setSelectedOfficer(null);
     setFilters((prev) => ({
@@ -90,9 +97,10 @@ export function ReportsPage() {
       <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto">
         <OfficerReport
           officerName={selectedOfficer}
-          sourceTab={reportSubTab}
+          sourceTab={reportSubTab === 'Missions' ? 'Daily activity' : reportSubTab}
           filters={filters}
           onBack={() => setSelectedOfficer(null)}
+          onMissionSelect={onMissionSelect}
         />
       </div>
     );
@@ -101,32 +109,47 @@ export function ReportsPage() {
   return (
     <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="bg-white/80 p-0.5 rounded-md border border-slate-200 flex items-center">
-          {(['Daily activity', 'Weekly summary', 'Custom range'] as ReportSubTab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => handleTabChange(tab)}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                reportSubTab === tab
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="bg-white/80 p-0.5 rounded-md border border-slate-200 flex items-center">
+            {(['Daily activity', 'Weekly summary', 'Custom range'] as ReportSubTab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={`px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold transition-all cursor-pointer ${
+                  reportSubTab === tab
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('Missions')}
+            className={`ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer border ${
+              reportSubTab === 'Missions'
+                ? 'bg-[#203E72] text-white border-[#203E72] shadow-sm'
+                : 'bg-blue-50 text-[#203E72] border-blue-200 hover:bg-blue-100'
+            }`}
+          >
+            <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70" />
+            Mission Overview
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleExportFiltered('CSV')}
-            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
+            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
           >
             Export Filtered CSV
           </button>
           <button
             onClick={() => handleExportFiltered('PDF')}
-            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
+            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
           >
             Export Filtered PDF
           </button>
@@ -137,7 +160,7 @@ export function ReportsPage() {
         <div className="inline-flex bg-white/80 p-0.5 rounded-md border border-slate-200">
           <button
             onClick={() => handleDailyViewChange('SUMMARY')}
-            className={`px-3 py-1 rounded-md text-xs font-semibold cursor-pointer ${
+            className={`px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold cursor-pointer ${
               dailyView === 'SUMMARY'
                 ? 'bg-[#1F3864] text-white'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -147,7 +170,7 @@ export function ReportsPage() {
           </button>
           <button
             onClick={() => handleDailyViewChange('SNAPSHOT')}
-            className={`px-3 py-1 rounded-md text-xs font-semibold cursor-pointer ${
+            className={`px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold cursor-pointer ${
               dailyView === 'SNAPSHOT'
                 ? 'bg-[#1F3864] text-white'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -158,14 +181,16 @@ export function ReportsPage() {
         </div>
       )}
 
-      <div className="bg-white/90 backdrop-blur rounded-lg border border-slate-200/80 shadow-xs">
+      {reportSubTab !== 'Missions' && (
+        <div>
+          <div className="bg-white/90 backdrop-blur rounded-lg border border-slate-200/80 shadow-xs">
         <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
-          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+          <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">
             Filter Report
           </span>
           <button
             onClick={resetFilters}
-            className="text-[11px] text-slate-500 hover:text-slate-800 font-medium cursor-pointer underline"
+            className="text-sm text-slate-500 hover:text-slate-800 font-medium cursor-pointer underline"
           >
             Clear
           </button>
@@ -286,6 +311,9 @@ export function ReportsPage() {
         </div>
       </div>
 
+        </div>
+      )}
+
       {reportSubTab === 'Daily activity' && (
         <DailyActivity
           filters={filters}
@@ -302,6 +330,10 @@ export function ReportsPage() {
         <CustomRangeReport filters={filters} onOfficerSelect={setSelectedOfficer} />
       )}
 
+      {reportSubTab === 'Missions' && (
+        <MissionsReport onMissionSelect={onMissionSelect} />
+      )}
+
       <style>{`
         .filter-control {
           width: 100%;
@@ -309,7 +341,7 @@ export function ReportsPage() {
           border: 1px solid rgb(226 232 240);
           border-radius: 0.375rem;
           padding: 0.5rem 0.625rem;
-          font-size: 0.75rem;
+          font-size: 1rem;
           color: rgb(51 65 85);
           outline: none;
         }
@@ -322,7 +354,7 @@ export function ReportsPage() {
 function FilterField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</label>
       {children}
     </div>
   );

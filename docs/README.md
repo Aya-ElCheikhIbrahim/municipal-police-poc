@@ -12,17 +12,17 @@
 
 Start with [api/README.md] for the rules that apply to every endpoint: base path,  authentication, errors, pagination.
 
-The per-app contracts explain the behavior behinf each endpoint: who may call it, what the rules are, and ewhat the response means.
+The per-app contracts explain the behavior behind each endpoint: who may call it, what the rules are, and what the response means.
 
 # CONTRACTS
 
 [CONTRACT-users.md]: Users, deviceTokens
 [CONTRACT-core.md]: System settings
 [CONTRACT-shifts.md]: Shifts, location-pings, active map feed, trail
-[CONTRACT-mssions.md]: Mission lifecycle, photos, notes
+[CONTRACT-missions.md]: Mission lifecycle, photos, notes
 [CONTRACT-panic.md]: Panic alerts
 [CONTRACT-notifications.md]: Notification feed 
-[CONTRACT-reports.md]: --- Not built yet
+[CONTRACT-reports.md]: Daily officer reports, weekly summary, CSV and PDF export.
 
 Field-level refrence lives in the code, not here
 --> Swagger at `/api/docs/`

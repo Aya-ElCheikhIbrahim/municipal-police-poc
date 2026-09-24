@@ -182,6 +182,8 @@ class ActiveShiftsView(APIView):
     permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
 
     def get(self, request):
+        services.end_expired_shifts()
+
         shifts = list(
             Shift.objects.filter(status=Shift.Status.ACTIVE)
             .select_related("officer")

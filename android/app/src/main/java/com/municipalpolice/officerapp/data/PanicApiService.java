@@ -7,8 +7,8 @@ import retrofit2.http.Path;
 
 public interface PanicApiService {
     @POST("panic/")
-    Call<Object> triggerPanic(@Body PositionRequest request);
+    Call<PanicEventResponse> triggerPanic(@Body PositionRequest request);
 
     @POST("panic/{id}/cancel/")
-    Call<Object> cancelPanic(@Path("id") int id);
+    Call<PanicEventResponse> cancelPanic(@Path("id") int id);
 }

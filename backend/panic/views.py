@@ -22,6 +22,7 @@ from .serializers import (
     PanicEventSerializer,
     PanicResolveSerializer,
     PanicTriggerSerializer,
+    PanicLocationSerializer
 )
 
 
@@ -156,3 +157,32 @@ class ActivePanicView(APIView):
             .order_by("triggered_at")  # oldest first; it has been waiting longest
         )
         return Response(ActivePanicSerializer(events, many=True).data)
+
+    
+
+class PanicLocationView(APIView):
+    """
+    GET /api/v1/panic/{id}/location/; where a colleague in panic is now.
+
+    For the officers notified of a nearby alert. Only while the alert is
+    active: a 404 tells the phone the incident is over and it can stop
+    following. Officers only; dispatchers already have the map.
+    """
+
+    permission_classes = [IsAuthenticated, IsOfficer]
+    serializer_class = PanicLocationSerializer
+
+    @extend_schema(responses=PanicLocationSerializer)
+    def get(self, request, event_id: int):
+        event = get_object_or_404(
+            PanicEvent.objects.select_related("officer"),
+            pk=event_id,
+            status=PanicEvent.Status.ACTIVE,
+        )
+        return Response(
+            PanicLocationSerializer({
+                "id": event.id,
+                "officer": event.officer,
+                **services.current_position(event),
+            }).data
+        )

@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from .models import LocationPing, Shift
 
@@ -134,6 +136,52 @@ def end_shift(officer, latitude=None, longitude=None) -> Shift:
     return shift
 
 
+
+def _live_tokens(now):
+    return OutstandingToken.objects.filter(expires_at__gt=now, blacklistedtoken__isnull=True)
+
+
+def end_expired_shifts(now=None) -> list[Shift]:
+    """
+    Close active shifts whose officer no longer has a usable refresh token.
+    Token expiry is passive (nothing fires at hour 12), so this runs as a
+    sweep. Safe to call repeatedly.
+    """
+    now = now or timezone.now()
+    live_officer_ids = _live_tokens(now).values("user_id")
+    candidate_ids = list(
+        Shift.objects.filter(status=Shift.Status.ACTIVE)
+        .exclude(officer_id__in=live_officer_ids)
+        .values_list("id", flat=True)
+    )
+
+    ended = []
+    for shift_id in candidate_ids:
+        with transaction.atomic():
+            shift = (
+                Shift.objects.select_for_update()
+                .filter(pk=shift_id, status=Shift.Status.ACTIVE)
+                .first()
+            )
+            if shift is None:  # officer ended it themselves meanwhile
+                continue
+            if _live_tokens(now).filter(user_id=shift.officer_id).exists():
+                continue  # refreshed between the query and the lock
+
+            last_expiry = OutstandingToken.objects.filter(
+                user_id=shift.officer_id
+            ).aggregate(m=Max("expires_at"))["m"]
+            # End at the moment the session died, not when the sweep noticed.
+            # min() covers logout (blacklisted token still has a future expiry);
+            # max() keeps the shift_ends_after_it_starts constraint happy.
+            shift.ended_at = max(min(last_expiry or now, now), shift.started_at)
+            shift.status = Shift.Status.ENDED
+            shift.ended_automatically = True
+            shift.save(update_fields=["ended_at", "status", "ended_automatically"])
+            ended.append(shift)
+    return ended
+
+
 def ingest_pings(officer, rows):
     """
     §4.3 — batch ingest.
@@ -182,7 +230,7 @@ def ingest_pings(officer, rows):
     # pings recorded earlier than ones already stored, so adding new segments
     # to a running total would drift. This costs one scan per batch upload
     # (every few minutes per officer) instead of one scan per read of
-    # /shifts/active/ (every 15s per officer, times every dispatcher watching).
+    # /shifts/active/ (every 5s per officer, times every dispatcher watching).
     shift.distance_m = shift_distance_m(shift)
     shift.save(update_fields=["distance_m"])
 
@@ -191,3 +239,44 @@ def ingest_pings(officer, rows):
         duplicates=len(fresh) - len(objects),
         rejected=rejected,
     )
+
+
+
+def officers_near(latitude, longitude, radius_m, exclude_officer):
+    """
+    Officers on an active shift whose last known position is within radius_m.
+    Returns [(officer, distance_m)], nearest first.
+
+    Last known position is the newest ping, else where the shift was started.
+    An officer with neither is skipped: there is no way to tell how far away
+    they are, and guessing would send the wrong person.
+    """
+    shifts = list(
+        Shift.objects.filter(status=Shift.Status.ACTIVE, officer__is_active=True)
+        .exclude(officer=exclude_officer)
+        .select_related("officer")
+    )
+
+    latest = {
+        ping.shift_id: ping
+        for ping in LocationPing.objects
+            .filter(shift_id__in=[shift.id for shift in shifts])
+            .order_by("shift_id", "-recorded_at")
+            .distinct("shift_id")
+    }
+
+    nearby = []
+    for shift in shifts:
+        ping = latest.get(shift.id)
+        if ping is not None:
+            lat, lon = ping.latitude, ping.longitude
+        elif shift.start_latitude is not None:
+            lat, lon = shift.start_latitude, shift.start_longitude
+        else:
+            continue
+        distance = haversine_m(float(latitude), float(longitude), float(lat), float(lon))
+        if distance <= radius_m:
+            nearby.append((shift.officer, distance))
+
+    nearby.sort(key=lambda pair: pair[1])
+    return nearby

@@ -35,3 +35,34 @@ class SystemSetting(models.Model):
         from .registry import invalidate_cache
 
         invalidate_cache()
+
+class Area(models.Model):
+    """
+    A named part of the city (`core_area`), used to answer "where did this
+    happen" on the reports.
+
+    A circle rather than a polygon: the POC needs to group missions and
+    positions into recognisable districts, not to draw exact boundaries, and a
+    centre with a radius is something a supervisor can adjust in the admin
+    without GIS tooling. Overlapping circles are fine - the nearest centre that
+    contains the point wins.
+
+    Seeded from the district list the dashboard already uses, with approximate
+    centres; tune them in the admin against real mission positions.
+    """
+
+    name = models.CharField(max_length=120, unique=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    radius_m = models.PositiveIntegerField(
+        default=800,
+        help_text="How far from the centre still counts as this area, in metres.",
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "core_area"
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name

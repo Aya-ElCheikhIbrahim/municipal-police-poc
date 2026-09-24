@@ -1193,6 +1193,60 @@ export const officerMissionData: OfficerMissionRecord[] = [
     acknowledgedAt: '22:01',
     completedAt: '—',
   },
+
+  /* =======================================================
+     MULTI-OFFICER DEMO ASSIGNMENTS
+
+     Same mission details + different officer = the same
+     physical mission assigned to more than one officer.
+     These records are intentionally included so the Reports
+     UI can demonstrate grouped officers and unique counting.
+  ======================================================= */
+
+  // Corniche patrol: 2 officers total (Karim + Layla)
+  {
+    id: 1,
+    officerName: 'Layla Mansour',
+    title: 'Corniche patrol',
+    category: 'PATROL',
+    priority: 'URGENT',
+    status: 'COMPLETED',
+    location: 'Mina, Tripoli, Lebanon',
+    date: dateDaysAgo(0),
+    assignedAt: '08:12',
+    acknowledgedAt: '08:15',
+    completedAt: '08:51',
+  },
+
+  // Traffic congestion: 3 officers total (Samir + Karim + Nabil)
+  {
+    id: 30,
+    officerName: 'Karim Haddad',
+    title: 'Traffic congestion',
+    category: 'TRAFFIC',
+    priority: 'LOW',
+    status: 'IN_PROGRESS',
+    location: 'Al Dam Wal Farez, Tripoli, Lebanon',
+    date: dateDaysAgo(0),
+    assignedAt: '13:10',
+    acknowledgedAt: '13:15',
+    completedAt: '—',
+  },
+
+  {
+    id: 30,
+    officerName: 'Nabil Khoury',
+    title: 'Traffic congestion',
+    category: 'TRAFFIC',
+    priority: 'LOW',
+    status: 'IN_PROGRESS',
+    location: 'Al Dam Wal Farez, Tripoli, Lebanon',
+    date: dateDaysAgo(0),
+    assignedAt: '13:10',
+    acknowledgedAt: '13:15',
+    completedAt: '—',
+  },
+
 ];
 
 /* =========================================================

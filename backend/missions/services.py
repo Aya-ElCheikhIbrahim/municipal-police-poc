@@ -14,6 +14,7 @@ from decimal import Decimal
 from django.db import IntegrityError, transaction
 from django.utils import timezone
  
+from core.areas import area_for
 from core.registry import get_setting
 from notifications.services import (
     notify_mission_assigned,
@@ -178,6 +179,9 @@ def create_mission(
         latitude=_as_decimal(latitude),
         longitude=_as_decimal(longitude),
         address=address,
+        # Worked out once, here, so reports can group by district with a plain
+        # filter instead of measuring distances on every request.
+        area=area_for(latitude, longitude),
         deadline=deadline,
         created_by=created_by,
     )

@@ -35,6 +35,14 @@ class MissionListSerializer(serializers.ModelSerializer):
     """
 
     assigned_to = OfficerBriefSerializer(many=True, read_only=True)
+
+    # The district the mission is in, worked out from its position when it was
+    # created. Null when it fell outside every area. `address` is what the
+    # dispatcher typed; this is what the reports group by, so a client can show
+    # either without guessing which district a free-text address means.
+    area = serializers.CharField(source="area.name", read_only=True, default=None)
+    area_id = serializers.IntegerField(read_only=True, allow_null=True)
+
     is_overdue = serializers.SerializerMethodField()
     awaiting_acknowledgement = serializers.SerializerMethodField()
     duration_seconds = serializers.IntegerField(read_only=True, allow_null=True)
@@ -50,6 +58,8 @@ class MissionListSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "address",
+            "area",
+            "area_id",
             "assigned_to",
             "deadline",
             "created_at",

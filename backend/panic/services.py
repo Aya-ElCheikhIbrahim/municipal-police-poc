@@ -16,8 +16,12 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from core.registry import get_setting
-from notifications.services import notify_panic_triggered
-from shifts.models import Shift
+from notifications.services import (
+    notify_nearby_officers_of_panic,
+    notify_panic_triggered,
+)
+from shifts.models import LocationPing, Shift
+from shifts.services import officers_near
 
 from .models import PanicEvent
 
@@ -83,6 +87,15 @@ def trigger_panic(
                 battery_level=battery_level,
             )
             notify_panic_triggered(event)
+            notify_nearby_officers_of_panic(
+                event,
+                officers_near(
+                    event.latitude,
+                    event.longitude,
+                    get_setting("panic_nearby_radius_m"),
+                    exclude_officer=officer,
+                ),
+            )
         return event, True
     except IntegrityError:
         # Lost a race against unique_active_panic_per_officer; two taps
@@ -160,3 +173,25 @@ def _require_active(event: PanicEvent, action: str) -> None:
             f"Cannot {action} a panic alert that is already "
             f"{event.get_status_display().lower()}."
         )
+
+
+
+def current_position(event: PanicEvent) -> dict:
+    ping = (
+        LocationPing.objects.filter(shift_id=event.shift_id)
+        .order_by("-recorded_at")
+        .first()
+    )
+    if ping is not None and ping.recorded_at > event.triggered_at:
+        return {
+            "latitude": ping.latitude,
+            "longitude": ping.longitude,
+            "accuracy_m": ping.accuracy_m,
+            "recorded_at": ping.recorded_at,
+        }
+    return {
+        "latitude": event.latitude,
+        "longitude": event.longitude,
+        "accuracy_m": event.accuracy_m,
+        "recorded_at": event.triggered_at,
+    }

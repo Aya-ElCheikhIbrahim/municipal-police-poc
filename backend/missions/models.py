@@ -50,6 +50,18 @@ class Mission(models.Model):
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     address = models.CharField(max_length=255, blank=True)
 
+    # Which district the mission is in, worked out from its position when it is
+    # created (core.areas.area_for). Null means it fell outside every area, or
+    # that no areas were defined yet. SET_NULL because deleting a district must
+    # not take the missions that happened in it.
+    area = models.ForeignKey(
+        "core.Area",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="missions",
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,  # mission history is retained

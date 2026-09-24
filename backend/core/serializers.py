@@ -1,5 +1,6 @@
 from rest_framework import serializers
  
+from .models import Area
 from .registry import DEFINITIONS
  
  
@@ -40,3 +41,10 @@ class SystemSettingSerializer(serializers.Serializer):
             for key, definition in DEFINITIONS.items()
         }
  
+
+class AreaSerializer(serializers.ModelSerializer):
+    """The district list behind every "area" dropdown."""
+
+    class Meta:
+        model = Area
+        fields = ["id", "name", "latitude", "longitude", "radius_m"]

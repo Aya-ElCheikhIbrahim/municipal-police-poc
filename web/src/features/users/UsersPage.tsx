@@ -2,12 +2,19 @@ import { useState } from 'react';
 import { useUsers } from './useUsers';
 import { AddUserForm } from './AddUserForm';
 import { roleLabel } from '../auth/types';
+import { ResetPasswordModal } from './password_res';
 import type { CreateUserRequest, UserFilters } from './types';
+import { usersApi } from './api';
 
 export function UsersPage() {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [resetUser, setResetUser] = useState<any | null>(null);
 
+  const handleGenerateResetCode = async (userId: string | number) => {
+    const badgeNumber = resetUser?.badge_number || String(userId);
+    return await usersApi.generateResetCode(badgeNumber);
+  };
   const filters: UserFilters = showActiveOnly ? { is_active: true } : {};
   const { users, isLoading, error, createUser, setActive } = useUsers(filters);
 
@@ -82,19 +89,33 @@ export function UsersPage() {
                   Badge {user.badge_number} · {roleLabel(user.role)}
                 </div>
                 <div className="text-sm text-slate-600 font-mono">{user.phone || '—'}</div>
-                <button
-                  onClick={() => setActive(user.id, !user.is_active)}
-                  className="text-indigo-600 hover:text-indigo-800 font-semibold text-base cursor-pointer pt-1"
-                >
-                  {user.is_active ? 'Deactivate' : 'Activate'}
-                </button>
+                <div className="flex items-center justify-between ml-auto pt-2">
+                  <div className="flex-1 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setResetUser(user)}
+                      className="px-2.5 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      Reset password
+                    </button>
+                  </div>
+
+                  <div className="w-20 text-right shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setActive(user.id, !user.is_active)}
+                      className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold cursor-pointer"
+                    >
+                      {user.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </div>
+                </div>
               </div>
             ))
           )}
         </div>
 
-        {/* Tablet/desktop: table. The box shrinks to the space left and scrolls itself,
-            so the column names (sticky cells below) stay visible. */}
+        {/* Tablet/desktop: table */}
         <div className="hidden sm:block min-h-0 bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-auto">
           <table className="w-full text-left text-sm lg:text-base border-collapse">
             <thead>
@@ -135,12 +156,29 @@ export function UsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setActive(user.id, !user.is_active)}
-                        className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm lg:text-base cursor-pointer"
-                      >
-                        {user.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
+                      <div className="flex items-center justify-between ml-auto">
+                        {/* Centered container for Reset Password */}
+                        <div className="flex-1 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setResetUser(user)}
+                            className="px-2.5 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            Reset password
+                          </button>
+                        </div>
+
+                        {/* Activate/Deactivate stays fixed at the far right edge */}
+                        <div className="w-20 text-right shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setActive(user.id, !user.is_active)}
+                            className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold cursor-pointer"
+                          >
+                            {user.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -149,6 +187,21 @@ export function UsersPage() {
           </table>
         </div>
       </div>
+      <ResetPasswordModal
+        user={
+          resetUser
+            ? {
+                id: resetUser.id,
+                name: resetUser.full_name || resetUser.username,
+                badge: resetUser.badge_number || '—',
+                role: typeof roleLabel === 'function' ? roleLabel(resetUser.role) : (roleLabel as Record<string, any>)[resetUser.role] || resetUser.role,
+              }
+            : null
+        }
+        isOpen={Boolean(resetUser)}
+        onClose={() => setResetUser(null)}
+        onGenerateCode={handleGenerateResetCode}
+      />
     </div>
   );
 }
