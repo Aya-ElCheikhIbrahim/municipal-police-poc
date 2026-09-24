@@ -14,7 +14,6 @@
     <string name="login_error_incorrect">Incorrect, try again</string>
 
     <!-- Forgot Password -->
-<<<<<<< HEAD
     <string name="reset_password_title">Reset password</string>
     <string name="reset_password_heading">Enter your code</string>
     <string name="reset_password_badge_label">BADGE NUMBER</string>
@@ -29,18 +28,6 @@
     <string name="forgot_password_success">Password updated successfully</string>
     <string name="forgot_password_error_blocked">Too many attempts. Locked out for 1 minute.</string>
     <string name="forgot_password_error_failed">Incorrect or expired code. Ask your supervisor for a new one. Attempts left: %1$d</string>
-=======
-    <string name="forgot_password_title">Reset Password</string>
-    <string name="forgot_password_badge_hint">Badge Number</string>
-    <string name="forgot_password_code_hint">Reset Code</string>
-    <string name="forgot_password_new_password_hint">New Password</string>
-    <string name="forgot_password_submit_btn">Set New Password</string>
-    <string name="forgot_password_next_btn">Next</string>
-    <string name="forgot_password_error_required">Please fill in all fields</string>
-    <string name="forgot_password_success">Password updated successfully</string>
-    <string name="forgot_password_error_blocked">Too many attempts. Locked out for 1 minute.</string>
-    <string name="forgot_password_error_failed">Invalid badge or supervisor code. Attempts left: %1$d</string>
->>>>>>> 90f4ac654b2d164d87d8b3814ca3775f01432956
 
     <!-- Shift / on-duty -->
     <string name="shift_off_duty_subtitle">Tracking begins now</string>
