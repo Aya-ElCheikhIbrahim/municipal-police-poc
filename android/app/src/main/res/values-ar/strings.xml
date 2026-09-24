@@ -14,6 +14,7 @@
     <string name="login_error_incorrect">البيانات غير صحيحة، حاول مرة أخرى</string>
 
     <!-- إعادة تعيين كلمة المرور -->
+<<<<<<< HEAD
     <string name="reset_password_title">إعادة تعيين كلمة المرور</string>
     <string name="reset_password_heading">أدخل الرمز الخاص بك</string>
     <string name="reset_password_badge_label">رقم الشارة</string>
@@ -28,6 +29,18 @@
     <string name="forgot_password_success">تم تحديث كلمة المرور بنجاح</string>
     <string name="forgot_password_error_blocked">محاولات كثيرة جدا. تم الحظر لمدة دقيقة واحدة.</string>
     <string name="forgot_password_error_failed">رمز غير صحيح أو منتهي الصلاحية. اطلب رمزًا جديدًا من مشرفك. المحاولات المتبقية: %1$d</string>
+=======
+    <string name="forgot_password_title">إعادة تعيين كلمة المرور</string>
+    <string name="forgot_password_badge_hint">رقم الشارة</string>
+    <string name="forgot_password_code_hint">رمز إعادة التعيين</string>
+    <string name="forgot_password_new_password_hint">كلمة المرور الجديدة</string>
+    <string name="forgot_password_submit_btn">تعيين كلمة المرور الجديدة</string>
+    <string name="forgot_password_next_btn">التالي</string>
+    <string name="forgot_password_error_required">يرجى ملء جميع الحقول</string>
+    <string name="forgot_password_success">تم تحديث كلمة المرور بنجاح</string>
+    <string name="forgot_password_error_blocked">محاولات كثيرة جدا. تم الحظر لمدة دقيقة واحدة.</string>
+    <string name="forgot_password_error_failed">رقم الشارة أو رمز المشرف غير صالح. المحاولات المتبقية: %1$d</string>
+>>>>>>> 90f4ac654b2d164d87d8b3814ca3775f01432956
 
     <!-- الدوام -->
     <string name="shift_off_duty_subtitle">سيبدأ تتبع الموقع الآن</string>
