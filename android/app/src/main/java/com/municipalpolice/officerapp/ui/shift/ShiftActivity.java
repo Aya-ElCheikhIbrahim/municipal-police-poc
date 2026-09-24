@@ -74,7 +74,13 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
 
         View panicButton = findViewById(R.id.btnPanicCircle);
         if (panicButton != null) {
-            panicButton.setOnClickListener(v -> PanicAlertDialogFragment.newInstance().show(getSupportFragmentManager(), "panic"));
+            panicButton.setOnClickListener(v -> {
+                if (!prefs.isShiftActive()) {
+                    Toast.makeText(this, "Please start a shift before pressing the panic button.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                PanicAlertDialogFragment.newInstance().show(getSupportFragmentManager(), "panic");
+            });
         }
 
         renderOffDuty();
@@ -132,6 +138,13 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
 
     @Override
     public void onPanicSent() {
-        Toast.makeText(this, R.string.panic_toast_sent, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "PANIC ACTIVE - DISPATCH NOTIFIED", Toast.LENGTH_LONG).show();
+
+        View panicButton = findViewById(R.id.btnPanicCircle);
+        if (panicButton instanceof android.widget.ImageView) {
+            ((android.widget.ImageView) panicButton).setColorFilter(
+                    androidx.core.content.ContextCompat.getColor(this, R.color.urgent_alert)
+            );
+        }
     }
 }
