@@ -1,6 +1,4 @@
 import { useMemo, useState } from 'react';
-import { MissionDetailPage } from '../missions/MissionDetailPage';
-import { useActiveOfficers } from '../officers/useOfficers';
 import {
   officerActivityData,
   officerMissionData,
@@ -16,6 +14,7 @@ interface OfficerReportProps {
   sourceTab: ReportSubTab;
   filters: FilterState;
   onBack: () => void;
+  onMissionSelect: (missionId: number) => void;
 }
 
 type PeriodMode = 'DAY' | 'WEEK' | 'CUSTOM';
@@ -59,7 +58,31 @@ function differenceMinutes(start: string, end: string) {
   return Math.max(0, timeToMinutes(end) - timeToMinutes(start));
 }
 
-export function OfficerReport({ officerName, sourceTab, filters, onBack }: OfficerReportProps) {
+type MissionSortField = 'date' | 'title' | 'status' | 'priority' | 'location' | 'assignedAt' | 'acknowledgedAt' | 'completedAt';
+
+function SortHeader({ label, field, currentField, asc, onSort }: {
+  label: string;
+  field: MissionSortField;
+  currentField: MissionSortField;
+  asc: boolean;
+  onSort: (field: MissionSortField) => void;
+}) {
+  return (
+    <th
+      className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100"
+      onClick={() => onSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        <span>{label}</span>
+        <span className="text-[11px] leading-none text-slate-400">
+          {currentField === field ? (asc ? '▲' : '▼') : '↕'}
+        </span>
+      </span>
+    </th>
+  );
+}
+
+export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissionSelect }: OfficerReportProps) {
   const profile = officerProfiles[officerName];
   const today = localDateString(new Date());
 
@@ -70,8 +93,8 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
   const [customStart, setCustomStart] = useState(filters.startDate);
   const [customEnd, setCustomEnd] = useState(filters.endDate);
   const [missionStatus, setMissionStatus] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'CANCELLED'>('ALL');
-  const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null);
-  const { officers } = useActiveOfficers(false);
+  const [missionSortField, setMissionSortField] = useState<MissionSortField>('date');
+  const [missionSortAsc, setMissionSortAsc] = useState(false);
 
   const periodStart = periodMode === 'DAY'
     ? dayDate
@@ -90,10 +113,38 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
       if (mission.officerName !== officerName) return false;
       if (mission.date < periodStart || mission.date > periodEnd) return false;
       if (missionStatus !== 'ALL' && mission.status !== missionStatus) return false;
-      if (filters.location !== 'ALL' && mission.location !== filters.location) return false;
       return true;
     });
-  }, [officerName, periodStart, periodEnd, filters.location, missionStatus]);
+  }, [officerName, periodStart, periodEnd, missionStatus]);
+
+  const sortedMissions = useMemo(() => {
+    const priorityRank: Record<string, number> = {
+      URGENT: 4,
+      HIGH: 3,
+      MEDIUM: 2,
+      LOW: 1,
+    };
+
+    return [...missions].sort((a, b) => {
+      if (missionSortField === 'priority') {
+        const result = (priorityRank[a.priority] ?? 0) - (priorityRank[b.priority] ?? 0);
+        return missionSortAsc ? result : -result;
+      }
+
+      const left = String(a[missionSortField] ?? '').toLowerCase();
+      const right = String(b[missionSortField] ?? '').toLowerCase();
+      const result = left.localeCompare(right, undefined, { numeric: true });
+      return missionSortAsc ? result : -result;
+    });
+  }, [missions, missionSortField, missionSortAsc]);
+
+  const handleMissionSort = (field: MissionSortField) => {
+    if (missionSortField === field) setMissionSortAsc((current) => !current);
+    else {
+      setMissionSortField(field);
+      setMissionSortAsc(field === 'title' || field === 'status' || field === 'location');
+    }
+  };
 
   const timeline = useMemo(() => {
     if (periodMode !== 'DAY') return [];
@@ -102,13 +153,12 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
 
     return officerActivityData.filter((event) => {
       if (event.officerName !== officerName || event.date !== periodStart) return false;
-      if (filters.location !== 'ALL' && event.location !== filters.location) return false;
       if (missionStatus !== 'ALL') {
         return event.missionId !== undefined && matchingMissionIds.has(event.missionId);
       }
       return true;
     });
-  }, [officerName, periodStart, filters.location, periodMode, missions, missionStatus]);
+  }, [officerName, periodStart, periodMode, missions, missionStatus]);
 
   const periodRecords = officerPeriodData.filter((row) =>
     row.officerName === officerName && row.date >= periodStart && row.date <= periodEnd
@@ -117,6 +167,38 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
   const totalDutyMinutes = periodRecords.reduce((sum, row) => sum + row.dutyMinutes, 0);
   const totalDistance = periodRecords.reduce((sum, row) => sum + row.distanceKm, 0);
   const panicEvents = periodRecords.reduce((sum, row) => sum + row.panicEvents, 0);
+
+  const hasCurrentMission = officerMissionData.some(
+    (mission) =>
+      mission.officerName === officerName &&
+      mission.date === today &&
+      mission.status === 'IN_PROGRESS'
+  );
+  const hasCurrentPanic = officerPeriodData.some(
+    (row) =>
+      row.officerName === officerName &&
+      row.date === today &&
+      row.panicEvents > 0
+  );
+  const officerStatus = hasCurrentPanic
+    ? 'Panic'
+    : hasCurrentMission
+    ? 'On Mission'
+    : 'Available';
+
+  const officerStatusStyle =
+    officerStatus === 'Panic'
+      ? 'bg-rose-50 text-rose-700 border-rose-200'
+      : officerStatus === 'On Mission'
+      ? 'bg-blue-50 text-blue-700 border-blue-200'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+  const officerStatusDot =
+    officerStatus === 'Panic'
+      ? 'bg-rose-500'
+      : officerStatus === 'On Mission'
+      ? 'bg-blue-500'
+      : 'bg-emerald-500';
 
   const completedCount = missions.filter((mission) => mission.status === 'COMPLETED').length;
   const cancelledCount = missions.filter((mission) => mission.status === 'CANCELLED').length;
@@ -147,16 +229,6 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
     alert(`Exporting ${officerName}'s filtered activity as ${format}.`);
   };
 
-  if (selectedMissionId !== null) {
-    return (
-      <MissionDetailPage
-        missionId={selectedMissionId}
-        officers={officers}
-        onBack={() => setSelectedMissionId(null)}
-        onChanged={() => {}}
-      />
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -166,10 +238,10 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
         </button>
 
         <div className="flex gap-2">
-          <button onClick={() => handleExport('CSV')} className="bg-white hover:bg-slate-50 border border-slate-200 px-4 py-2 rounded-md text-base font-semibold text-slate-700 shadow-xs cursor-pointer">
+          <button onClick={() => handleExport('CSV')} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer">
             Export CSV
           </button>
-          <button onClick={() => handleExport('PDF')} className="bg-[#203E72] hover:bg-[#19345f] px-4 py-2 rounded-md text-base font-semibold text-white shadow-xs cursor-pointer">
+          <button onClick={() => handleExport('PDF')} className="inline-flex h-10 items-center justify-center rounded-md bg-[#203E72] px-4 text-sm font-semibold text-white shadow-xs hover:bg-[#19345f] cursor-pointer">
             Export PDF
           </button>
         </div>
@@ -180,10 +252,16 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
         <div className="p-5 flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1">Officer Details</div>
-            <h2 className="text-base font-bold text-slate-900">{officerName}</h2>
+            <h2 className="text-xl font-extrabold !text-[#203E72]">{officerName}</h2>
             <p className="mt-1 text-sm text-slate-500">
               Badge {profile?.badge ?? '—'}
             </p>
+            <div className="mt-2">
+              <span className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-sm font-semibold ${officerStatusStyle}`}>
+                <span className={`h-2 w-2 rounded-full ${officerStatusDot}`} />
+                {officerStatus}
+              </span>
+            </div>
           </div>
 
           <div className="space-y-2 min-w-[300px]">
@@ -241,7 +319,7 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[720px]">
               <thead>
-                <tr className="bg-slate-50 text-xs lg:text-sm uppercase tracking-wider font-semibold text-slate-500">
+                <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
                   <th className="px-5 py-3">Time</th>
                   <th className="px-4 py-3">Area / Location</th>
                   <th className="px-4 py-3">Activity</th>
@@ -311,32 +389,44 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
               ))}
             </div>
           </div>
-          <span className="text-base font-semibold text-slate-500">{missions.length} mission{missions.length === 1 ? '' : 's'}</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleMissionSort('priority')}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              title="Sort missions by priority"
+            >
+              Priority {missionSortField === 'priority' ? (missionSortAsc ? '▲' : '▼') : '↕'}
+            </button>
+            <span className="text-base font-semibold text-slate-500">{missions.length} mission{missions.length === 1 ? '' : 's'}</span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-slate-50 text-xs lg:text-sm uppercase tracking-wider font-semibold text-slate-500">
-                <th className="px-5 py-3">Date</th>
-                <th className="px-4 py-3">Mission</th>
-                <th className="px-4 py-3">Status</th>
+              <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
+                <SortHeader label="Date" field="date" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
+                <SortHeader label="Mission" field="title" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
+                <SortHeader label="Status" field="status" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
+                <th className="px-4 py-3">Other Officers</th>
                 <th className="px-4 py-3">Area / Location</th>
-                <th className="px-4 py-3">Assigned</th>
-                <th className="px-4 py-3">Acknowledged</th>
-                <th className="px-4 py-3">Completed</th>
+                <SortHeader label="Assigned" field="assignedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
+                <SortHeader label="Acknowledged" field="acknowledgedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
+                <SortHeader label="Completed" field="completedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {missions.map((mission) => (
+              {sortedMissions.map((mission) => (
                 <MissionRow
                   key={mission.id}
                   mission={mission}
-                  onSelect={() => setSelectedMissionId(mission.id)}
+                  onSelect={() => onMissionSelect(mission.id)}
+                  currentOfficer={officerName}
                 />
               ))}
               {missions.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">No missions match this period and status.</td></tr>
+                <tr><td colSpan={8} className="px-5 py-10 text-center text-slate-400">No missions match this period and status.</td></tr>
               )}
             </tbody>
           </table>
@@ -346,6 +436,42 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack }: Offic
   );
 }
 
+
+
+function otherOfficersForMission(mission: OfficerMissionRecord, currentOfficer: string) {
+  return Array.from(
+    new Set(
+      officerMissionData
+        .filter(
+          (item) =>
+            item.date === mission.date &&
+            item.title === mission.title &&
+            item.location === mission.location &&
+            item.assignedAt === mission.assignedAt &&
+            item.officerName !== currentOfficer
+        )
+        .map((item) => item.officerName)
+    )
+  );
+}
+
+function CompactOfficerNames({ names }: { names: string[] }) {
+  if (names.length === 0) return <span>—</span>;
+  if (names.length === 1) return <span>{names[0]}</span>;
+  if (names.length === 2) return <span>{names[0]}, {names[1]}</span>;
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{names[0]}, {names[1]}</span>
+      <span
+        className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-600"
+        title={names.slice(2).join(', ')}
+      >
+        +{names.length - 2}
+      </span>
+    </span>
+  );
+}
 
 function CalendarDateInput({
   value,
@@ -421,7 +547,7 @@ function ResponseCard({ value, label }: { value: string; label: string }) {
   );
 }
 
-function MissionRow({ mission, onSelect }: { mission: OfficerMissionRecord; onSelect: () => void }) {
+function MissionRow({ mission, onSelect, currentOfficer }: { mission: OfficerMissionRecord; onSelect: () => void; currentOfficer: string }) {
   // Match the Missions page row colors exactly for the priorities that
   // currently exist in Reports: URGENT, HIGH, and LOW.
   const priorityRowStyle =
@@ -451,6 +577,7 @@ function MissionRow({ mission, onSelect }: { mission: OfficerMissionRecord; onSe
         </button>
       </td>
       <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded text-sm font-bold ${statusStyle}`}>{mission.status.replace('_', ' ')}</span></td>
+      <td className="px-4 py-3 text-slate-600"><CompactOfficerNames names={otherOfficersForMission(mission, currentOfficer)} /></td>
       <td className="px-4 py-3 text-slate-600">{mission.location}</td>
       <td className="px-4 py-3 text-slate-600">{mission.assignedAt}</td>
       <td className="px-4 py-3 text-slate-600">{mission.acknowledgedAt}</td>
