@@ -51,7 +51,7 @@ public class RetrofitShiftRepository implements ShiftRepository {
                         if (prefs != null) prefs.setShiftActive(true);
                         callback.onSuccess(new Shift());
                     } else {
-                        String errorMsg = "HTTP " + response.code() + " Error: " + errorBodyStr;
+                        String errorMsg = formatErrorMessage(response.code(), errorBodyStr);
                         callback.onError(new Exception(errorMsg));
                     }
                 }
@@ -86,7 +86,7 @@ public class RetrofitShiftRepository implements ShiftRepository {
                     }
                     Log.e("API_ERROR", "POST /api/v1/shifts/end/ HTTP " + response.code() + " Error: " + errorBodyStr);
                     if (prefs != null) prefs.setShiftActive(false);
-                    String errorMsg = "HTTP " + response.code() + " Error: " + errorBodyStr;
+                    String errorMsg = formatErrorMessage(response.code(), errorBodyStr);
                     callback.onError(new Exception(errorMsg));
                 }
             }
@@ -98,4 +98,12 @@ public class RetrofitShiftRepository implements ShiftRepository {
             }
         });
     }
+
+    private String formatErrorMessage(int code, String errorBodyStr) {
+        if (errorBodyStr != null && (errorBodyStr.trim().startsWith("<!DOCTYPE") || errorBodyStr.trim().startsWith("<html"))) {
+            return "HTTP " + code + " Server Error";
+        }
+        return "HTTP " + code + " Error: " + errorBodyStr;
+    }
 }
+

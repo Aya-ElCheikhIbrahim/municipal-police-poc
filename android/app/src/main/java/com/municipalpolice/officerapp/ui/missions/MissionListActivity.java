@@ -582,9 +582,7 @@ public class MissionListActivity extends BaseActivity
 
     private boolean hasActiveOrAssignedMissions() {
         for (Mission mission : allMissions) {
-            if (mission.getStatus() == MissionStatus.NEW ||
-                mission.getStatus() == MissionStatus.ASSIGNED ||
-                mission.getStatus() == MissionStatus.ACKNOWLEDGED ||
+            if (mission.getStatus() == MissionStatus.ACKNOWLEDGED ||
                 mission.getStatus() == MissionStatus.IN_PROGRESS ||
                 mission.getStatus() == MissionStatus.PAUSED) {
                 return true;

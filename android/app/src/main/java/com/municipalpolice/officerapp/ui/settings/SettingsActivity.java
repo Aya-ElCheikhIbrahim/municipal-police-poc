@@ -332,13 +332,9 @@ public class SettingsActivity extends BaseActivity {
 
             for (Mission mission : missions) {
 
-                if (mission.getStatus()
-                        != MissionStatus.COMPLETED
-
-                        &&
-
-                        mission.getStatus()
-                                != MissionStatus.CANCELLED) {
+                if (mission.getStatus() == MissionStatus.IN_PROGRESS
+                        || mission.getStatus() == MissionStatus.ACKNOWLEDGED
+                        || mission.getStatus() == MissionStatus.PAUSED) {
 
                     hasActiveMission = true;
                     break;
