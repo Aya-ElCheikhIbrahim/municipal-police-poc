@@ -1,4 +1,4 @@
-import { apiClient } from '../../shared/api/client';
+import { apiClient, tokenStore } from '../../shared/api/client';
 import type {
   ActivityRow,
   DailySummaryResponse,
@@ -63,53 +63,36 @@ export const fetchOfficerReport = async (params?: ReportFilterParams): Promise<O
   return (response as any).data ?? response;
 };
 
-// Binary export downloader for CSV / PDF files
-export const exportReportFile = async (endpoint: string, filename: string, params?: Record<string, any>) => {
-  const query = buildQueryString(params);
-  const response: any = await apiClient.get(`${endpoint}${query}`);
-  const blobData = response.data ?? response;
-  const url = window.URL.createObjectURL(new Blob([blobData]));
+// --- Report file exports (CSV / PDF) ---------------------------------------
+// These endpoints are supervisor-only and return a file, so we can't use
+// window.open (it can't send the JWT header) or apiClient.get (it JSON-parses
+// the body). We fetch the blob with the auth token and trigger a download.
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+async function downloadReport(path: string, filename: string, params?: Record<string, any>) {
+  const res = await fetch(`${API_BASE}${path}${buildQueryString(params)}`, {
+    headers: { Authorization: `Bearer ${tokenStore.getAccess() ?? ''}` },
+  });
+  if (!res.ok) throw new Error(`Export failed (${res.status})`);
+  const url = window.URL.createObjectURL(await res.blob());
   const link = document.createElement('a');
   link.href = url;
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-};
-
-// Export Daily Report as CSV
-export const exportDailyCSV = (date: string, officerId?: number, status?: string) => {
-  const query = buildQueryString({ date, officer_id: officerId, status });
-  window.open(`/api/reports/daily/export-csv/${query}`, '_blank');
-};
-
-// Export Daily Report as PDF
-export const exportDailyPDF = (date: string, officerId?: number, status?: string) => {
-  const query = buildQueryString({ date, officer_id: officerId, status });
-  window.open(`/api/reports/daily/export-pdf/${query}`, '_blank');
-};
-
-// Export Weekly Summary as CSV
-export const exportWeeklyCSV = (startDate: string, endDate: string) => {
-  const query = buildQueryString({ start_date: startDate, end_date: endDate });
-  window.open(`/api/reports/weekly/export-csv/${query}`, '_blank');
-};
-
-// Export Weekly Summary as PDF
-export const exportWeeklyPDF = (startDate: string, endDate: string) => {
-  const query = buildQueryString({ start_date: startDate, end_date: endDate });
-  window.open(`/api/reports/weekly/export-pdf/${query}`, '_blank');
-};
-function downloadBlob(response: any, filename: string) {
-  const data = response?.data ?? response;
-  const blob = new Blob([data], { type: data.type || 'application/octet-stream' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', filename);
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
 }
+
+// Daily report is per-officer: the backend requires officer_id.
+export const exportDailyCSV = (date: string, officerId?: number, status?: string) =>
+  downloadReport('/reports/daily/export/csv/', `daily-${date}.csv`, { date, officer_id: officerId, status });
+
+export const exportDailyPDF = (date: string, officerId?: number, status?: string) =>
+  downloadReport('/reports/daily/export/pdf/', `daily-${date}.pdf`, { date, officer_id: officerId, status });
+
+export const exportWeeklyCSV = (startDate: string, endDate: string) =>
+  downloadReport('/reports/weekly/export/csv/', `weekly-${startDate}_${endDate}.csv`, { start_date: startDate, end_date: endDate });
+
+export const exportWeeklyPDF = (startDate: string, endDate: string) =>
+  downloadReport('/reports/weekly/export/pdf/', `weekly-${startDate}_${endDate}.pdf`, { start_date: startDate, end_date: endDate });
