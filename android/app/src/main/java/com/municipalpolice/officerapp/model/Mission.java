@@ -94,7 +94,8 @@ public class Mission implements Serializable {
     private String cancellationReason;
 
 
-    private final List<MissionPhoto> photos =
+    @SerializedName("photos")
+    private List<MissionPhoto> photos =
             new ArrayList<>();
 
     private static final int REQUIRED_PHOTOS = 1;
@@ -349,6 +350,21 @@ public class Mission implements Serializable {
 
     public List<MissionPhoto> getPhotos() {
         return photos;
+    }
+
+    public void setPhotos(List<MissionPhoto> photos) {
+        if (photos != null) {
+            this.photos = photos;
+        }
+    }
+
+    public void addPhoto(MissionPhoto photo) {
+        if (this.photos == null) {
+            this.photos = new ArrayList<>();
+        }
+        if (photo != null) {
+            this.photos.add(photo);
+        }
     }
 
 

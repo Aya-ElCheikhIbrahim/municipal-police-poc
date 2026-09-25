@@ -50,12 +50,19 @@ public class MissionAdapter
     /*
      * duration_seconds comes from the backend.
      *
-     * Android stores the duration received from the backend
-     * together with the current elapsedRealtime().
+     * Example:
+     * backend sends 1004 seconds
      *
-     * While a mission is running, the displayed timer is:
+     * Android remembers:
+     * base = 1004
+     * receivedAt = current elapsedRealtime()
      *
-     * backend duration + locally elapsed seconds
+     * Then while mission is running:
+     *
+     * 1004
+     * 1005
+     * 1006
+     * ...
      */
 
     private final Map<Integer, Long> timerBaseSeconds =
@@ -65,7 +72,7 @@ public class MissionAdapter
             new HashMap<>();
 
 
-    // Refresh visible timers every second.
+    // Refresh the visible timer every second.
     private final Handler timerHandler =
             new Handler(Looper.getMainLooper());
 
@@ -151,8 +158,8 @@ public class MissionAdapter
 
 
                     /*
-                     * First time receiving this running mission:
-                     * initialize its timer from duration_seconds.
+                     * First time we receive this running mission:
+                     * use duration_seconds as the starting value.
                      */
                     if (oldBase == null ||
                             oldRealtime == null) {
@@ -170,6 +177,10 @@ public class MissionAdapter
 
                     else {
 
+                        /*
+                         * Calculate what Android currently believes
+                         * the timer should be.
+                         */
                         long localElapsed =
                                 Math.max(
                                         0,
@@ -183,11 +194,11 @@ public class MissionAdapter
 
 
                         /*
-                         * Only move the baseline forward when the
-                         * backend duration is ahead of Android.
+                         * Only reset the baseline when the backend
+                         * has moved ahead of our local timer.
                          *
                          * This prevents RecyclerView refreshes from
-                         * resetting the timer.
+                         * restarting the timer every second.
                          */
                         if (backendDuration >
                                 localCurrent) {
@@ -208,11 +219,11 @@ public class MissionAdapter
                 else {
 
                     /*
-                     * PAUSED and COMPLETED missions must not have
-                     * a live timer.
+                     * Mission isn't running anymore.
+                     * Remove its live baseline.
                      *
-                     * Their duration stays fixed at the value
-                     * returned by the backend.
+                     * Paused/completed missions use the fixed
+                     * duration_seconds returned by the backend.
                      */
                     timerBaseSeconds.remove(
                             missionId
@@ -227,8 +238,8 @@ public class MissionAdapter
 
 
         /*
-         * Remove timer information belonging to missions that
-         * disappeared from this adapter.
+         * Remove timer information for missions that disappeared
+         * from this adapter's list.
          */
         List<Integer> existingTimerIds =
                 new ArrayList<>(
@@ -272,26 +283,43 @@ public class MissionAdapter
     // ACTIVE MISSION
     // =========================================================
 
-    /*
-     * PAUSED missions are intentionally NOT considered active.
-     *
-     * This is important because after an urgent mission finishes,
-     * the previously paused mission must become resumable.
-     */
-    private boolean hasActiveMission() {
+    private boolean hasActiveUrgentMission() {
 
         for (Mission mission : missions) {
 
-            if (mission.getStatus() ==
-                    MissionStatus.ACKNOWLEDGED ||
-                    mission.getStatus() ==
-                            MissionStatus.IN_PROGRESS) {
+            if (mission.getPriority() == Priority.URGENT &&
+                    (mission.getStatus() ==
+                            MissionStatus.ACKNOWLEDGED ||
+                            mission.getStatus() ==
+                                    MissionStatus.IN_PROGRESS)) {
 
                 return true;
             }
         }
 
         return false;
+    }
+
+    private boolean hasActiveNonUrgentMission() {
+
+        for (Mission mission : missions) {
+
+            if (mission.getPriority() != Priority.URGENT &&
+                    (mission.getStatus() ==
+                            MissionStatus.ACKNOWLEDGED ||
+                            mission.getStatus() ==
+                                    MissionStatus.IN_PROGRESS)) {
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean hasActiveMission() {
+
+        return hasActiveUrgentMission() || hasActiveNonUrgentMission();
     }
 
 
@@ -347,9 +375,7 @@ public class MissionAdapter
         String locationStr =
                 mission.getLocationDisplay();
 
-        String distanceStr = "";
-
-
+        final String distanceStr;
         if (userLocation != null &&
                 mission.getLatitude() != null &&
                 mission.getLongitude() != null) {
@@ -378,6 +404,8 @@ public class MissionAdapter
                             " · %.1f km",
                             distanceInMeters / 1000f
                     );
+        } else {
+            distanceStr = "";
         }
 
 
@@ -398,15 +426,21 @@ public class MissionAdapter
 
 
         // =====================================================
-        // PRIORITY BORDER
+        // PRIORITY BORDER (Urgent > High > Medium > Low)
         // =====================================================
 
         int borderColorRes;
 
-
         switch (mission.getPriority()) {
 
             case URGENT:
+
+                borderColorRes =
+                        R.color.urgent_alert;
+
+                break;
+
+
             case HIGH:
 
                 borderColorRes =
@@ -492,64 +526,19 @@ public class MissionAdapter
                                 MissionStatus.ASSIGNED;
 
 
-        /*
-         * Normal NEW/ASSIGNED missions are locked while another
-         * mission is running.
-         *
-         * Urgent missions remain available.
-         *
-         * A paused mission is handled separately below.
-         */
         boolean shouldLock =
-                activeMissionExists &&
-                        !isRunning &&
-                        !isUrgent &&
+                !isRunning &&
                         !isCompleted &&
-                        !isPaused;
+                        !isUrgent &&
+                        activeMissionExists;
 
 
         // =====================================================
-        // RESET RECYCLED VIEW
+        // RESET RECYCLED VIEW / ANIMATIONS / TAGS
         // =====================================================
 
-        holder.itemView.setAlpha(
-                1f
-        );
-
-        holder.itemView.setEnabled(
-                true
-        );
-
-
-        holder.btnAction.setAlpha(
-                1f
-        );
-
-        holder.btnAction.setEnabled(
-                true
-        );
-
-        holder.btnAction.setVisibility(
-                View.VISIBLE
-        );
-
-
-        holder.workTimerRow.setVisibility(
-                View.GONE
-        );
-
-        holder.lockRow.setVisibility(
-                View.GONE
-        );
-
-
-        holder.tvWorkTimeLabel.setText(
-                "Work time"
-        );
-
-        holder.tvWorkTime.setText(
-                "00:00:00"
-        );
+        holder.itemView.animate().cancel();
+        holder.itemView.setTag(null);
 
 
         // =====================================================
@@ -558,16 +547,13 @@ public class MissionAdapter
 
         if (isRunning) {
 
-            holder.btnAction.setText(
-                    "Stop"
-            );
+            holder.itemView.setAlpha(1f);
+            holder.itemView.setEnabled(true);
 
-
-            holder.btnAction.setEnabled(
-                    true
-            );
-
-
+            holder.btnAction.setText("Stop");
+            holder.btnAction.setVisibility(View.VISIBLE);
+            holder.btnAction.setEnabled(true);
+            holder.btnAction.setAlpha(1f);
             holder.btnAction.setBackgroundTintList(
                     ColorStateList.valueOf(
                             ContextCompat.getColor(
@@ -577,23 +563,24 @@ public class MissionAdapter
                     )
             );
 
+            holder.workTimerRow.setVisibility(View.VISIBLE);
+            holder.lockRow.setVisibility(View.GONE);
 
-            holder.workTimerRow.setVisibility(
-                    View.VISIBLE
-            );
-
-
-            holder.tvWorkTimeLabel.setText(
-                    "Work time"
-            );
-
-
+            holder.tvWorkTimeLabel.setText("Work time");
             holder.tvWorkTime.setText(
                     formatWorkTime(
                             getLiveDurationSeconds(
                                     mission
                             )
                     )
+            );
+
+            holder.btnAction.setOnClickListener(
+                    v -> listener.onActionClick(mission)
+            );
+
+            holder.itemView.setOnClickListener(
+                    v -> listener.onMissionClick(mission)
             );
         }
 
@@ -604,29 +591,26 @@ public class MissionAdapter
 
         else if (isPaused) {
 
-            /*
-             * The old implementation displayed "Paused" and
-             * disabled the button permanently.
-             *
-             * Now the mission becomes resumable after the
-             * currently active mission finishes.
-             */
+            holder.itemView.setAlpha(0.70f);
+            holder.itemView.setEnabled(true);
 
-            holder.btnAction.setText(
-                    "Resume work"
+            holder.btnAction.setText("Paused");
+            holder.btnAction.setVisibility(View.VISIBLE);
+            holder.btnAction.setEnabled(false);
+            holder.btnAction.setAlpha(0.55f);
+            holder.btnAction.setBackgroundTintList(
+                    ColorStateList.valueOf(
+                            ContextCompat.getColor(
+                                    holder.itemView.getContext(),
+                                    R.color.input_border
+                            )
+                    )
             );
 
+            holder.workTimerRow.setVisibility(View.VISIBLE);
+            holder.lockRow.setVisibility(View.GONE);
 
-            holder.workTimerRow.setVisibility(
-                    View.VISIBLE
-            );
-
-
-            holder.tvWorkTimeLabel.setText(
-                    "Work time · Paused"
-            );
-
-
+            holder.tvWorkTimeLabel.setText("Work time · Paused");
             holder.tvWorkTime.setText(
                     formatWorkTime(
                             getFixedDurationSeconds(
@@ -635,68 +619,11 @@ public class MissionAdapter
                     )
             );
 
+            holder.btnAction.setOnClickListener(null);
 
-            /*
-             * If another mission is still running, this paused
-             * mission cannot resume yet.
-             */
-            if (activeMissionExists) {
-
-                holder.btnAction.setEnabled(
-                        false
-                );
-
-                holder.btnAction.setAlpha(
-                        0.35f
-                );
-
-                holder.itemView.setAlpha(
-                        0.70f
-                );
-
-
-                holder.lockRow.setVisibility(
-                        View.VISIBLE
-                );
-            }
-
-            /*
-             * No mission is currently running.
-             * Allow the officer to resume this mission.
-             */
-            else {
-
-                holder.btnAction.setEnabled(
-                        true
-                );
-
-                holder.btnAction.setAlpha(
-                        1f
-                );
-
-                holder.itemView.setAlpha(
-                        1f
-                );
-
-                holder.itemView.setEnabled(
-                        true
-                );
-
-
-                holder.btnAction.setBackgroundTintList(
-                        ColorStateList.valueOf(
-                                ContextCompat.getColor(
-                                        holder.itemView.getContext(),
-                                        R.color.active_ok
-                                )
-                        )
-                );
-
-
-                holder.lockRow.setVisibility(
-                        View.GONE
-                );
-            }
+            holder.itemView.setOnClickListener(
+                    v -> listener.onMissionClick(mission)
+            );
         }
 
 
@@ -706,27 +633,38 @@ public class MissionAdapter
 
         else if (isCompleted) {
 
-            holder.btnAction.setVisibility(
-                    View.GONE
+            holder.itemView.setAlpha(1f);
+            holder.itemView.setEnabled(true);
+
+            holder.btnAction.setText("Completed");
+            holder.btnAction.setVisibility(View.GONE);
+            holder.btnAction.setEnabled(false);
+            holder.btnAction.setAlpha(1f);
+            holder.btnAction.setBackgroundTintList(
+                    ColorStateList.valueOf(
+                            ContextCompat.getColor(
+                                    holder.itemView.getContext(),
+                                    R.color.input_border
+                            )
+                    )
             );
 
+            holder.workTimerRow.setVisibility(View.VISIBLE);
+            holder.lockRow.setVisibility(View.GONE);
 
-            holder.workTimerRow.setVisibility(
-                    View.VISIBLE
-            );
-
-
-            holder.tvWorkTimeLabel.setText(
-                    "Work time"
-            );
-
-
+            holder.tvWorkTimeLabel.setText("Work time");
             holder.tvWorkTime.setText(
                     formatWorkTime(
                             getFixedDurationSeconds(
                                     mission
                             )
                     )
+            );
+
+            holder.btnAction.setOnClickListener(null);
+
+            holder.itemView.setOnClickListener(
+                    v -> listener.onMissionClick(mission)
             );
         }
 
@@ -737,65 +675,40 @@ public class MissionAdapter
 
         else if (canBeStarted) {
 
-            holder.btnAction.setText(
-                    "Start work"
-            );
-
-
             if (shouldLock) {
 
-                holder.btnAction.setEnabled(
-                        false
+                holder.itemView.setAlpha(0.50f);
+                holder.itemView.setEnabled(false);
+
+                holder.btnAction.setText("Start work");
+                holder.btnAction.setVisibility(View.VISIBLE);
+                holder.btnAction.setEnabled(false);
+                holder.btnAction.setAlpha(0.35f);
+                holder.btnAction.setBackgroundTintList(
+                        ColorStateList.valueOf(
+                                ContextCompat.getColor(
+                                        holder.itemView.getContext(),
+                                        R.color.input_border
+                                )
+                        )
                 );
 
+                holder.workTimerRow.setVisibility(View.GONE);
+                holder.lockRow.setVisibility(View.VISIBLE);
+                holder.tvLockMessage.setText("Locked (another mission in progress)");
 
-                holder.btnAction.setAlpha(
-                        0.35f
-                );
+                holder.btnAction.setOnClickListener(null);
+                holder.itemView.setOnClickListener(null);
 
+            } else {
 
-                holder.itemView.setAlpha(
-                        0.50f
-                );
+                holder.itemView.setAlpha(1f);
+                holder.itemView.setEnabled(true);
 
-
-                holder.itemView.setEnabled(
-                        false
-                );
-
-
-                holder.lockRow.setVisibility(
-                        View.VISIBLE
-                );
-
-
-                holder.workTimerRow.setVisibility(
-                        View.GONE
-                );
-            }
-
-            else {
-
-                holder.btnAction.setEnabled(
-                        true
-                );
-
-
-                holder.btnAction.setAlpha(
-                        1f
-                );
-
-
-                holder.itemView.setAlpha(
-                        1f
-                );
-
-
-                holder.itemView.setEnabled(
-                        true
-                );
-
-
+                holder.btnAction.setText("Start work");
+                holder.btnAction.setVisibility(View.VISIBLE);
+                holder.btnAction.setEnabled(true);
+                holder.btnAction.setAlpha(1f);
                 holder.btnAction.setBackgroundTintList(
                         ColorStateList.valueOf(
                                 ContextCompat.getColor(
@@ -805,14 +718,15 @@ public class MissionAdapter
                         )
                 );
 
+                holder.workTimerRow.setVisibility(View.GONE);
+                holder.lockRow.setVisibility(View.GONE);
 
-                holder.lockRow.setVisibility(
-                        View.GONE
+                holder.btnAction.setOnClickListener(
+                        v -> listener.onActionClick(mission)
                 );
 
-
-                holder.workTimerRow.setVisibility(
-                        View.GONE
+                holder.itemView.setOnClickListener(
+                        v -> listener.onMissionClick(mission)
                 );
             }
         }
@@ -824,97 +738,51 @@ public class MissionAdapter
 
         else {
 
-            holder.btnAction.setVisibility(
-                    View.GONE
-            );
+            holder.itemView.setAlpha(1f);
+            holder.itemView.setEnabled(true);
 
+            holder.btnAction.setText("Start work");
+            holder.btnAction.setVisibility(View.GONE);
+            holder.btnAction.setEnabled(false);
+            holder.btnAction.setAlpha(1f);
+            holder.btnAction.setBackgroundTintList(
+                    ColorStateList.valueOf(
+                            ContextCompat.getColor(
+                                    holder.itemView.getContext(),
+                                    R.color.input_border
+                            )
+                    )
+            );
 
             long fixedDuration =
                     getFixedDurationSeconds(
                             mission
                     );
 
-
             if (fixedDuration > 0) {
 
-                holder.workTimerRow.setVisibility(
-                        View.VISIBLE
-                );
-
-
+                holder.workTimerRow.setVisibility(View.VISIBLE);
+                holder.tvWorkTimeLabel.setText("Work time");
                 holder.tvWorkTime.setText(
                         formatWorkTime(
                                 fixedDuration
                         )
                 );
+            } else {
+
+                holder.workTimerRow.setVisibility(View.GONE);
+                holder.tvWorkTimeLabel.setText("Work time");
+                holder.tvWorkTime.setText("00:00:00");
             }
+
+            holder.lockRow.setVisibility(View.GONE);
+
+            holder.btnAction.setOnClickListener(null);
+
+            holder.itemView.setOnClickListener(
+                    v -> listener.onMissionClick(mission)
+            );
         }
-
-
-        // =====================================================
-        // ACTION BUTTON
-        // =====================================================
-
-        holder.btnAction.setOnClickListener(
-                v -> {
-
-                    /*
-                     * Completed missions never have an action.
-                     */
-                    if (isCompleted) {
-                        return;
-                    }
-
-
-                    /*
-                     * PAUSED:
-                     *
-                     * Resume only when there is no currently
-                     * running mission.
-                     */
-                    if (isPaused) {
-
-                        if (!activeMissionExists) {
-
-                            listener.onActionClick(
-                                    mission
-                            );
-                        }
-
-                        return;
-                    }
-
-
-                    /*
-                     * NEW / ASSIGNED / RUNNING / URGENT
-                     */
-                    if (!shouldLock) {
-
-                        listener.onActionClick(
-                                mission
-                        );
-                    }
-                }
-        );
-
-
-        // =====================================================
-        // CARD CLICK
-        // =====================================================
-
-        holder.itemView.setOnClickListener(
-                v -> {
-
-                    if (!shouldLock ||
-                            isPaused ||
-                            isCompleted) {
-
-                        listener.onMissionClick(
-                                mission
-                        );
-                    }
-                }
-        );
     }
 
 
@@ -949,8 +817,9 @@ public class MissionAdapter
 
 
         /*
-         * Safety fallback in case onBindViewHolder is called
-         * before submitList initializes the timer.
+         * Safety fallback in case the mission reached
+         * onBindViewHolder before submitList initialized
+         * its timer baseline.
          */
         if (base == null ||
                 baseRealtime == null) {
@@ -998,7 +867,7 @@ public class MissionAdapter
     ) {
 
         /*
-         * Missions list API currently provides
+         * The Missions list API currently provides
          * duration_seconds.
          */
         long duration =
@@ -1009,7 +878,7 @@ public class MissionAdapter
 
 
         /*
-         * Fallback for API responses containing
+         * Fallback for responses that may contain
          * worked_seconds instead.
          */
         if (duration == 0) {
@@ -1031,12 +900,10 @@ public class MissionAdapter
     // =========================================================
 
     private String formatWorkTime(
-            long totalSeconds
+            long rawSeconds
     ) {
 
-        if (totalSeconds < 0) {
-            totalSeconds = 0;
-        }
+        long totalSeconds = Math.max(0, rawSeconds);
 
 
         long hours =
@@ -1091,6 +958,12 @@ public class MissionAdapter
         holder.itemView.setOnClickListener(
                 null
         );
+
+        holder.btnAction.setTag(null);
+        holder.itemView.setTag(null);
+
+        holder.btnAction.animate().cancel();
+        holder.itemView.animate().cancel();
     }
 
 

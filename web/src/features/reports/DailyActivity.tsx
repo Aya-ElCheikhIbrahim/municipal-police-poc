@@ -1,12 +1,6 @@
-import { useMemo, useState } from 'react';
-import {
-  dailyOfficerData,
-  officerActivityData,
-  officerMissionData,
-  officerPeriodData,
-  officerProfiles,
-  type FilterState,
-} from './mockData';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchDailySummary, fetchActivityFeed } from './api';
+import type { ActivityRow, DailySummaryResponse, FilterState } from './types.ts';
 
 export type DailyViewMode = 'SUMMARY' | 'SNAPSHOT';
 
@@ -16,56 +10,23 @@ interface DailyActivityProps {
   onOfficerSelect?: (officerName: string) => void;
 }
 
-type DailySortField = 'name' | 'dutyPeriod' | 'location' | 'hours' | 'distance' | 'assigned' | 'inProgress' | 'completed' | 'cancelled' | 'panic';
-
-function distanceToNumber(value: string) {
-  return Number.parseFloat(value) || 0;
-}
+type DailySortField =
+  | 'name'
+  | 'dutyPeriod'
+  | 'location'
+  | 'hours'
+  | 'distance'
+  | 'assigned'
+  | 'inProgress'
+  | 'completed'
+  | 'cancelled'
+  | 'panic';
 
 function formatMinutes(totalMinutes: number) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   if (hours === 0) return `${minutes}m`;
   return `${hours}h ${String(minutes).padStart(2, '0')}m`;
-}
-
-function addMinutes(start: string, minutesToAdd: number) {
-  const [hours, minutes] = start.split(':').map(Number);
-  const total = hours * 60 + minutes + minutesToAdd;
-  const normalized = ((total % 1440) + 1440) % 1440;
-  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
-}
-
-
-function buildLocationVisitPeriods(times: string[]) {
-  if (times.length === 0) return [];
-
-  const sorted = [...times].sort((a, b) => a.localeCompare(b));
-
-  // The activity data records checkpoints while an officer is at a location.
-  // For the selected location, show the continuous span from the first
-  // recorded activity to the last instead of splitting it because there is
-  // more than a 60-minute gap between checkpoints.
-  return sorted.length === 1
-    ? [sorted[0]]
-    : [`${sorted[0]} → ${sorted[sorted.length - 1]}`];
-}
-
-
-function missionKey(mission: (typeof officerMissionData)[number]) {
-  return mission.id;
-}
-
-function uniqueMissions(missions: typeof officerMissionData) {
-  return Array.from(
-    new Map(missions.map((mission) => [missionKey(mission), mission])).values()
-  );
-}
-
-function defaultShiftStart(shift: string) {
-  if (shift === 'AFTERNOON') return '13:00';
-  if (shift === 'NIGHT') return '20:00';
-  return '08:00';
 }
 
 function SortHeader({
@@ -82,10 +43,7 @@ function SortHeader({
   onSort: (field: DailySortField) => void;
 }) {
   return (
-    <th
-      className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100"
-      onClick={() => onSort(field)}
-    >
+    <th className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100" onClick={() => onSort(field)}>
       {label} <span className="text-xs text-slate-400">{currentField === field ? (asc ? '▲' : '▼') : '↕'}</span>
     </th>
   );
@@ -95,105 +53,103 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
   const selectedDate = filters?.startDate || new Date().toISOString().slice(0, 10);
   const officerFilter = filters?.officer ?? 'ALL';
   const locationFilter = filters?.location ?? 'ALL';
-  const fromTime = filters?.fromTime ?? '';
-  const toTime = filters?.toTime ?? '';
+  const statusFilter = filters?.status ?? 'ALL';
 
   const [sortField, setSortField] = useState<DailySortField>('hours');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedLocations, setExpandedLocations] = useState<string | null>(null);
-  const statusFilter = filters?.status ?? 'ALL';
 
-  const dailyRows = officerPeriodData
-    .filter((period) => period.date === selectedDate)
-    .filter((period) => officerFilter === 'ALL' || period.officerName === officerFilter)
-    .map((period) => {
-      const allDayMissions = officerMissionData.filter(
-        (mission) => mission.officerName === period.officerName && mission.date === selectedDate
-      );
-      const missions = allDayMissions.filter(
-        (mission) => locationFilter === 'ALL' || mission.location === locationFilter
-      );
+  const [loading, setLoading] = useState(false);
+  const [summaryData, setSummaryData] = useState<DailySummaryResponse | null>(null);
+  const [activityRows, setActivityRows] = useState<ActivityRow[]>([]);
 
-      // An area filter means "show officers with a mission in this area on this day".
-      // This prevents the same unfiltered daily totals from appearing under unrelated areas.
-      if (locationFilter !== 'ALL' && missions.length === 0) return null;
+  useEffect(() => {
+    setLoading(true);
+    const officerId = officerFilter !== 'ALL' ? Number(officerFilter) : undefined;
 
-      const todayRow = dailyOfficerData.find(
-        (row) => row.name === period.officerName && row.date === selectedDate
-      );
-      const profile = officerProfiles[period.officerName];
-      const shiftStart = todayRow?.shiftStart ?? defaultShiftStart(profile?.shift ?? 'MORNING');
-      const shiftEnd = todayRow?.shiftEnd ?? addMinutes(shiftStart, period.dutyMinutes);
-
-      // Keep the full duty period, but when a location is selected,
-      // show the separate time range in which activity was recorded there.
-      const locationActivityTimes =
-        locationFilter === 'ALL'
-          ? []
-          : officerActivityData
-              .filter(
-                (event) =>
-                  event.officerName === period.officerName &&
-                  event.date === selectedDate &&
-                  event.location === locationFilter
-              )
-              .map((event) => event.time)
-              .sort((a, b) => a.localeCompare(b));
-
-      const locationVisitPeriods = buildLocationVisitPeriods(locationActivityTimes);
-      const locationActivityPeriod =
-        locationVisitPeriods.length === 0 ? '—' : locationVisitPeriods.join(', ');
-
-      return {
-        name: period.officerName,
+    if (mode === 'SUMMARY') {
+      fetchDailySummary({
         date: selectedDate,
-        shiftStart,
-        shiftEnd,
-        dutyHours: formatMinutes(period.dutyMinutes),
-        distance: `${period.distanceKm.toFixed(1)} km`,
-        assigned: missions.length,
-        inProgress: missions.filter((mission) => mission.status === 'IN_PROGRESS').length,
-        locations: Array.from(new Set(missions.map((mission) => mission.location))),
-        locationActivityPeriod,
-        completed: missions.filter((mission) => mission.status === 'COMPLETED').length,
-        cancelled: missions.filter((mission) => mission.status === 'CANCELLED').length,
-        panic: period.panicEvents,
-      };
-    })
-    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+        officer_id: officerId,
+        location: locationFilter !== 'ALL' ? locationFilter : undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      })
+        .then((data) => setSummaryData(data))
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    } else {
+      // Fetch snapshot feed; if times are not provided, omit them to return all events for the day
+      fetchActivityFeed({
+        date: selectedDate,
+        officer_id: officerId,
+        location: locationFilter !== 'ALL' ? locationFilter : undefined,
+        from_time: filters?.fromTime && filters.fromTime !== '' ? filters.fromTime : undefined,
+        to_time: filters?.toTime && filters.toTime !== '' ? filters.toTime : undefined,
+      })
+        .then((data: any) => {
+          // Safely extract array whether it's direct or wrapped in an object/results
+          const rows = Array.isArray(data) ? data : data?.results || data?.data || [];
+          setActivityRows(rows);
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  }, [selectedDate, mode, officerFilter, locationFilter, statusFilter, filters?.fromTime, filters?.toTime]);
 
-  const filteredDailyRows = dailyRows.filter((row) => {
-    if (statusFilter === 'IN_PROGRESS') return row.inProgress > 0;
-    if (statusFilter === 'COMPLETED') return row.completed > 0;
-    if (statusFilter === 'CANCELLED') return row.cancelled > 0;
-    return true;
-  });
+  const dailyRows = useMemo(() => {
+    if (!summaryData?.officers) return [];
+
+    let list = summaryData.officers;
+
+    // Filter by selected officer ID or name if backend returns unfiltered list
+    if (officerFilter && officerFilter !== 'ALL') {
+      list = list.filter(
+        (o) =>
+          String(o.officer_id) === String(officerFilter) ||
+          o.officer_name.toLowerCase() === officerFilter.toLowerCase()
+      );
+    }
+
+    return list.map((officer) => ({
+      id: officer.officer_id,
+      name: officer.officer_name,
+      shiftStart: officer.shift_start
+        ? new Date(officer.shift_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '—',
+      shiftEnd: officer.still_on_duty
+        ? 'On Duty'
+        : officer.shift_end
+        ? new Date(officer.shift_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '—',
+      dutyHours: formatMinutes(Math.round(officer.hours_on_duty * 60)),
+      dutyMinutes: Math.round(officer.hours_on_duty * 60),
+      distance: `${(officer.distance_covered_m / 1000).toFixed(1)} km`,
+      assigned: officer.missions_assigned,
+      inProgress: officer.missions_in_progress ?? 0,
+      completed: officer.missions_completed,
+      cancelled: officer.missions_cancelled,
+      panic: officer.panic_events,
+      locations: officer.areas?.map((a) => a.name).filter(Boolean) || [],
+      locationActivityPeriod: '—',
+    }));
+  }, [summaryData, officerFilter]);
 
   const sortedDailyRows = useMemo(() => {
-    const getValue = (row: (typeof filteredDailyRows)[number]): number | string => {
+    return [...dailyRows].sort((a, b) => {
+      let diff = 0;
       switch (sortField) {
-        case 'name': return row.name.toLowerCase();
-        case 'dutyPeriod': return row.shiftStart;
-        case 'location': return (row.locations[0] ?? '').toLowerCase();
-        case 'hours': {
-          const period = officerPeriodData.find((item) => item.officerName === row.name && item.date === row.date);
-          return period?.dutyMinutes ?? 0;
-        }
-        case 'distance': return distanceToNumber(row.distance);
-        case 'assigned': return row.assigned;
-        case 'inProgress': return row.inProgress;
-        case 'completed': return row.completed;
-        case 'cancelled': return row.cancelled;
-        case 'panic': return row.panic;
+        case 'name': diff = a.name.localeCompare(b.name); break;
+        case 'dutyPeriod': diff = a.shiftStart.localeCompare(b.shiftStart); break;
+        case 'hours': diff = a.dutyMinutes - b.dutyMinutes; break;
+        case 'assigned': diff = a.assigned - b.assigned; break;
+        case 'inProgress': diff = a.inProgress - b.inProgress; break;
+        case 'completed': diff = a.completed - b.completed; break;
+        case 'cancelled': diff = a.cancelled - b.cancelled; break;
+        case 'panic': diff = a.panic - b.panic; break;
       }
-    };
-
-    return [...filteredDailyRows].sort((a, b) => {
-      const av = getValue(a); const bv = getValue(b);
-      const diff = typeof av === 'string' && typeof bv === 'string' ? av.localeCompare(bv) : Number(av) - Number(bv);
       return sortAsc ? diff : -diff;
     });
-  }, [filteredDailyRows, sortField, sortAsc]);
+  }, [dailyRows, sortField, sortAsc]);
 
   const handleSort = (field: DailySortField) => {
     if (field === sortField) setSortAsc((prev) => !prev);
@@ -203,27 +159,15 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
     }
   };
 
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500 font-semibold">Loading daily activity data...</div>;
+  }
+
   if (mode === 'SNAPSHOT') {
-    const activityRows = officerActivityData
-      .filter((event) => {
-        if (event.date !== selectedDate) return false;
-        if (officerFilter !== 'ALL' && event.officerName !== officerFilter) return false;
-        if (locationFilter !== 'ALL' && event.location !== locationFilter) return false;
-        if (fromTime && event.time < fromTime) return false;
-        if (toTime && event.time > toTime) return false;
-        return true;
-      })
-      .sort((a, b) => a.time.localeCompare(b.time));
-
-    let heading = 'Activity Lookup';
-    if (fromTime && toTime) heading = `Activity from ${fromTime} to ${toTime}`;
-    else if (fromTime) heading = `Activity from ${fromTime}`;
-    else if (toTime) heading = `Activity until ${toTime}`;
-
     return (
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-          <h3 className="text-base font-bold text-slate-800">{heading}</h3>
+          <h3 className="text-base font-bold text-slate-800">Activity Lookup</h3>
           {locationFilter !== 'ALL' && <span className="text-xs font-semibold text-slate-500">{locationFilter}</span>}
         </div>
 
@@ -239,69 +183,69 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {activityRows.map((event) => (
-                <tr key={event.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-4 py-3">
-                    <button type="button" onClick={() => onOfficerSelect?.(event.officerName)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">
-                      {event.officerName}
-                    </button>
+              {activityRows && Array.isArray(activityRows) && activityRows.map((item: any, idx) => {
+                // Safely extract string name from officer object fields to prevent React object child crash
+                const resolvedName = 
+                  typeof item?.officer === 'string' ? item.officer :
+                  item?.officer_name || 
+                  item?.officer?.full_name || 
+                  item?.officer?.name || 
+                  'Officer';
+
+                return (
+                  <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => onOfficerSelect?.(resolvedName)}
+                        className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
+                      >
+                        {resolvedName}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-slate-800">
+                      {item?.at ? new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{item?.area || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex px-2 py-1 rounded-md text-sm font-bold bg-slate-100 text-slate-700">
+                        {item?.activity_label || item?.activity || 'Activity'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{item?.details || '—'}</td>
+                  </tr>
+                );
+              })}
+              {(!activityRows || activityRows.length === 0) && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
+                    No activity matches the selected filters.
                   </td>
-                  <td className="px-4 py-3 font-bold text-slate-800">{event.time}</td>
-                  <td className="px-4 py-3 text-slate-700">{event.location}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-1 rounded-md text-sm font-bold ${
-                      event.activity.includes('completed') ? 'bg-emerald-50 text-emerald-700' :
-                      event.activity.includes('cancelled') ? 'bg-rose-50 text-rose-700' :
-                      event.activity === 'Available' ? 'bg-sky-50 text-sky-700' :
-                      'bg-slate-100 text-slate-700'
-                    }`}>
-                      {event.activity}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{event.details}</td>
                 </tr>
-              ))}
-              {activityRows.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400">No activity matches the selected filters.</td></tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">Click an officer’s name to view details.</div>
+        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">
+          Click an officer’s name to view details.
+        </div>
       </div>
     );
   }
 
-  const summaryMissions = uniqueMissions(
-    officerMissionData.filter((mission) => {
-      if (mission.date !== selectedDate) return false;
-      if (officerFilter !== 'ALL' && mission.officerName !== officerFilter) return false;
-      if (locationFilter !== 'ALL' && mission.location !== locationFilter) return false;
-      return true;
-    })
-  );
-  const totalAssigned = summaryMissions.length;
-  const totalInProgress = summaryMissions.filter((mission) => mission.status === 'IN_PROGRESS').length;
-  const totalCompleted = summaryMissions.filter((mission) => mission.status === 'COMPLETED').length;
-  const totalCancelled = summaryMissions.filter((mission) => mission.status === 'CANCELLED').length;
-  const totalDutyMinutes = dailyRows.reduce((sum, row) => {
-    const period = officerPeriodData.find((item) => item.officerName === row.name && item.date === row.date);
-    return sum + (period?.dutyMinutes ?? 0);
-  }, 0);
-  const totalDistance = dailyRows.reduce((sum, row) => sum + distanceToNumber(row.distance), 0);
-  const totalPanic = dailyRows.reduce((sum, row) => sum + row.panic, 0);
+  const totals = summaryData?.totals;
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-        <SummaryCard value={dailyRows.length} label="Officers on duty" />
-        <SummaryCard value={formatMinutes(totalDutyMinutes)} label="Duty hours" />
-        <SummaryCard value={`${totalDistance.toFixed(1)} km`} label="Distance" />
-        <SummaryCard value={totalAssigned} label="Assigned" />
-        <SummaryCard value={totalInProgress} label="In Progress" />
-        <SummaryCard value={totalCompleted} label="Completed" />
-        <SummaryCard value={totalCancelled} label="Cancelled" />
-        <SummaryCard value={totalPanic} label="Panic events" />
+        <SummaryCard value={totals?.officers_on_duty ?? 0} label="Officers on duty" />
+        <SummaryCard value={formatMinutes(Math.round((totals?.hours_on_duty ?? 0) * 60))} label="Duty hours" />
+        <SummaryCard value={`${((totals?.distance_covered_m ?? 0) / 1000).toFixed(1)} km`} label="Distance" />
+        <SummaryCard value={totals?.missions_assigned ?? 0} label="Assigned" />
+        <SummaryCard value={totals?.missions_in_progress ?? 0} label="In Progress" />
+        <SummaryCard value={totals?.missions_completed ?? 0} label="Completed" />
+        <SummaryCard value={totals?.missions_cancelled ?? 0} label="Cancelled" />
+        <SummaryCard value={totals?.panic_events ?? 0} label="Panic events" />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
@@ -316,9 +260,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
                 <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Period" field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Locations" field="location" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                {locationFilter !== 'ALL' && (
-                  <th className="px-4 py-3">Activity at Location</th>
-                )}
+                {locationFilter !== 'ALL' && <th className="px-4 py-3">Activity at Location</th>}
                 <SortHeader label="Hours" field="hours" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Distance" field="distance" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Assigned" field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
@@ -331,19 +273,25 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
 
             <tbody className="divide-y divide-slate-100">
               {sortedDailyRows.map((row) => (
-                <tr key={`${row.name}-${row.date}`} className="hover:bg-slate-50/70 transition-colors">
+                <tr key={row.name} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3">
-                    <button type="button" onClick={() => onOfficerSelect?.(row.name)} className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left">
+                    <button
+                      type="button"
+                      onClick={() => onOfficerSelect?.(row.name)}
+                      className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
+                    >
                       {row.name}
                     </button>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{row.shiftStart} → {row.shiftEnd}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">
+                    {row.shiftStart} → {row.shiftEnd}
+                  </td>
                   <td className="px-4 py-3 text-slate-700">
                     {row.locations.length === 0 ? (
                       '—'
                     ) : (
                       <div className="inline-flex flex-wrap items-center gap-1">
-                        {expandedLocations === `${row.name}-${row.date}` ? (
+                        {expandedLocations === row.name ? (
                           <>
                             <span>{row.locations.join(', ')}</span>
                             <button
@@ -360,7 +308,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
                             {row.locations.length > 1 && (
                               <button
                                 type="button"
-                                onClick={() => setExpandedLocations(`${row.name}-${row.date}`)}
+                                onClick={() => setExpandedLocations(row.name)}
                                 className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-[#203E72] hover:bg-slate-200 cursor-pointer"
                               >
                                 +{row.locations.length - 1}
@@ -379,20 +327,42 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
                   <td className="px-4 py-3 font-bold text-slate-800">{row.dutyHours}</td>
                   <td className="px-4 py-3 text-slate-700">{row.distance}</td>
                   <td className="px-4 py-3 font-semibold text-slate-800">{row.assigned}</td>
-                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.inProgress > 0 ? 'bg-sky-50 text-sky-700' : 'bg-slate-50 text-slate-500'}`}>{row.inProgress}</span></td>
-                  <td className="px-4 py-3"><span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{row.completed}</span></td>
-                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.cancelled}</span></td>
-                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.panic}</span></td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.inProgress > 0 ? 'bg-sky-50 text-sky-700' : 'bg-slate-50 text-slate-500'}`}>
+                      {row.inProgress}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">
+                      {row.completed}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
+                      {row.cancelled}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
+                      {row.panic}
+                    </span>
+                  </td>
                 </tr>
               ))}
 
               {sortedDailyRows.length === 0 && (
-                <tr><td colSpan={locationFilter !== 'ALL' ? 11 : 10} className="px-5 py-10 text-center text-slate-400">No officer activity found for the selected filters.</td></tr>
+                <tr>
+                  <td colSpan={locationFilter !== 'ALL' ? 11 : 10} className="px-5 py-10 text-center text-slate-400">
+                    No officer activity found for the selected filters.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">Click an officer’s name to view details.</div>
+        <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">
+          Click an officer’s name to view details.
+        </div>
       </div>
     </div>
   );
