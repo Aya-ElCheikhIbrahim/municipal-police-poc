@@ -32,15 +32,20 @@ OpenAPI schema: /api/schema
 
 Implemented:
 - Auth: Login, token refresh, logout, password reset
-- Users: full management, supervisors only
-- Settings: GET/ PATCH/settings/, GET/SETTINGS/schema
+- Users: full management (supervisors only), device-token register/remove
+- Settings: GET/PATCH /settings/, GET /settings/schema/
+- Areas: GET /areas/ (Tripoli districts)
 - Shifts: start, end, active officers, officer trail
-- Location: batch pinning ingest with offline dedupe
-- Missions: create, assign, aknowledge, start, complete, cancel, notes, photos, unacknowledged sweep
+- Location: batch ping ingest with offline dedupe
+- Missions: create, assign, acknowledge, start, complete, cancel, notes, photos, unacknowledged sweep
+- Panic (Alerts): trigger, active feed, cancel (grace window), resolve, location
+- Notifications: in-app feed, unread count, mark read / mark all read
+- Reports: daily (per-officer + all-officer summary), weekly/custom range, activity feed, officer report; CSV + Arabic PDF export
+- Push (FCM): backend delivery on mission assigned / cancelled / dispatcher message. Off while FCM_CREDENTIALS_FILE is empty; on once it points at the Firebase service-account key.
 
-Not startedL
-- Panic events (Alerts) phase 5
-- Websocket push: the map polls /shifts/active every 15s, which meets the refresh requirements without a socket layer.
+Not started / out of scope:
+- WebSocket push: the map polls /shifts/active/ every 15s, which meets the refresh requirement without a socket layer.
+- Android FCM integration: backend push is done and the Firebase project is configured; the officer app still needs to add the messaging SDK and register its device token via POST /device-tokens/.
 ## Common commands
 
 python manage.py runserver
