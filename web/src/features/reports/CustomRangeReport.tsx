@@ -67,6 +67,7 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
   const [summaryData, setSummaryData] = useState<WeeklySummaryResponse | null>(null);
 
   const areaId = filters.location !== 'ALL' ? Number(filters.location) : undefined;
+  const officerId = filters.officer !== 'ALL' ? Number(filters.officer) : undefined;
   const areaName =
     filters.location === 'ALL' ? '' : areas?.find((a) => String(a.id) === filters.location)?.name ?? filters.location;
 
@@ -76,11 +77,12 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
       start_date: filters.startDate,
       end_date: filters.endDate,
       area_id: areaId,
+      officer_id: officerId,
     })
       .then((data) => setSummaryData(data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [filters.startDate, filters.endDate, areaId]);
+  }, [filters.startDate, filters.endDate, areaId, officerId]);
 
   const rows = useMemo(() => {
     if (!summaryData?.officers) return [];

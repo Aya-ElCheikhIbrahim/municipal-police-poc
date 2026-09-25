@@ -64,6 +64,7 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
   const startDate = filters?.startDate || endDate;
 
   const areaId = filters?.location && filters.location !== 'ALL' ? Number(filters.location) : undefined;
+  const officerId = filters?.officer && filters.officer !== 'ALL' ? Number(filters.officer) : undefined;
 
   useEffect(() => {
     setLoading(true);
@@ -71,11 +72,12 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
       start_date: startDate,
       end_date: endDate,
       area_id: areaId,
+      officer_id: officerId,
     })
       .then((data) => setSummaryData(data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [startDate, endDate, areaId]);
+  }, [startDate, endDate, areaId, officerId]);
 
   const filteredData = useMemo(() => {
     if (!summaryData?.officers) return [];
