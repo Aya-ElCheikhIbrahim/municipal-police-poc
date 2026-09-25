@@ -30,7 +30,7 @@ interface ReportsPageProps {
 export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
   const [reportSubTab, setReportSubTab] = useState<ReportsView>('Daily activity');
   const [dailyView, setDailyView] = useState<DailyViewMode>('SUMMARY');
-  const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
+  const [selectedOfficer, setSelectedOfficer] = useState<number | null>(null);
   const [officerList, setOfficerList] = useState<{ id: number; name: string }[]>([]);
 
   const todayStr = getLocalDateString(new Date());
@@ -123,11 +123,11 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
     }
   };
 
-  if (selectedOfficer) {
+  if (selectedOfficer !== null) {
     return (
       <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto">
         <OfficerReport
-          officerName={selectedOfficer}
+          officerId={selectedOfficer}
           sourceTab={reportSubTab === 'Missions' ? 'Daily activity' : reportSubTab}
           filters={filters}
           onBack={() => setSelectedOfficer(null)}

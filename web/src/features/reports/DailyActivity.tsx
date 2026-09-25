@@ -7,7 +7,7 @@ export type DailyViewMode = 'SUMMARY' | 'SNAPSHOT';
 interface DailyActivityProps {
   filters?: FilterState;
   mode?: DailyViewMode;
-  onOfficerSelect?: (officerName: string) => void;
+  onOfficerSelect?: (officerId: number) => void;
 }
 
 type DailySortField =
@@ -195,13 +195,17 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
                 return (
                   <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => onOfficerSelect?.(resolvedName)}
-                        className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
-                      >
-                        {resolvedName}
-                      </button>
+                      {item?.officer?.id ? (
+                        <button
+                          type="button"
+                          onClick={() => onOfficerSelect?.(item.officer.id)}
+                          className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
+                        >
+                          {resolvedName}
+                        </button>
+                      ) : (
+                        <span className="font-bold text-slate-700">{resolvedName}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-800">
                       {item?.at ? new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
@@ -277,7 +281,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => onOfficerSelect?.(row.name)}
+                      onClick={() => onOfficerSelect?.(row.id)}
                       className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
                     >
                       {row.name}

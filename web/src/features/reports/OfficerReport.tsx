@@ -10,7 +10,7 @@ import type {
 } from './types.ts';
 
 interface OfficerReportProps {
-  officerName: string;
+  officerId: number;
   sourceTab: ReportSubTab;
   filters: FilterState;
   onBack: () => void;
@@ -82,7 +82,7 @@ function SortHeader({
   );
 }
 
-export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissionSelect }: OfficerReportProps) {
+export function OfficerReport({ officerId, sourceTab, filters, onBack, onMissionSelect }: OfficerReportProps) {
   const today = localDateString(new Date());
 
   const initialMode: PeriodMode = sourceTab === 'Daily activity' ? 'DAY' : sourceTab === 'Weekly summary' ? 'WEEK' : 'CUSTOM';
@@ -111,9 +111,6 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissi
     : periodMode === 'WEEK'
     ? weekEnd
     : customEnd;
-
-  const activeOfficer = officers.find((o: any) => o.name === officerName || String(o.id || o.user_id) === officerName);
-  const officerId = (activeOfficer as any)?.id || (activeOfficer as any)?.user_id || Number.parseInt(officerName, 10) || 1;
 
   useEffect(() => {
     setLoading(true);
@@ -225,7 +222,7 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissi
         <div className="p-5 flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1">Officer Details</div>
-            <h2 className="text-xl font-extrabold !text-[#203E72]">{officerInfo?.name || officerName}</h2>
+            <h2 className="text-xl font-extrabold !text-[#203E72]">{officerInfo?.name || `Officer #${officerId}`}</h2>
             <p className="mt-1 text-sm text-slate-500">
               Badge {officerInfo?.badge_number || '—'}
             </p>

@@ -4,7 +4,7 @@ import type { FilterState, WeeklySummaryResponse } from './types';
 
 interface WeeklySummaryProps {
   filters?: FilterState;
-  onOfficerSelect?: (officerName: string) => void;
+  onOfficerSelect?: (officerId: number) => void;
 }
 
 type WeeklySort = 'name' | 'dutyHours' | 'completed' | 'avgAcknowledgement' | 'avgTime' | 'panic';
@@ -186,7 +186,7 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => onOfficerSelect?.(row.name)}
+                      onClick={() => onOfficerSelect?.(row.id)}
                       className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
                     >
                       {row.name}
