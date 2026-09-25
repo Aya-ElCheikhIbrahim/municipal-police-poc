@@ -12,6 +12,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -85,6 +86,7 @@ public class MissionListActivity extends BaseActivity
             new ArrayList<>();
 
     private int selectedTab = 0;
+    private boolean isAutoResuming = false;
 
     private boolean backendOnline = false;
     private boolean firstNetworkResultReceived = false;
@@ -525,23 +527,52 @@ public class MissionListActivity extends BaseActivity
                     ) {
 
                         handler.post(() -> {
+                            String msg = safeMessage(error);
+                            if (msg.toLowerCase().contains("photo")) {
+                                showPhotoRequiredForStopDialog(mission);
+                            } else {
+                                Toast.makeText(
+                                        MissionListActivity.this,
+                                        "Failed: " +
+                                                msg,
+                                        Toast.LENGTH_LONG
+                                ).show();
 
-                            Toast.makeText(
-                                    MissionListActivity.this,
-                                    "Failed: " +
-                                            safeMessage(
-                                                    error
-                                            ),
-                                    Toast.LENGTH_LONG
-                            ).show();
-
-                            openMissionDetail(
-                                    mission
-                            );
+                                openMissionDetail(
+                                        mission
+                                );
+                            }
                         });
                     }
                 }
         );
+    }
+
+
+    private void showPhotoRequiredForStopDialog(
+            Mission mission
+    ) {
+
+        new AlertDialog.Builder(
+                this
+        )
+                .setTitle(
+                        R.string.mission_photo_required_title
+                )
+                .setMessage(
+                        R.string.mission_photo_required_stop_message
+                )
+                .setPositiveButton(
+                        R.string.generic_ok,
+                        (dialog, which) ->
+                                openMissionDetail(
+                                        mission
+                                )
+                )
+                .setCancelable(
+                        true
+                )
+                .show();
     }
 
 
@@ -815,11 +846,30 @@ public class MissionListActivity extends BaseActivity
 
                             allMissions.clear();
 
+                            boolean hasInProgress = false;
+                            Mission pausedMissionToResume = null;
+
                             if (result != null) {
 
                                 allMissions.addAll(
                                         result
                                 );
+
+                                for (Mission mission : result) {
+                                    if (mission.getStatus() == MissionStatus.IN_PROGRESS) {
+                                        hasInProgress = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!hasInProgress) {
+                                    for (Mission mission : result) {
+                                        if (mission.getStatus() == MissionStatus.PAUSED) {
+                                            pausedMissionToResume = mission;
+                                            break;
+                                        }
+                                    }
+                                }
 
                                 for (Mission mission : result) {
 
@@ -838,6 +888,31 @@ public class MissionListActivity extends BaseActivity
                             }
 
                             renderFilteredList();
+
+                            if (!hasInProgress && pausedMissionToResume != null && !isAutoResuming) {
+                                isAutoResuming = true;
+                                final String pausedId = String.valueOf(pausedMissionToResume.getId());
+                                missionRepository.startMission(
+                                        pausedId,
+                                        new Callback<Mission>() {
+                                            @Override
+                                            public void onSuccess(Mission resumedMission) {
+                                                isAutoResuming = false;
+                                                Toast.makeText(
+                                                        MissionListActivity.this,
+                                                        "Paused mission automatically continued",
+                                                        Toast.LENGTH_SHORT
+                                                ).show();
+                                                loadMissions();
+                                            }
+
+                                            @Override
+                                            public void onError(Throwable error) {
+                                                isAutoResuming = false;
+                                            }
+                                        }
+                                );
+                            }
                         });
                     }
 

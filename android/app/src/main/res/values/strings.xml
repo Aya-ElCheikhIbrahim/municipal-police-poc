@@ -117,4 +117,9 @@
     <string name="mission_acknowledge_warning_body">Are you sure you want to start this mission?</string>
     <string name="generic_proceed">Proceed</string>
     <string name="generic_cancel">Cancel</string>
+    <string name="generic_ok">OK</string>
+    <string name="mission_max_photos_title">Maximum photos reached</string>
+    <string name="mission_max_photos_message">You can only add up to 5 photos per mission.</string>
+    <string name="mission_photo_required_title">Photo required</string>
+    <string name="mission_photo_required_stop_message">You need to add an image to stop this mission.</string>
 </resources>
