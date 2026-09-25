@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MissionDetailPage } from '../missions/MissionDetailPage';
 import { useActiveOfficers } from '../officers/useOfficers';
+import { displayOfficerStatus } from '../officers/types';
+import { usePanicAlerts } from '../panic/usePanicAlerts';
 import { exportDailyCSV, exportDailyPDF, fetchOfficerReport } from './api';
 import type {
   FilterState,
@@ -97,6 +99,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
   const [missionSortAsc, setMissionSortAsc] = useState(false);
 
   const { officers } = useActiveOfficers(false);
+  const { alerts: panics } = usePanicAlerts(false);
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<OfficerReportResponse | null>(null);
 
@@ -185,20 +188,37 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
   const cancelledCount = summary?.missions_cancelled ?? 0;
   const inProgressCount = summary?.missions_in_progress ?? 0;
 
-  const currentStatus = reportData?.current_status || 'Available';
+  // Live status comes from the active-officers feed (+ panic feed), matched by id.
+  // Officers not on an active shift are not in the feed, so they read as Off Duty.
+  const activeEntry = officers.find((o) => o.officer.id === officerId);
+  const feedStatus = activeEntry ? displayOfficerStatus(activeEntry) : null;
+  const hasActivePanic = panics.some((p) => p.officer.id === officerId);
+  const currentStatus =
+    hasActivePanic || feedStatus === 'panic'
+      ? 'Panic'
+      : feedStatus === 'on_mission'
+      ? 'On Mission'
+      : feedStatus === 'available'
+      ? 'Available'
+      : 'Off Duty';
+
   const officerStatusStyle =
     currentStatus === 'Panic'
       ? 'bg-rose-50 text-rose-700 border-rose-200'
-      : currentStatus === 'On Mission' || currentStatus === 'IN_PROGRESS'
+      : currentStatus === 'On Mission'
       ? 'bg-blue-50 text-blue-700 border-blue-200'
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      : currentStatus === 'Available'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : 'bg-slate-100 text-slate-600 border-slate-200';
 
   const officerStatusDot =
     currentStatus === 'Panic'
       ? 'bg-rose-500'
-      : currentStatus === 'On Mission' || currentStatus === 'IN_PROGRESS'
+      : currentStatus === 'On Mission'
       ? 'bg-blue-500'
-      : 'bg-emerald-500';
+      : currentStatus === 'Available'
+      ? 'bg-emerald-500'
+      : 'bg-slate-400';
 
   return (
     <div className="space-y-4">
