@@ -1,6 +1,7 @@
 import { apiClient, tokenStore } from '../../shared/api/client';
 import type {
   ActivityRow,
+  Area,
   DailySummaryResponse,
   OfficerReportResponse,
   WeeklySummaryResponse,
@@ -18,6 +19,12 @@ const buildQueryString = (params?: Record<string, any>): string => {
   });
   const query = searchParams.toString();
   return query ? `?${query}` : '';
+};
+
+// Fetch the districts for the Area filter (GET /areas/ returns a plain array)
+export const fetchAreas = async (): Promise<Area[]> => {
+  const response = await apiClient.get<Area[]>('/areas/');
+  return (response as any).data ?? response;
 };
 
 // Fetch daily summary metrics and officer list

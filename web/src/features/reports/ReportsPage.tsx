@@ -1,6 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { type ReportSubTab, type FilterState } from './types.ts';
-import { TRIPOLI_LOCATIONS } from '../../data/tripoliLocations';
+import { type ReportSubTab, type FilterState, type Area } from './types.ts';
 import { DailyActivity, type DailyViewMode } from './DailyActivity';
 import { WeeklySummary } from './WeeklySummary';
 import { OfficerReport } from './OfficerReport';
@@ -11,6 +10,7 @@ import {
   exportDailyPDF,
   exportWeeklyCSV,
   exportWeeklyPDF,
+  fetchAreas,
   fetchDailySummary,
 } from './api';
 
@@ -32,6 +32,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
   const [dailyView, setDailyView] = useState<DailyViewMode>('SUMMARY');
   const [selectedOfficer, setSelectedOfficer] = useState<number | null>(null);
   const [officerList, setOfficerList] = useState<{ id: number; name: string }[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
 
   const todayStr = getLocalDateString(new Date());
 
@@ -46,6 +47,11 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
     fromTime: '',
     toTime: '',
   });
+
+  // Load the real districts for the Area filter (GET /areas/)
+  useEffect(() => {
+    fetchAreas().then(setAreas).catch(console.error);
+  }, []);
 
   // Fetch live officer list dynamically from backend daily summary
   useEffect(() => {
@@ -251,6 +257,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                   />
                   <LocationFilter
                     value={filters.location}
+                    areas={areas}
                     onChange={(value) => handleFilterChange('location', value)}
                   />
                 </div>
@@ -286,6 +293,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                   </FilterField>
                   <LocationFilter
                     value={filters.location}
+                    areas={areas}
                     onChange={(value) => handleFilterChange('location', value)}
                   />
                   <OfficerFilter
@@ -312,6 +320,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                   />
                   <LocationFilter
                     value={filters.location}
+                    areas={areas}
                     onChange={(value) => handleFilterChange('location', value)}
                   />
                 </div>
@@ -341,6 +350,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                   />
                   <LocationFilter
                     value={filters.location}
+                    areas={areas}
                     onChange={(value) => handleFilterChange('location', value)}
                   />
                 </div>
@@ -354,6 +364,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
         <DailyActivity
           filters={filters as any}
           mode={dailyView}
+          areas={areas}
           onOfficerSelect={setSelectedOfficer}
         />
       )}
@@ -363,7 +374,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
       )}
 
       {reportSubTab === 'Custom range' && (
-        <CustomRangeReport filters={filters as any} onOfficerSelect={setSelectedOfficer} />
+        <CustomRangeReport filters={filters as any} areas={areas} onOfficerSelect={setSelectedOfficer} />
       )}
 
       {reportSubTab === 'Missions' && (
@@ -474,12 +485,12 @@ function OfficerFilter({
   );
 }
 
-function LocationFilter({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function LocationFilter({ value, areas, onChange }: { value: string; areas: Area[]; onChange: (value: string) => void }) {
   return (
     <FilterField label="Area / Location">
       <select value={value} onChange={(e) => onChange(e.target.value)} className="filter-control">
         <option value="ALL">All Areas</option>
-        {TRIPOLI_LOCATIONS.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+        {areas.map((area) => <option key={area.id} value={String(area.id)}>{area.name}</option>)}
       </select>
     </FilterField>
   );

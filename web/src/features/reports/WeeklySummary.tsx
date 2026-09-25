@@ -63,16 +63,19 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
   const endDate = filters?.endDate || new Date().toISOString().slice(0, 10);
   const startDate = filters?.startDate || endDate;
 
+  const areaId = filters?.location && filters.location !== 'ALL' ? Number(filters.location) : undefined;
+
   useEffect(() => {
     setLoading(true);
     fetchWeeklySummary({
       start_date: startDate,
       end_date: endDate,
+      area_id: areaId,
     })
       .then((data) => setSummaryData(data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [startDate, endDate]);
+  }, [startDate, endDate, areaId]);
 
   const filteredData = useMemo(() => {
     if (!summaryData?.officers) return [];
