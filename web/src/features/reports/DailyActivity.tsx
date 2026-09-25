@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchDailySummary, fetchActivityFeed } from './api';
-import type { ActivityRow, DailySummaryResponse, FilterState } from './types.ts';
+import type { ActivityRow, Area, DailySummaryResponse, FilterState } from './types.ts';
 
 export type DailyViewMode = 'SUMMARY' | 'SNAPSHOT';
 
 interface DailyActivityProps {
   filters?: FilterState;
   mode?: DailyViewMode;
-  onOfficerSelect?: (officerName: string) => void;
+  areas?: Area[];
+  onOfficerSelect?: (officerId: number) => void;
 }
 
 type DailySortField =
@@ -49,11 +50,13 @@ function SortHeader({
   );
 }
 
-export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: DailyActivityProps) {
+export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelect }: DailyActivityProps) {
   const selectedDate = filters?.startDate || new Date().toISOString().slice(0, 10);
   const officerFilter = filters?.officer ?? 'ALL';
   const locationFilter = filters?.location ?? 'ALL';
   const statusFilter = filters?.status ?? 'ALL';
+  const areaName =
+    locationFilter === 'ALL' ? '' : areas?.find((a) => String(a.id) === locationFilter)?.name ?? locationFilter;
 
   const [sortField, setSortField] = useState<DailySortField>('hours');
   const [sortAsc, setSortAsc] = useState(false);
@@ -71,7 +74,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
       fetchDailySummary({
         date: selectedDate,
         officer_id: officerId,
-        location: locationFilter !== 'ALL' ? locationFilter : undefined,
+        area_id: locationFilter !== 'ALL' ? Number(locationFilter) : undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
       })
         .then((data) => setSummaryData(data))
@@ -82,7 +85,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
       fetchActivityFeed({
         date: selectedDate,
         officer_id: officerId,
-        location: locationFilter !== 'ALL' ? locationFilter : undefined,
+        area_id: locationFilter !== 'ALL' ? Number(locationFilter) : undefined,
         from_time: filters?.fromTime && filters.fromTime !== '' ? filters.fromTime : undefined,
         to_time: filters?.toTime && filters.toTime !== '' ? filters.toTime : undefined,
       })
@@ -168,7 +171,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <h3 className="text-base font-bold text-slate-800">Activity Lookup</h3>
-          {locationFilter !== 'ALL' && <span className="text-xs font-semibold text-slate-500">{locationFilter}</span>}
+          {locationFilter !== 'ALL' && <span className="text-xs font-semibold text-slate-500">{areaName}</span>}
         </div>
 
         <div className="overflow-x-auto">
@@ -195,13 +198,17 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
                 return (
                   <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => onOfficerSelect?.(resolvedName)}
-                        className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
-                      >
-                        {resolvedName}
-                      </button>
+                      {item?.officer?.id ? (
+                        <button
+                          type="button"
+                          onClick={() => onOfficerSelect?.(item.officer.id)}
+                          className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
+                        >
+                          {resolvedName}
+                        </button>
+                      ) : (
+                        <span className="font-bold text-slate-700">{resolvedName}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-800">
                       {item?.at ? new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
@@ -277,7 +284,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', onOfficerSelect }: Da
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => onOfficerSelect?.(row.name)}
+                      onClick={() => onOfficerSelect?.(row.id)}
                       className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
                     >
                       {row.name}

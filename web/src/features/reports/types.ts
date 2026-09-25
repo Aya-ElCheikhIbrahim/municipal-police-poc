@@ -20,9 +20,19 @@ export interface ReportFilterParams {
   officer?: string;
   officer_id?: number;
   location?: string;
+  area_id?: number;
   status?: string;
   from_time?: string;
   to_time?: string;
+}
+
+/** GET /areas/ — the districts behind the Area filter (core.AreaSerializer). */
+export interface Area {
+  id: number;
+  name: string;
+  latitude: string;
+  longitude: string;
+  radius_m: number;
 }
 
 // ------------------------------------------------------------------
