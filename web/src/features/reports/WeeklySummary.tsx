@@ -7,7 +7,7 @@ interface WeeklySummaryProps {
   onOfficerSelect?: (officerId: number) => void;
 }
 
-type WeeklySort = 'name' | 'dutyHours' | 'completed' | 'avgAcknowledgement' | 'avgTime' | 'panic';
+type WeeklySort = 'name' | 'dutyHours' | 'distance' | 'assigned' | 'completed' | 'cancelled' | 'avgAcknowledgement' | 'avgTime' | 'panic';
 
 function formatDuration(totalMinutes: number) {
   if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return '—';
@@ -86,7 +86,10 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
       name: officer.officer_name,
       dutyHours: formatDuration(officer.hours_on_duty * 60),
       dutyMinutes: officer.hours_on_duty * 60,
+      distanceKm: officer.distance_covered_m / 1000,
+      assigned: officer.missions_assigned,
       completed: officer.missions_completed,
+      cancelled: officer.missions_cancelled,
       avgAcknowledgement: formatAcknowledgement(officer.average_acknowledgement_seconds),
       avgAckSecs: officer.average_acknowledgement_seconds,
       avgTime: formatDuration(officer.average_completion_seconds / 60),
@@ -101,7 +104,10 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
       switch (sortField) {
         case 'name': diff = a.name.localeCompare(b.name); break;
         case 'dutyHours': diff = a.dutyMinutes - b.dutyMinutes; break;
+        case 'distance': diff = a.distanceKm - b.distanceKm; break;
+        case 'assigned': diff = a.assigned - b.assigned; break;
         case 'completed': diff = a.completed - b.completed; break;
+        case 'cancelled': diff = a.cancelled - b.cancelled; break;
         case 'avgAcknowledgement': diff = a.avgAckSecs - b.avgAckSecs; break;
         case 'avgTime': diff = a.avgCompSecs - b.avgCompSecs; break;
         case 'panic': diff = a.panic - b.panic; break;
@@ -127,13 +133,20 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
   const priorityItems = [
     { label: 'Urgent', value: summaryData?.missions_by_priority?.URGENT || summaryData?.missions_by_priority?.urgent || 0 },
     { label: 'High', value: summaryData?.missions_by_priority?.HIGH || summaryData?.missions_by_priority?.high || 0 },
+    { label: 'Medium', value: summaryData?.missions_by_priority?.MEDIUM || summaryData?.missions_by_priority?.medium || 0 },
     { label: 'Low', value: summaryData?.missions_by_priority?.LOW || summaryData?.missions_by_priority?.low || 0 },
   ];
 
+  const byStatus = summaryData?.missions_by_status ?? {};
+  const statusValue = (key: string) => byStatus[key] ?? byStatus[key.toUpperCase()] ?? 0;
   const statusItems = [
-    { label: 'Completed', value: totals?.missions_completed ?? 0 },
-    { label: 'In Progress', value: summaryData?.missions_by_status?.IN_PROGRESS || summaryData?.missions_by_status?.in_progress || 0 },
-    { label: 'Cancelled', value: totals?.missions_cancelled ?? 0 },
+    { label: 'New', value: statusValue('new') },
+    { label: 'Assigned', value: statusValue('assigned') },
+    { label: 'Acknowledged', value: statusValue('acknowledged') },
+    { label: 'In Progress', value: statusValue('in_progress') },
+    { label: 'Paused', value: statusValue('paused') },
+    { label: 'Completed', value: statusValue('completed') },
+    { label: 'Cancelled', value: statusValue('cancelled') },
   ];
 
   const typeItems = Object.entries(summaryData?.missions_by_category || {}).map(([category, value]) => ({
@@ -173,12 +186,15 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[670px]">
+          <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[920px]">
             <thead>
               <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
                 <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Hours" field="dutyHours" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Distance" field="distance" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Assigned" field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label="Cancelled" field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Avg Acknowledgement" field="avgAcknowledgement" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Avg Completion" field="avgTime" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Panic" field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
@@ -198,9 +214,16 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
                     </button>
                   </td>
                   <td className="px-4 py-3 font-medium">{row.dutyHours}</td>
+                  <td className="px-4 py-3">{row.distanceKm.toFixed(1)} km</td>
+                  <td className="px-4 py-3 font-semibold">{row.assigned}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-100/70 px-2.5 py-1 font-bold text-emerald-700">
                       {row.completed}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
+                      {row.cancelled}
                     </span>
                   </td>
                   <td className="px-4 py-3">{row.avgAcknowledgement}</td>
@@ -215,7 +238,7 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
 
               {sortedData.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-slate-400">
+                  <td colSpan={9} className="p-6 text-center text-slate-400">
                     No records match the selected filters.
                   </td>
                 </tr>
