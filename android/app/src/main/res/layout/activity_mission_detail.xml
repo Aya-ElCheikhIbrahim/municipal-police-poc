@@ -312,14 +312,15 @@
     <!-- PANIC BUTTON: ALWAYS BOTTOM RIGHT -->
     <ImageButton
         android:id="@+id/btnPanicCircle"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
+        android:layout_width="88dp"
+        android:layout_height="88dp"
         android:layout_marginEnd="@dimen/space_m"
         android:layout_marginBottom="@dimen/space_m"
         android:background="@drawable/bg_panic_circle"
         android:contentDescription="Panic"
-        android:scaleType="centerInside"
-        android:src="@drawable/ic_bell"
+        android:scaleType="fitCenter"
+        android:padding="16dp"
+        android:src="@drawable/ic_warning"
         app:tint="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
