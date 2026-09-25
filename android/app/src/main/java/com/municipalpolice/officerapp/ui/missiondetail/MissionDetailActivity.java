@@ -13,10 +13,12 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -71,9 +73,7 @@ public class MissionDetailActivity extends BaseActivity
     private MapView mapView;
     private View groupOfflineNotice;
 
-    private FrameLayout photoSlot1;
-    private FrameLayout photoSlot2;
-    private FrameLayout photoSlot3;
+    private LinearLayout photoContainer;
 
     private String missionId;
     private Mission mission;
@@ -168,14 +168,8 @@ public class MissionDetailActivity extends BaseActivity
         groupOfflineNotice =
                 findViewById(R.id.groupOfflineNotice);
 
-        photoSlot1 =
-                findViewById(R.id.photoSlot1);
-
-        photoSlot2 =
-                findViewById(R.id.photoSlot2);
-
-        photoSlot3 =
-                findViewById(R.id.photoSlot3);
+        photoContainer =
+                findViewById(R.id.photoContainer);
 
         findViewById(R.id.btnBack)
                 .setOnClickListener(v -> finish());
@@ -183,18 +177,12 @@ public class MissionDetailActivity extends BaseActivity
         setUpStepRow(
                 findViewById(R.id.step1),
                 "1",
-                R.string.mission_step_acknowledge
+                R.string.mission_step_start
         );
 
         setUpStepRow(
                 findViewById(R.id.step2),
                 "2",
-                R.string.mission_step_start
-        );
-
-        setUpStepRow(
-                findViewById(R.id.step3),
-                "3",
                 R.string.mission_step_complete
         );
 
@@ -482,6 +470,7 @@ public class MissionDetailActivity extends BaseActivity
 
     private void updateStepRowStatus(
             View row,
+            String stepNumber,
             boolean done,
             boolean current
     ) {
@@ -514,6 +503,10 @@ public class MissionDetailActivity extends BaseActivity
                     R.drawable.circle_step_current
             );
 
+            if (number instanceof TextView) {
+                ((TextView) number).setText(stepNumber);
+            }
+
             label.setAlpha(1.0f);
 
         } else {
@@ -521,6 +514,10 @@ public class MissionDetailActivity extends BaseActivity
             number.setBackgroundResource(
                     R.drawable.circle_step_pending
             );
+
+            if (number instanceof TextView) {
+                ((TextView) number).setText(stepNumber);
+            }
 
             label.setAlpha(0.5f);
         }
@@ -610,18 +607,14 @@ public class MissionDetailActivity extends BaseActivity
 
             updateStepRowStatus(
                     findViewById(R.id.step1),
-                    true,
-                    false
-            );
-
-            updateStepRowStatus(
-                    findViewById(R.id.step2),
+                    "1",
                     false,
                     true
             );
 
             updateStepRowStatus(
-                    findViewById(R.id.step3),
+                    findViewById(R.id.step2),
+                    "2",
                     false,
                     false
             );
@@ -671,10 +664,18 @@ public class MissionDetailActivity extends BaseActivity
         }
     }
 
+    private void showMaxPhotosDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.mission_max_photos_title)
+                .setMessage(R.string.mission_max_photos_message)
+                .setPositiveButton(R.string.generic_ok, null)
+                .show();
+    }
+
     private void renderPhotos() {
 
         int totalPhotos =
-                mission.getPhotos() != null
+                mission != null && mission.getPhotos() != null
                         ? mission.getPhotos().size()
                         : 0;
 
@@ -684,89 +685,62 @@ public class MissionDetailActivity extends BaseActivity
                         " added"
         );
 
-        FrameLayout[] slots = {
-                photoSlot1,
-                photoSlot2,
-                photoSlot3
-        };
-
-        for (FrameLayout slot : slots) {
-
-            if (slot == null) {
-                continue;
-            }
-
-            slot.removeAllViews();
-            slot.setBackgroundResource(
-                    R.drawable.bg_photo_slot
-            );
-        }
-
-        if (mission.getPhotos() == null ||
-                mission.getPhotos().isEmpty()) {
-
+        if (photoContainer == null) {
             return;
         }
 
-        int photosToShow =
-                Math.min(
-                        mission.getPhotos().size(),
-                        slots.length
-                );
+        photoContainer.removeAllViews();
 
-        for (int i = 0; i < photosToShow; i++) {
+        int slotCount = Math.max(3, totalPhotos);
+        float density = getResources().getDisplayMetrics().density;
+        int widthPx = Math.round(80 * density);
+        int marginPx = Math.round(8 * density);
 
-            MissionPhoto photo =
-                    mission.getPhotos().get(i);
+        for (int i = 0; i < slotCount; i++) {
 
-            if (photo == null ||
-                    photo.getImage() == null ||
-                    photo.getImage().trim().isEmpty()) {
+            FrameLayout slot = new FrameLayout(this);
+            slot.setBackgroundResource(R.drawable.bg_photo_slot);
 
-                continue;
+            if (i < totalPhotos) {
+
+                MissionPhoto photo = mission.getPhotos().get(i);
+
+                if (photo != null && photo.getImage() != null && !photo.getImage().trim().isEmpty()) {
+
+                    ImageView imageView = new ImageView(this);
+                    imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+
+                    FrameLayout.LayoutParams imgParams =
+                            new FrameLayout.LayoutParams(
+                                    FrameLayout.LayoutParams.MATCH_PARENT,
+                                    FrameLayout.LayoutParams.MATCH_PARENT
+                            );
+
+                    slot.addView(imageView, imgParams);
+
+                    String imageUrl = photo.getImage().trim();
+
+                    if (imageUrl.startsWith("/")) {
+                        imageUrl = "http://10.0.2.2:8000" + imageUrl;
+                    } else if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
+                        imageUrl = "http://10.0.2.2:8000/" + imageUrl;
+                    }
+
+                    Glide.with(this)
+                            .load(imageUrl)
+                            .centerCrop()
+                            .into(imageView);
+                }
             }
 
-            FrameLayout slot = slots[i];
-
-            ImageView imageView =
-                    new ImageView(this);
-
-            imageView.setScaleType(
-                    ImageView.ScaleType.CENTER_CROP
-            );
-
-            FrameLayout.LayoutParams params =
-                    new FrameLayout.LayoutParams(
-                            FrameLayout.LayoutParams.MATCH_PARENT,
-                            FrameLayout.LayoutParams.MATCH_PARENT
+            LinearLayout.LayoutParams params =
+                    new LinearLayout.LayoutParams(
+                            widthPx,
+                            LinearLayout.LayoutParams.MATCH_PARENT
                     );
+            params.setMargins(0, 0, marginPx, 0);
 
-            slot.addView(
-                    imageView,
-                    params
-            );
-
-            String imageUrl =
-                    photo.getImage().trim();
-
-            if (imageUrl.startsWith("/")) {
-
-                imageUrl =
-                        "http://10.0.2.2:8000" +
-                                imageUrl;
-
-            } else if (!imageUrl.startsWith("http://") &&
-                    !imageUrl.startsWith("https://")) {
-
-                imageUrl =
-                        "http://10.0.2.2:8000/" +
-                                imageUrl;
-            }
-
-            Glide.with(this)
-                    .load(imageUrl)
-                    .centerCrop()
-                    .into(imageView);
+            photoContainer.addView(slot, params);
         }
     }
 
@@ -836,6 +810,11 @@ public class MissionDetailActivity extends BaseActivity
     private void takePhoto() {
 
         if (mission == null) {
+            return;
+        }
+
+        if (mission.getPhotos() != null && mission.getPhotos().size() >= 5) {
+            showMaxPhotosDialog();
             return;
         }
 
@@ -937,13 +916,26 @@ public class MissionDetailActivity extends BaseActivity
                     @Override
                     public void onError(Throwable error) {
 
-                        Toast.makeText(
-                                MissionDetailActivity.this,
-                                error.getMessage() != null
-                                        ? error.getMessage()
-                                        : "Photo upload failed",
-                                Toast.LENGTH_LONG
-                        ).show();
+                        currentPhotoFile = null;
+                        currentPhotoUri = null;
+
+                        if (mission != null && mission.getPhotos() != null && mission.getPhotos().size() >= 5) {
+                            showMaxPhotosDialog();
+                        } else if (error != null && error.getMessage() != null &&
+                                (error.getMessage().contains("5") ||
+                                 error.getMessage().toLowerCase().contains("at most") ||
+                                 error.getMessage().toLowerCase().contains("maximum") ||
+                                 error.getMessage().contains("400"))) {
+                            showMaxPhotosDialog();
+                        } else {
+                            Toast.makeText(
+                                    MissionDetailActivity.this,
+                                    error != null && error.getMessage() != null
+                                            ? error.getMessage()
+                                            : "Photo upload failed",
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        }
                     }
                 }
         );

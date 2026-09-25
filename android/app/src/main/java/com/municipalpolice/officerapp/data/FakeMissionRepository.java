@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.municipalpolice.officerapp.model.Mission;
+import com.municipalpolice.officerapp.model.MissionPhoto;
 import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.model.Priority;
 
@@ -129,8 +130,12 @@ public class FakeMissionRepository implements MissionRepository {
     public void addMissionPhoto(String missionId, String localPhotoUri, Callback<Mission> callback) {
         Mission m = find(missionId);
         if (m == null) { callback.onError(new IllegalStateException("not found")); return; }
-        // m.addPhoto(localPhotoUri); // Model changed, omitting for mock
-        callback.onSuccess(m);
+        handler.postDelayed(() -> {
+            MissionPhoto photo = new MissionPhoto();
+            photo.setImage(localPhotoUri);
+            m.addPhoto(photo);
+            callback.onSuccess(m);
+        }, 300);
     }
 
     private Mission find(String id) {
