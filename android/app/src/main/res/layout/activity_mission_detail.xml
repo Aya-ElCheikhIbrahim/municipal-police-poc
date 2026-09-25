@@ -211,10 +211,6 @@
                             android:id="@+id/step2"
                             layout="@layout/item_step_row" />
 
-                        <include
-                            android:id="@+id/step3"
-                            layout="@layout/item_step_row" />
-
                     </LinearLayout>
 
                     <Button
@@ -223,7 +219,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/space_m"
-                        android:text="@string/mission_acknowledge_button" />
+                        android:text="@string/mission_step_start" />
 
                     <Button
                         android:id="@+id/btnNavigate"
@@ -259,37 +255,19 @@
                             android:textSize="@dimen/text_body" />
 
 
-                        <!-- PHOTO PREVIEW SLOTS -->
-                        <LinearLayout
+                        <!-- PHOTO PREVIEW CONTAINER -->
+                        <HorizontalScrollView
                             android:layout_width="match_parent"
                             android:layout_height="72dp"
-                            android:layout_marginTop="@dimen/space_s"
-                            android:orientation="horizontal">
+                            android:layout_marginTop="@dimen/space_s">
 
-                            <FrameLayout
-                                android:id="@+id/photoSlot1"
-                                android:layout_width="0dp"
+                            <LinearLayout
+                                android:id="@+id/photoContainer"
+                                android:layout_width="wrap_content"
                                 android:layout_height="match_parent"
-                                android:layout_marginEnd="4dp"
-                                android:layout_weight="1"
-                                android:background="@drawable/bg_photo_slot" />
+                                android:orientation="horizontal" />
 
-                            <FrameLayout
-                                android:id="@+id/photoSlot2"
-                                android:layout_width="0dp"
-                                android:layout_height="match_parent"
-                                android:layout_marginEnd="4dp"
-                                android:layout_weight="1"
-                                android:background="@drawable/bg_photo_slot" />
-
-                            <FrameLayout
-                                android:id="@+id/photoSlot3"
-                                android:layout_width="0dp"
-                                android:layout_height="match_parent"
-                                android:layout_weight="1"
-                                android:background="@drawable/bg_photo_slot" />
-
-                        </LinearLayout>
+                        </HorizontalScrollView>
 
                         <TextView
                             android:id="@+id/tvPhotoProgress"

@@ -129,4 +129,9 @@
     <string name="logout_error_pending_missions">لديك مهام نشطة. يرجى إنجازها أو إلغاؤها قبل تسجيل الخروج.</string>
     <string name="logout_validation_loading">جاري التحقق من حالة الدوام...</string>
     <string name="end_shift_error_active_missions">لا يمكنك إنهاء دوامك أثناء وجود مهام نشطة. يرجى إنجازها أولاً.</string>
+    <string name="generic_ok">موافق</string>
+    <string name="mission_max_photos_title">تم الوصول للحد الأقصى للصور</string>
+    <string name="mission_max_photos_message">يمكنك إضافة 5 صور كحد أقصى لكل مهمة.</string>
+    <string name="mission_photo_required_title">صورة مطلوبة</string>
+    <string name="mission_photo_required_stop_message">يجب عليك إضافة صورة لإيقاف هذه المهمة.</string>
 </resources>
