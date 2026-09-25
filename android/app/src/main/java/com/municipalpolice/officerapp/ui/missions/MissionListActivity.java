@@ -32,6 +32,7 @@ import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
 import com.municipalpolice.officerapp.data.ShiftRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
+import com.municipalpolice.officerapp.model.Priority;
 import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.model.Shift;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
@@ -408,6 +409,15 @@ public class MissionListActivity extends BaseActivity
                 MissionStatus.NEW ||
                 mission.getStatus() ==
                         MissionStatus.ASSIGNED) {
+
+            if (mission.getPriority() == Priority.URGENT && hasActiveUrgentMission()) {
+                Toast.makeText(
+                        this,
+                        "You can't have two active missions at the same time.",
+                        Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
 
             startMission(
                     mission
@@ -1101,5 +1111,17 @@ public class MissionListActivity extends BaseActivity
         }
 
         return error.getMessage();
+    }
+
+
+    private boolean hasActiveUrgentMission() {
+        for (Mission m : allMissions) {
+            if (m.getPriority() == Priority.URGENT &&
+                    (m.getStatus() == MissionStatus.ACKNOWLEDGED ||
+                     m.getStatus() == MissionStatus.IN_PROGRESS)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
