@@ -34,7 +34,7 @@ Events and photos are not included in the list response. Call `GET /api/v1/missi
 ]
 ```
 
-`assigned_to` is null when the mission is still new and has no officer. `is_overdue` is true when a deadline exists, the mission is still open, and the deadline is in the past — computed on every read, not stored. `awaiting_acknowledgement` is true when the mission is assigned and the unacknowledged sweep has already flagged it. Coordinates are strings — call `parseFloat` before passing them to Leaflet. Timestamps are UTC, convert at render.
+Coordinates sent in (create, start, complete, photo upload) may carry more than 6 decimal places; the extra precision is rounded half-up to 6 rather than rejected. `assigned_to` is null when the mission is still new and has no officer. `is_overdue` is true when a deadline exists, the mission is still open, and the deadline is in the past — computed on every read, not stored. `awaiting_acknowledgement` is true when the mission is assigned and the unacknowledged sweep has already flagged it. Coordinates are strings — call `parseFloat` before passing them to Leaflet. Timestamps are UTC, convert at render.
 
 `POST /api/v1/missions/`
 

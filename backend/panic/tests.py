@@ -6,6 +6,8 @@ test cases as a minimum. These cover the behaviours where a silent failure
 either loses an audit record or puts a wrong marker on the dispatcher map.
 """
 
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
@@ -115,6 +117,25 @@ class TriggerTests(PanicTestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(first.json()["id"], second.json()["id"])
         self.assertEqual(PanicEvent.objects.count(), 1)
+
+    def test_a_seven_decimal_gps_fix_is_accepted(self):
+        """
+        What a real handset sends. The column holds six decimals, so the extra
+        digit is rounded off instead of 400ing the alert away (§4.7).
+        """
+        self.on_duty(self.officer)
+        self.client.force_authenticate(self.officer)
+
+        response = self.client.post(
+            "/api/v1/panic/",
+            {"latitude": 34.4319323, "longitude": 35.8497015},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        event = PanicEvent.objects.get(pk=response.json()["id"])
+        self.assertEqual(event.latitude, Decimal("34.431932"))
+        self.assertEqual(event.longitude, Decimal("35.849702"))
 
     def test_alert_is_attached_to_the_current_shift(self):
         shift = self.on_duty(self.officer)

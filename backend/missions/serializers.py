@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from core.fields import CoordinateField
 from core.serializers import OfficerBriefSerializer
 
 from .models import Mission, MissionEvent, MissionPhoto
@@ -111,8 +112,8 @@ class MissionCreateSerializer(serializers.Serializer):
 
     title = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True, default="")
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = CoordinateField()
+    longitude = CoordinateField()
     address = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
     priority = serializers.ChoiceField(
         choices=Mission.Priority.choices, default=Mission.Priority.MEDIUM
@@ -146,12 +147,8 @@ class CancelSerializer(serializers.Serializer):
 class PositionSerializer(serializers.Serializer):
     """Where the officer was when they started or completed."""
 
-    latitude = serializers.DecimalField(
-        max_digits=9, decimal_places=6, required=False, allow_null=True
-    )
-    longitude = serializers.DecimalField(
-        max_digits=9, decimal_places=6, required=False, allow_null=True
-    )
+    latitude = CoordinateField(required=False, allow_null=True)
+    longitude = CoordinateField(required=False, allow_null=True)
 
     def validate(self, attrs):
         has_lat = attrs.get("latitude") is not None
@@ -177,10 +174,6 @@ class PhotoUploadSerializer(serializers.Serializer):
 
     client_uuid = serializers.UUIDField()
     image = serializers.FileField()
-    captured_latitude = serializers.DecimalField(
-        max_digits=9, decimal_places=6, required=False, allow_null=True
-    )
-    captured_longitude = serializers.DecimalField(
-        max_digits=9, decimal_places=6, required=False, allow_null=True
-    )
+    captured_latitude = CoordinateField(required=False, allow_null=True)
+    captured_longitude = CoordinateField(required=False, allow_null=True)
     captured_at = serializers.DateTimeField(required=False, allow_null=True)
