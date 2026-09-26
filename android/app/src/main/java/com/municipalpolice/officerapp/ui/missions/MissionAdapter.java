@@ -529,7 +529,7 @@ public class MissionAdapter
         boolean shouldLock =
                 !isRunning &&
                         !isCompleted &&
-                        !isUrgent &&
+                        (!isUrgent || hasActiveUrgentMission()) &&
                         activeMissionExists;
 
 
