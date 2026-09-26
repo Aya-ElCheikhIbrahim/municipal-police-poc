@@ -20,6 +20,17 @@ public class FakeAuthRepository implements AuthRepository {
     private FakeAuthRepository() { }
 
     @Override
+    public void requestPasswordReset(String badgeNumber, Callback<Void> callback) {
+        handler.postDelayed(() -> {
+            if (badgeNumber == null || badgeNumber.trim().isEmpty()) {
+                callback.onError(new IllegalArgumentException("Badge number is required"));
+                return;
+            }
+            callback.onSuccess(null);
+        }, 500);
+    }
+
+    @Override
     public void login(String username, String password, Callback<Officer> callback) {
         handler.postDelayed(() -> {
             if (username == null || username.trim().isEmpty() || password == null || password.isEmpty()) {
@@ -39,5 +50,16 @@ public class FakeAuthRepository implements AuthRepository {
     @Override
     public Officer getCachedOfficer() {
         return cachedOfficer;
+    }
+
+    @Override
+    public void confirmPasswordReset(String badgeNumber, String supervisorCode, String newPassword, Callback<Void> callback) {
+        handler.postDelayed(() -> {
+            if ("1234".equals(supervisorCode)) {
+                callback.onSuccess(null);
+            } else {
+                callback.onError(new Exception("Invalid supervisor code"));
+            }
+        }, 500);
     }
 }

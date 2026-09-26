@@ -48,7 +48,7 @@ public class LoginActivity extends BaseActivity {
         btnForgotPassword = findViewById(R.id.btnForgotPassword);
 
         btnLogin.setOnClickListener(v -> attemptLogin());
-        btnForgotPassword.setOnClickListener(v -> showForgotPasswordMessage());
+        btnForgotPassword.setOnClickListener(v -> startForgotPasswordActivity());
 
         // Skip straight to the shift screen if a session is already cached
         PrefsManager prefs = new PrefsManager(this);
@@ -81,8 +81,8 @@ public class LoginActivity extends BaseActivity {
         }
     }
 
-    private void showForgotPasswordMessage() {
-        Toast.makeText(this, R.string.login_forgot_password_msg, Toast.LENGTH_LONG).show();
+    private void startForgotPasswordActivity() {
+        startActivity(new Intent(this, ForgotPasswordActivity.class));
     }
 
     private void attemptLogin() {

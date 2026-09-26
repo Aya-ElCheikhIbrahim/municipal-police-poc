@@ -53,6 +53,25 @@ public class RetrofitAuthRepository implements AuthRepository {
     }
 
     @Override
+    public void requestPasswordReset(String badgeNumber, Callback<Void> callback) {
+        apiService.requestPasswordReset(new PasswordResetCodeRequest(badgeNumber)).enqueue(new retrofit2.Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(null);
+                } else {
+                    callback.onError(new Exception("Password reset request failed: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                callback.onError(t);
+            }
+        });
+    }
+
+    @Override
     public void login(String username, String password, Callback<Officer> callback) {
         apiService.login(new LoginRequest(username, password)).enqueue(new retrofit2.Callback<LoginResponse>() {
             @Override
@@ -69,6 +88,9 @@ public class RetrofitAuthRepository implements AuthRepository {
                     prefs.setAuthToken(response.body().getAccessToken());
                     prefs.setRefreshToken(response.body().getRefreshToken());
                     prefs.setUserData(userData.getId(), userData.getFullName(), userData.getBadgeNumber());
+                    if (userData.getPreferredLanguage() != null && !userData.getPreferredLanguage().isEmpty()) {
+                        prefs.setLanguage(userData.getPreferredLanguage());
+                    }
                     
                     callback.onSuccess(cachedOfficer);
                 } else {
@@ -92,5 +114,24 @@ public class RetrofitAuthRepository implements AuthRepository {
     @Override
     public Officer getCachedOfficer() {
         return cachedOfficer;
+    }
+
+    @Override
+    public void confirmPasswordReset(String badgeNumber, String supervisorCode, String newPassword, Callback<Void> callback) {
+        apiService.confirmPasswordReset(new PasswordResetRequest(badgeNumber, supervisorCode, newPassword)).enqueue(new retrofit2.Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(null);
+                } else {
+                    callback.onError(new Exception("Password reset failed: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                callback.onError(t);
+            }
+        });
     }
 }

@@ -23,10 +23,13 @@ public class LoginResponse {
         @SerializedName("badge_number")
         private String badgeNumber;
         private String role;
+        @SerializedName("preferred_language")
+        private String preferredLanguage;
 
         public String getId() { return id; }
         public String getFullName() { return fullName; }
         public String getBadgeNumber() { return badgeNumber; }
         public String getRole() { return role; }
+        public String getPreferredLanguage() { return preferredLanguage; }
     }
 }

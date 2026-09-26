@@ -186,7 +186,12 @@ public class SettingsActivity extends BaseActivity {
     // ---------------------------------------------------------
 
     public void onLanguageChanged() {
-        recreate();
+        Intent intent = getBaseContext().getPackageManager().getLaunchIntentForPackage(getBaseContext().getPackageName());
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+        }
+        finish();
     }
 
     // ---------------------------------------------------------
@@ -327,13 +332,9 @@ public class SettingsActivity extends BaseActivity {
 
             for (Mission mission : missions) {
 
-                if (mission.getStatus()
-                        != MissionStatus.COMPLETED
-
-                        &&
-
-                        mission.getStatus()
-                                != MissionStatus.CANCELLED) {
+                if (mission.getStatus() == MissionStatus.IN_PROGRESS
+                        || mission.getStatus() == MissionStatus.ACKNOWLEDGED
+                        || mission.getStatus() == MissionStatus.PAUSED) {
 
                     hasActiveMission = true;
                     break;
