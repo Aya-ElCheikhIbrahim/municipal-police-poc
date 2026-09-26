@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from core.fields import CoordinateField
 from core.serializers import OfficerBriefSerializer
 
 from .models import PanicEvent
@@ -15,8 +16,8 @@ class PanicTriggerSerializer(serializers.Serializer):
     fix before sending is the wrong trade for this button.
     """
 
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = CoordinateField()
+    longitude = CoordinateField()
     accuracy_m = serializers.FloatField(required=False, allow_null=True)
     battery_level = serializers.IntegerField(
         required=False, allow_null=True, min_value=0, max_value=100
