@@ -2,6 +2,7 @@ package com.municipalpolice.officerapp.ui.dialogs;
 
 import android.Manifest;
 import android.app.Dialog;
+import android.content.pm.PackageManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.BatteryManager;

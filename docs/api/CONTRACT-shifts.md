@@ -28,7 +28,7 @@ Returns 201 on a new shift, 200 when the officer already has an active shift. Th
 }
 ```
 
-Coordinates are strings (DecimalField, 9 digits, 6 decimal places) — call `parseFloat` before passing them to Leaflet. `duration_seconds` is computed on every read from `started_at` to now, or to `ended_at` once the shift has ended.
+Coordinates are strings (DecimalField, 9 digits, 6 decimal places) — call `parseFloat` before passing them to Leaflet. On input — here and on the ping batch — more than 6 decimals is rounded half-up to 6 rather than rejected, so a raw 7-decimal GPS fix is a valid body. `duration_seconds` is computed on every read from `started_at` to now, or to `ended_at` once the shift has ended.
 
 `POST /api/v1/shifts/end/`
 

@@ -32,6 +32,7 @@ import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
 import com.municipalpolice.officerapp.data.ShiftRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
+import com.municipalpolice.officerapp.model.Priority;
 import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.model.Shift;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
@@ -415,6 +416,15 @@ public class MissionListActivity extends BaseActivity
                 mission.getStatus() ==
                         MissionStatus.PAUSED) {
 
+            if (mission.getPriority() == Priority.URGENT && hasActiveUrgentMission()) {
+                Toast.makeText(
+                        this,
+                        "You can't have two active missions at the same time.",
+                        Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
+
             startMission(
                     mission
             );
@@ -592,7 +602,22 @@ public class MissionListActivity extends BaseActivity
     // END SHIFT
     // =========================================================
 
+    private boolean hasActiveOrAssignedMissions() {
+        for (Mission mission : allMissions) {
+            if (mission.getStatus() == MissionStatus.ACKNOWLEDGED ||
+                mission.getStatus() == MissionStatus.IN_PROGRESS ||
+                mission.getStatus() == MissionStatus.PAUSED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void checkMissionsBeforeEndShift() {
+        if (hasActiveOrAssignedMissions()) {
+            Toast.makeText(this, R.string.end_shift_error_active_missions, Toast.LENGTH_LONG).show();
+            return;
+        }
 
         EndShiftDialogFragment
                 .newInstance()
@@ -1114,5 +1139,17 @@ public class MissionListActivity extends BaseActivity
         }
 
         return error.getMessage();
+    }
+
+
+    private boolean hasActiveUrgentMission() {
+        for (Mission m : allMissions) {
+            if (m.getPriority() == Priority.URGENT &&
+                    (m.getStatus() == MissionStatus.ACKNOWLEDGED ||
+                     m.getStatus() == MissionStatus.IN_PROGRESS)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

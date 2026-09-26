@@ -25,10 +25,7 @@ import com.municipalpolice.officerapp.util.PrefsManager;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Screen "1 - Login".
- * Accounts are supervisor-created; there's no self sign-up.
- */
+/** Screen "1 - Login". Accounts are supervisor-created; there's no self sign-up. */
 public class LoginActivity extends BaseActivity {
 
     private EditText etUsername;
@@ -41,178 +38,102 @@ public class LoginActivity extends BaseActivity {
                     new ActivityResultContracts.RequestMultiplePermissions(),
                     result -> {
                         // Permissions handled.
-                        // We could check if location was denied
-                        // and show a warning.
+                        // We could check if location was denied and show a warning.
                     }
             );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_login);
 
-        etUsername =
-                findViewById(R.id.etUsername);
+        etUsername = findViewById(R.id.etUsername);
+        etPassword = findViewById(R.id.etPassword);
+        btnLogin = findViewById(R.id.btnLogin);
+        btnForgotPassword = findViewById(R.id.btnForgotPassword);
 
-        etPassword =
-                findViewById(R.id.etPassword);
+        btnLogin.setOnClickListener(v -> attemptLogin());
 
-        btnLogin =
-                findViewById(R.id.btnLogin);
-
-        btnForgotPassword =
-                findViewById(R.id.btnForgotPassword);
-
-        btnLogin.setOnClickListener(
-                v -> attemptLogin()
-        );
-
+        // Keep Aya's new forgot-password flow.
         btnForgotPassword.setOnClickListener(
-                v -> showForgotPasswordMessage()
+                v -> startForgotPasswordActivity()
         );
 
-        // -----------------------------------------------------
-        // EXISTING SESSION
-        // -----------------------------------------------------
-
-        /*
-         * If the officer is already logged in,
-         * register the current Firebase token again.
-         *
-         * The backend endpoint is idempotent, so registering
-         * the same token again does not create duplicates.
-         */
-
-        PrefsManager prefs =
-                new PrefsManager(this);
+        // If a session is already cached, register the current
+        // Firebase token again before continuing.
+        PrefsManager prefs = new PrefsManager(this);
 
         if (prefs.isLoggedIn()
                 && RetrofitAuthRepository
                 .getInstance(prefs)
                 .getCachedOfficer() != null) {
 
-            DeviceTokenManager.registerCurrentToken(
-                    this
-            );
-
+            DeviceTokenManager.registerCurrentToken(this);
             goToShift();
         }
-
-        // -----------------------------------------------------
-        // PERMISSIONS
-        // -----------------------------------------------------
 
         checkAndRequestPermissions();
     }
 
-    // =========================================================
-    // PERMISSIONS
-    // =========================================================
-
     private void checkAndRequestPermissions() {
+        List<String> permissions = new ArrayList<>();
 
-        List<String> permissions =
-                new ArrayList<>();
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        permissions.add(Manifest.permission.CAMERA);
 
-        permissions.add(
-                Manifest.permission.ACCESS_FINE_LOCATION
-        );
-
-        permissions.add(
-                Manifest.permission.ACCESS_COARSE_LOCATION
-        );
-
-        permissions.add(
-                Manifest.permission.CAMERA
-        );
-
-        /*
-         * Android 13+ requires runtime permission
-         * before the app can display notifications.
-         */
-        if (Build.VERSION.SDK_INT
-                >= Build.VERSION_CODES.TIRAMISU) {
-
-            permissions.add(
-                    Manifest.permission.POST_NOTIFICATIONS
-            );
+        // Android 13+ requires notification permission.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
         }
 
-        List<String> listPermissionsNeeded =
-                new ArrayList<>();
+        List<String> listPermissionsNeeded = new ArrayList<>();
 
         for (String permission : permissions) {
-
             if (ContextCompat.checkSelfPermission(
                     this,
                     permission
             ) != PackageManager.PERMISSION_GRANTED) {
 
-                listPermissionsNeeded.add(
-                        permission
-                );
+                listPermissionsNeeded.add(permission);
             }
         }
 
         if (!listPermissionsNeeded.isEmpty()) {
-
             permissionLauncher.launch(
-                    listPermissionsNeeded.toArray(
-                            new String[0]
-                    )
+                    listPermissionsNeeded.toArray(new String[0])
             );
         }
     }
 
-    // =========================================================
-    // FORGOT PASSWORD
-    // =========================================================
-
-    private void showForgotPasswordMessage() {
-
-        Toast.makeText(
-                this,
-                R.string.login_forgot_password_msg,
-                Toast.LENGTH_LONG
-        ).show();
+    private void startForgotPasswordActivity() {
+        startActivity(
+                new Intent(
+                        this,
+                        ForgotPasswordActivity.class
+                )
+        );
     }
 
-    // =========================================================
-    // LOGIN
-    // =========================================================
-
     private void attemptLogin() {
-
         String username =
-                etUsername
-                        .getText()
-                        .toString()
-                        .trim();
+                etUsername.getText().toString().trim();
 
         String password =
-                etPassword
-                        .getText()
-                        .toString()
-                        .trim();
+                etPassword.getText().toString().trim();
 
-        if (username.isEmpty()
-                || password.isEmpty()) {
-
+        if (username.isEmpty() || password.isEmpty()) {
             Toast.makeText(
                     this,
                     R.string.login_error_required,
                     Toast.LENGTH_SHORT
             ).show();
-
             return;
         }
 
         btnLogin.setEnabled(false);
 
-        PrefsManager prefs =
-                new PrefsManager(this);
+        PrefsManager prefs = new PrefsManager(this);
 
         RetrofitAuthRepository
                 .getInstance(prefs)
@@ -222,37 +143,20 @@ public class LoginActivity extends BaseActivity {
                         new Callback<Officer>() {
 
                             @Override
-                            public void onSuccess(
-                                    Officer result
-                            ) {
-
+                            public void onSuccess(Officer result) {
                                 btnLogin.setEnabled(true);
 
-                                /*
-                                 * Login succeeded.
-                                 *
-                                 * Firebase gives us this device's
-                                 * FCM registration token and
-                                 * DeviceTokenManager sends it to:
-                                 *
-                                 * POST /api/v1/device-tokens/
-                                 *
-                                 * RetrofitClient automatically adds
-                                 * the logged-in officer's Bearer token.
-                                 */
-                                DeviceTokenManager
-                                        .registerCurrentToken(
-                                                LoginActivity.this
-                                        );
+                                // Login succeeded. Register this
+                                // device's FCM token with the backend.
+                                DeviceTokenManager.registerCurrentToken(
+                                        LoginActivity.this
+                                );
 
                                 goToShift();
                             }
 
                             @Override
-                            public void onError(
-                                    Throwable error
-                            ) {
-
+                            public void onError(Throwable error) {
                                 btnLogin.setEnabled(true);
 
                                 Toast.makeText(
@@ -265,12 +169,7 @@ public class LoginActivity extends BaseActivity {
                 );
     }
 
-    // =========================================================
-    // NAVIGATION
-    // =========================================================
-
     private void goToShift() {
-
         startActivity(
                 new Intent(
                         this,

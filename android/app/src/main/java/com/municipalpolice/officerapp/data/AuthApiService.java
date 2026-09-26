@@ -15,4 +15,14 @@ public interface AuthApiService {
     Call<TokenRefreshResponse> refreshToken(
             @Body TokenRefreshRequest request
     );
+
+    @POST("password-reset/")
+    Call<Void> requestPasswordReset(
+            @Body PasswordResetCodeRequest request
+    );
+
+    @POST("password-reset/confirm/")
+    Call<Void> confirmPasswordReset(
+            @Body PasswordResetRequest request
+    );
 }

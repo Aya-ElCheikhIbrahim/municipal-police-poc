@@ -34,7 +34,7 @@ Returns 201 on a new alert, 200 when the officer already has an active alert. Th
 }
 ```
 
-Coordinates are stored as strings (DecimalField, 9 digits, 6 decimal places) — call `parseFloat` before passing them to Leaflet. `triggered_at` is server time, not phone time. The grace window in cancel is measured from this, so a phone with a wrong clock cannot widen it.
+Coordinates are stored as strings (DecimalField, 9 digits, 6 decimal places) — call `parseFloat` before passing them to Leaflet. Send whatever precision the handset reports: a latitude with more than 6 decimals is rounded half-up to 6 on the way in, not rejected, so a 7-decimal Android fix does not cost the officer their alert. `triggered_at` is server time, not phone time. The grace window in cancel is measured from this, so a phone with a wrong clock cannot widen it.
 
 `GET /api/v1/panic/active/`
 

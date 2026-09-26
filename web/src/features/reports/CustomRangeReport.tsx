@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchWeeklySummary } from './api';
-import type { FilterState, WeeklySummaryResponse } from './types';
+import type { Area, FilterState, WeeklySummaryResponse } from './types';
 
 interface CustomRangeReportProps {
   filters: FilterState;
-  onOfficerSelect?: (officerName: string) => void;
+  areas?: Area[];
+  onOfficerSelect?: (officerId: number) => void;
 }
 
 type CustomSortField =
@@ -58,23 +59,30 @@ function SortHeader({
   );
 }
 
-export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeReportProps) {
+export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRangeReportProps) {
   const [sortField, setSortField] = useState<CustomSortField>('dutyMinutes');
   const [sortAsc, setSortAsc] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [summaryData, setSummaryData] = useState<WeeklySummaryResponse | null>(null);
 
+  const areaId = filters.location !== 'ALL' ? Number(filters.location) : undefined;
+  const officerId = filters.officer !== 'ALL' ? Number(filters.officer) : undefined;
+  const areaName =
+    filters.location === 'ALL' ? '' : areas?.find((a) => String(a.id) === filters.location)?.name ?? filters.location;
+
   useEffect(() => {
     setLoading(true);
     fetchWeeklySummary({
       start_date: filters.startDate,
       end_date: filters.endDate,
+      area_id: areaId,
+      officer_id: officerId,
     })
       .then((data) => setSummaryData(data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [filters.startDate, filters.endDate]);
+  }, [filters.startDate, filters.endDate, areaId, officerId]);
 
   const rows = useMemo(() => {
     if (!summaryData?.officers) return [];
@@ -176,7 +184,7 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => onOfficerSelect?.(row.name)}
+                      onClick={() => onOfficerSelect?.(row.id)}
                       className="text-[#203E72] hover:text-[#142d55] hover:underline font-bold cursor-pointer text-left"
                     >
                       {row.name}
@@ -188,7 +196,7 @@ export function CustomRangeReport({ filters, onOfficerSelect }: CustomRangeRepor
                   {filters.location !== 'ALL' && (
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-800">{row.assigned}</div>
-                      <div className="mt-0.5 text-xs font-medium text-slate-500">{filters.location}</div>
+                      <div className="mt-0.5 text-xs font-medium text-slate-500">{areaName}</div>
                     </td>
                   )}
                   <td className="px-4 py-3 font-semibold">{row.assigned}</td>

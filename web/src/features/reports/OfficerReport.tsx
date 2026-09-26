@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MissionDetailPage } from '../missions/MissionDetailPage';
 import { useActiveOfficers } from '../officers/useOfficers';
+import { displayOfficerStatus } from '../officers/types';
+import { usePanicAlerts } from '../panic/usePanicAlerts';
 import { exportDailyCSV, exportDailyPDF, fetchOfficerReport } from './api';
 import type {
   FilterState,
@@ -10,7 +12,7 @@ import type {
 } from './types.ts';
 
 interface OfficerReportProps {
-  officerName: string;
+  officerId: number;
   sourceTab: ReportSubTab;
   filters: FilterState;
   onBack: () => void;
@@ -82,7 +84,7 @@ function SortHeader({
   );
 }
 
-export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissionSelect }: OfficerReportProps) {
+export function OfficerReport({ officerId, sourceTab, filters, onBack, onMissionSelect }: OfficerReportProps) {
   const today = localDateString(new Date());
 
   const initialMode: PeriodMode = sourceTab === 'Daily activity' ? 'DAY' : sourceTab === 'Weekly summary' ? 'WEEK' : 'CUSTOM';
@@ -97,6 +99,7 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissi
   const [missionSortAsc, setMissionSortAsc] = useState(false);
 
   const { officers } = useActiveOfficers(false);
+  const { alerts: panics } = usePanicAlerts(false);
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<OfficerReportResponse | null>(null);
 
@@ -111,9 +114,6 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissi
     : periodMode === 'WEEK'
     ? weekEnd
     : customEnd;
-
-  const activeOfficer = officers.find((o: any) => o.name === officerName || String(o.id || o.user_id) === officerName);
-  const officerId = (activeOfficer as any)?.id || (activeOfficer as any)?.user_id || Number.parseInt(officerName, 10) || 1;
 
   useEffect(() => {
     setLoading(true);
@@ -188,20 +188,37 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissi
   const cancelledCount = summary?.missions_cancelled ?? 0;
   const inProgressCount = summary?.missions_in_progress ?? 0;
 
-  const currentStatus = reportData?.current_status || 'Available';
+  // Live status comes from the active-officers feed (+ panic feed), matched by id.
+  // Officers not on an active shift are not in the feed, so they read as Off Duty.
+  const activeEntry = officers.find((o) => o.officer.id === officerId);
+  const feedStatus = activeEntry ? displayOfficerStatus(activeEntry) : null;
+  const hasActivePanic = panics.some((p) => p.officer.id === officerId);
+  const currentStatus =
+    hasActivePanic || feedStatus === 'panic'
+      ? 'Panic'
+      : feedStatus === 'on_mission'
+      ? 'On Mission'
+      : feedStatus === 'available'
+      ? 'Available'
+      : 'Off Duty';
+
   const officerStatusStyle =
     currentStatus === 'Panic'
       ? 'bg-rose-50 text-rose-700 border-rose-200'
-      : currentStatus === 'On Mission' || currentStatus === 'IN_PROGRESS'
+      : currentStatus === 'On Mission'
       ? 'bg-blue-50 text-blue-700 border-blue-200'
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      : currentStatus === 'Available'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : 'bg-slate-100 text-slate-600 border-slate-200';
 
   const officerStatusDot =
     currentStatus === 'Panic'
       ? 'bg-rose-500'
-      : currentStatus === 'On Mission' || currentStatus === 'IN_PROGRESS'
+      : currentStatus === 'On Mission'
       ? 'bg-blue-500'
-      : 'bg-emerald-500';
+      : currentStatus === 'Available'
+      ? 'bg-emerald-500'
+      : 'bg-slate-400';
 
   return (
     <div className="space-y-4">
@@ -225,7 +242,7 @@ export function OfficerReport({ officerName, sourceTab, filters, onBack, onMissi
         <div className="p-5 flex flex-wrap items-start justify-between gap-5">
           <div>
             <div className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1">Officer Details</div>
-            <h2 className="text-xl font-extrabold !text-[#203E72]">{officerInfo?.name || officerName}</h2>
+            <h2 className="text-xl font-extrabold !text-[#203E72]">{officerInfo?.name || `Officer #${officerId}`}</h2>
             <p className="mt-1 text-sm text-slate-500">
               Badge {officerInfo?.badge_number || '—'}
             </p>

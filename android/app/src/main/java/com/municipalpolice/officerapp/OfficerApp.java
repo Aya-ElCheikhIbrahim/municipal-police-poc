@@ -15,5 +15,6 @@ public class OfficerApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        com.municipalpolice.officerapp.util.NotificationHelper.createNotificationChannels(this);
     }
 }

@@ -83,6 +83,14 @@ public class PrefsManager {
     }
 
     public void clear() {
-        prefs.edit().clear().apply();
+        prefs.edit()
+            .remove(KEY_LOGGED_IN)
+            .remove(KEY_AUTH_TOKEN)
+            .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_USER_FULL_NAME)
+            .remove(KEY_USER_BADGE)
+            .remove(KEY_USER_ID)
+            .remove(KEY_SHIFT_ACTIVE)
+            .apply();
     }
 }

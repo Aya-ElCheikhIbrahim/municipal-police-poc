@@ -9,10 +9,14 @@ bounds in the requirements can be enforced by the database. Everything here
 checks the Python layer that replaces those constraints.
 """
 
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
+from .fields import CoordinateField
 from .models import SystemSetting
 from .registry import (
     DEFINITIONS,
@@ -101,3 +105,60 @@ class SystemSettingTests(TestCase):
         response = client.get("/api/v1/settings/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("location_ping_interval_seconds", response.json())
+
+
+class CoordinateFieldTests(TestCase):
+    """
+    A real Android fix carries seven decimals. The columns hold six, and a plain
+    DecimalField answers the extra digit with a 400, which breaks the panic
+    button on every physical device.
+    """
+
+    def setUp(self):
+        self.field = CoordinateField()
+
+    def test_seven_decimals_are_rounded_to_six(self):
+        self.assertEqual(
+            self.field.to_internal_value("34.4319323"), Decimal("34.431932")
+        )
+
+    def test_six_decimals_are_left_alone(self):
+        self.assertEqual(
+            self.field.to_internal_value("34.436700"), Decimal("34.436700")
+        )
+
+    def test_rounding_is_half_up_at_the_boundary(self):
+        self.assertEqual(
+            self.field.to_internal_value("34.4319325"), Decimal("34.431933")
+        )
+        self.assertEqual(
+            self.field.to_internal_value("35.8497015"), Decimal("35.849702")
+        )
+
+    def test_rounding_carries_into_the_whole_number(self):
+        self.assertEqual(
+            self.field.to_internal_value("34.9999995"), Decimal("35.000000")
+        )
+
+    def test_a_float_is_accepted_too(self):
+        """The app sends JSON numbers, not strings."""
+        self.assertEqual(self.field.to_internal_value(34.4319323), Decimal("34.431932"))
+
+    def test_a_negative_coordinate_rounds_away_from_zero(self):
+        """Half-up on a negative magnitude, as ROUND_HALF_UP is defined."""
+        self.assertEqual(
+            self.field.to_internal_value("-34.4319325"), Decimal("-34.431933")
+        )
+
+    def test_a_non_numeric_value_still_raises_the_standard_error(self):
+        with self.assertRaises(ValidationError) as caught:
+            self.field.to_internal_value("not-a-coordinate")
+        self.assertEqual(
+            caught.exception.detail[0].code, "invalid"
+        )
+
+    def test_too_many_digits_is_still_rejected(self):
+        """Quantizing must not smuggle a value past max_digits."""
+        with self.assertRaises(ValidationError):
+            self.field.to_internal_value("12345.6789012")
+

@@ -1,5 +1,6 @@
 from rest_framework import serializers
  
+from core.fields import CoordinateField
 from core.serializers import OfficerBriefSerializer
  
 from .models import LocationPing, Shift
@@ -23,12 +24,8 @@ class LocationPingSerializer(serializers.ModelSerializer):
 class ShiftBoundarySerializer(serializers.Serializer):
     """Optional position sent with Start Shift and End Shift."""
  
-    latitude = serializers.DecimalField(
-        max_digits=9, decimal_places=6, required=False, allow_null=True
-    )
-    longitude = serializers.DecimalField(
-        max_digits=9, decimal_places=6, required=False, allow_null=True
-    )
+    latitude = CoordinateField(required=False, allow_null=True)
+    longitude = CoordinateField(required=False, allow_null=True)
  
     def validate(self, attrs):
         has_lat = attrs.get("latitude") is not None
@@ -44,8 +41,8 @@ class LocationPingUploadSerializer(serializers.Serializer):
     bulk_create, not by a per-row uniqueness query."""
  
     client_uuid = serializers.UUIDField()
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = CoordinateField()
+    longitude = CoordinateField()
     accuracy_m = serializers.FloatField(required=False, allow_null=True)
     recorded_at = serializers.DateTimeField()
     battery_level = serializers.IntegerField(

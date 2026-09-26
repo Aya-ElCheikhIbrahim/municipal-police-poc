@@ -13,7 +13,9 @@ OpenAPI schema: /api/schema/
 Content type: application/json
 character encoding: UTF-8, officer names are Arabic
 Timestamps: ISO 8601
-Coordinates: Decimal degrees, 6 decimal places
+Coordinates: Decimal degrees, 6 decimal places. On input, extra precision is
+rounded to 6 places rather than rejected — a real GPS fix carries 7, and a
+request is not refused over a digit the column cannot store.
 
 
 ## 2.Authentication

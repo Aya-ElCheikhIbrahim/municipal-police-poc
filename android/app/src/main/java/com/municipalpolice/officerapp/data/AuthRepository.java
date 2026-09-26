@@ -11,4 +11,6 @@ public interface AuthRepository {
     void login(String username, String password, Callback<Officer> callback);
     void logout();
     Officer getCachedOfficer();
+    void requestPasswordReset(String badgeNumber, Callback<Void> callback);
+    void confirmPasswordReset(String badgeNumber, String supervisorCode, String newPassword, Callback<Void> callback);
 }
