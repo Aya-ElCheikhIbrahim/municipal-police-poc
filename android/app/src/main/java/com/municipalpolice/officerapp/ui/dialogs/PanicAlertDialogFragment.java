@@ -2,7 +2,6 @@ package com.municipalpolice.officerapp.ui.dialogs;
 
 import android.Manifest;
 import android.app.Dialog;
-import android.content.pm.PackageManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.BatteryManager;
@@ -37,6 +36,9 @@ public class PanicAlertDialogFragment extends DialogFragment {
 
     public interface PanicListener {
         void onPanicSent();
+
+        /** The alert never reached dispatch. No-op by default; the dialog shows its own message. */
+        default void onPanicFailed(String reason) {}
     }
 
     private static final long AUTO_DISMISS_MILLIS = 10_000;
@@ -44,6 +46,8 @@ public class PanicAlertDialogFragment extends DialogFragment {
     private RetrofitPanicRepository panicRepository;
     private TextView tvPanicStatus;
     private int createdPanicId = -1;
+    /** Officer hit cancel before the trigger response landed; cancel as soon as the id arrives. */
+    private boolean pendingCancel = false;
 
     public static PanicAlertDialogFragment newInstance() {
         return new PanicAlertDialogFragment();
@@ -74,41 +78,42 @@ public class PanicAlertDialogFragment extends DialogFragment {
         boolean fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         boolean coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
 
-        Integer batteryLevel = getBatteryLevel(context);
-        if (batteryLevel == null || batteryLevel < 0 || batteryLevel > 100) {
-            batteryLevel = 85;
+        // TODO(product): decide what a panic with no usable location should do. The backend
+        // requires latitude and longitude, so for now the press fails visibly instead of
+        // sending a placeholder position, which would put the officer on the dispatcher map
+        // in the wrong city while looking like it worked. Options to weigh: hold the alert
+        // until a fix arrives, or let the backend accept a coordinate-less alert pinned to
+        // the last location ping of that shift.
+        if (!fineGranted && !coarseGranted) {
+            Log.w(TAG, "Location permission not granted; cannot trigger panic");
+            failPanic("Location permission is required to send a panic alert.");
+            return;
         }
 
-        if (fineGranted || coarseGranted) {
-            try {
-                FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(context);
-                final Integer finalBattery = batteryLevel;
-                fusedClient.getLastLocation().addOnSuccessListener(location -> {
-                    double lat = 33.8938;
-                    double lon = 35.5018;
-                    float accuracy = 12.5f;
+        Integer batteryLevel = getBatteryLevel(context);
 
-                    if (location != null && location.getLatitude() != 0.0 && location.getLongitude() != 0.0) {
-                        lat = location.getLatitude();
-                        lon = location.getLongitude();
-                        accuracy = (float) location.getAccuracy();
-                        Log.d(TAG, "Acquired GPS location from FusedLocationProviderClient: lat=" + lat + ", lon=" + lon + ", acc=" + accuracy);
-                    } else {
-                        Log.w(TAG, "FusedLocationProviderClient location is null or 0.0; using non-null fallback coordinates (33.8938, 35.5018)");
-                    }
+        try {
+            FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(context);
+            fusedClient.getLastLocation().addOnSuccessListener(location -> {
+                if (location == null || (location.getLatitude() == 0.0 && location.getLongitude() == 0.0)) {
+                    Log.w(TAG, "No usable last known location; refusing to send a panic without coordinates");
+                    failPanic("No location fix yet. Move into the open and try again.");
+                    return;
+                }
 
-                    ensureShiftAndTrigger(context, lat, lon, accuracy, finalBattery);
-                }).addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to get location from FusedLocationProviderClient; using fallback coordinates", e);
-                    ensureShiftAndTrigger(context, 33.8938, 35.5018, 12.5f, finalBattery);
-                });
-            } catch (Exception e) {
-                Log.e(TAG, "Location provider error", e);
-                ensureShiftAndTrigger(context, 33.8938, 35.5018, 12.5f, batteryLevel);
-            }
-        } else {
-            Log.w(TAG, "Location permissions not granted; using fallback coordinates (33.8938, 35.5018)");
-            ensureShiftAndTrigger(context, 33.8938, 35.5018, 12.5f, batteryLevel);
+                double lat = location.getLatitude();
+                double lon = location.getLongitude();
+                float accuracy = location.getAccuracy();
+                Log.d(TAG, "Acquired location: lat=" + lat + ", lon=" + lon + ", acc=" + accuracy);
+
+                ensureShiftAndTrigger(context, lat, lon, accuracy, batteryLevel);
+            }).addOnFailureListener(e -> {
+                Log.e(TAG, "Failed to read last known location", e);
+                failPanic("Could not read your location. Try again.");
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Location provider error", e);
+            failPanic("Could not read your location. Try again.");
         }
     }
 
@@ -146,11 +151,24 @@ public class PanicAlertDialogFragment extends DialogFragment {
                 } else {
                     Log.w(TAG, "Panic trigger SUCCESS, but response body was null");
                 }
+
+                // This can land after the dialog is gone, so it must not assume a live view.
+                if (pendingCancel) {
+                    pendingCancel = false;
+                    if (createdPanicId > 0) {
+                        Log.d(TAG, "Honouring the cancel the officer requested before the id arrived");
+                        sendCancel(createdPanicId);
+                    } else {
+                        Log.e(TAG, "Cancel was requested but the response carried no usable id; the alert stays live on dispatch");
+                    }
+                    return;
+                }
+
                 if (isAdded() && tvPanicStatus != null) {
                     tvPanicStatus.setText("PANIC ACTIVE - DISPATCH NOTIFIED");
                     tvPanicStatus.setVisibility(View.VISIBLE);
                 }
-                if (getActivity() instanceof PanicListener) {
+                if (isAdded() && getActivity() instanceof PanicListener) {
                     ((PanicListener) getActivity()).onPanicSent();
                 }
             }
@@ -173,12 +191,51 @@ public class PanicAlertDialogFragment extends DialogFragment {
                             @Override
                             public void onError(Throwable startError) {
                                 Log.e(TAG, "Retry shift start failed: " + startError.getMessage(), startError);
+                                failPanic("Panic alert failed to send. Call dispatch by radio.");
                             }
                         });
+                        return;
                     }
                 }
+                failPanic("Panic alert failed to send. Call dispatch by radio.");
             }
         });
+    }
+
+    /** Fires cancel for an alert that is already on the dispatcher board. */
+    private void sendCancel(int panicId) {
+        if (panicRepository == null) {
+            Log.e(TAG, "No repository available to cancel panic " + panicId + "; the alert stays live on dispatch");
+            return;
+        }
+        panicRepository.cancelPanic(panicId, new Callback<PanicEventResponse>() {
+            @Override
+            public void onSuccess(PanicEventResponse result) {
+                Log.d(TAG, "Panic alert cancelled successfully");
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                Log.e(TAG, "Failed to cancel panic alert", error);
+            }
+        });
+    }
+
+    /** Nothing reached dispatch: say so on screen instead of letting the dialog close silently. */
+    private void failPanic(String reason) {
+        // No alert was created, so a cancel the officer asked for has nothing to act on.
+        pendingCancel = false;
+        if (isAdded() && tvPanicStatus != null) {
+            tvPanicStatus.setText("PANIC NOT SENT - " + reason);
+            tvPanicStatus.setVisibility(View.VISIBLE);
+        }
+        Context context = getContext();
+        if (context != null) {
+            Toast.makeText(context, reason, Toast.LENGTH_LONG).show();
+        }
+        if (getActivity() instanceof PanicListener) {
+            ((PanicListener) getActivity()).onPanicFailed(reason);
+        }
     }
 
     private Integer getBatteryLevel(Context context) {
@@ -219,18 +276,14 @@ public class PanicAlertDialogFragment extends DialogFragment {
         }.start();
 
         btnCancelAlert.setOnClickListener(v -> {
-            if (createdPanicId > 0 && panicRepository != null) {
-                panicRepository.cancelPanic(createdPanicId, new Callback<PanicEventResponse>() {
-                    @Override
-                    public void onSuccess(PanicEventResponse result) {
-                        Log.d(TAG, "Panic alert cancelled successfully");
-                    }
-
-                    @Override
-                    public void onError(Throwable error) {
-                        Log.e(TAG, "Failed to cancel panic alert", error);
-                    }
-                });
+            if (createdPanicId > 0) {
+                sendCancel(createdPanicId);
+            } else {
+                // The trigger response has not come back yet. Remember the intent: the
+                // trigger callback cancels the alert as soon as it learns the id, whether
+                // or not this dialog is still around.
+                pendingCancel = true;
+                Log.d(TAG, "Cancel requested before the panic id arrived; queued until the trigger responds");
             }
             dismiss();
         });
@@ -241,6 +294,10 @@ public class PanicAlertDialogFragment extends DialogFragment {
     @Override
     public void onDestroyView() {
         if (countDownTimer != null) countDownTimer.cancel();
+        // The trigger request is left running on purpose: the officer stops watching this
+        // screen, and aborting the POST here would turn a slow panic into no panic. Drop
+        // the view reference instead, so a late callback cannot touch a destroyed view.
+        tvPanicStatus = null;
         super.onDestroyView();
     }
 }
