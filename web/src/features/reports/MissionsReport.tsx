@@ -177,7 +177,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
           {officerCardNames.map((name) => {
             const backendOfficer = liveOfficers.find((o) => o.officer_name === name);
             const isPanic = panicNames.has(name) || (backendOfficer?.panic_events ?? 0) > 0;
-            const isOnMission = Boolean(backendOfficer?.still_on_duty || (backendOfficer?.missions_in_progress ?? 0) > 0);
+            const isOnMission = (backendOfficer?.missions_in_progress ?? 0) > 0;
             const statusLabelText = isPanic ? 'Panic' : isOnMission ? 'On Mission' : 'Available';
 
             return (
