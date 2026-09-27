@@ -160,10 +160,10 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
           <h3 className="text-base font-bold text-slate-800">Officer Activity</h3>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[65vh]">
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[1080px]">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
+              <tr className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
                 <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Period" field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Hours" field="dutyMinutes" currentField={sortField} asc={sortAsc} onSort={handleSort} />
