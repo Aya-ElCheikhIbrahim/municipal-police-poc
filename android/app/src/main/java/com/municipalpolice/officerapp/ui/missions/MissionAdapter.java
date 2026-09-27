@@ -420,18 +420,16 @@ public class MissionAdapter
         holder.tvSubtitle.setText(
                 locationStr +
                         distanceStr +
-                        " · " +
+                        "\n" +
                         timeStr
         );
 
 
         // =====================================================
-        // PRIORITY BORDER & PILL (Urgent > High > Medium > Low)
+        // PRIORITY BORDER (Urgent > High > Medium > Low)
         // =====================================================
 
         int borderColorRes;
-        int priorityBgRes;
-        int priorityStringRes;
 
         switch (mission.getPriority()) {
 
@@ -439,12 +437,6 @@ public class MissionAdapter
 
                 borderColorRes =
                         R.color.urgent_alert;
-
-                priorityBgRes =
-                        R.drawable.pill_urgent;
-
-                priorityStringRes =
-                        R.string.priority_urgent;
 
                 break;
 
@@ -454,12 +446,6 @@ public class MissionAdapter
                 borderColorRes =
                         R.color.priority_high_bg;
 
-                priorityBgRes =
-                        R.drawable.pill_high;
-
-                priorityStringRes =
-                        R.string.priority_high;
-
                 break;
 
 
@@ -467,12 +453,6 @@ public class MissionAdapter
 
                 borderColorRes =
                         R.color.priority_medium_bg;
-
-                priorityBgRes =
-                        R.drawable.pill_medium;
-
-                priorityStringRes =
-                        R.string.priority_medium;
 
                 break;
 
@@ -482,12 +462,6 @@ public class MissionAdapter
                 borderColorRes =
                         R.color.priority_low_bg;
 
-                priorityBgRes =
-                        R.drawable.pill_low;
-
-                priorityStringRes =
-                        R.string.priority_low;
-
                 break;
 
 
@@ -496,29 +470,7 @@ public class MissionAdapter
                 borderColorRes =
                         R.color.priority_other_bg;
 
-                priorityBgRes =
-                        R.drawable.pill_low;
-
-                priorityStringRes =
-                        R.string.priority_low;
-
                 break;
-        }
-
-
-        if (holder.tvPriority != null) {
-
-            holder.tvPriority.setText(
-                    priorityStringRes
-            );
-
-            holder.tvPriority.setBackgroundResource(
-                    priorityBgRes
-            );
-
-            holder.tvPriority.setVisibility(
-                    View.VISIBLE
-            );
         }
 
 
@@ -1040,8 +992,6 @@ public class MissionAdapter
 
         final TextView tvSubtitle;
 
-        final TextView tvPriority;
-
         final Button btnAction;
 
 
@@ -1081,12 +1031,6 @@ public class MissionAdapter
             tvSubtitle =
                     itemView.findViewById(
                             R.id.tvSubtitle
-                    );
-
-
-            tvPriority =
-                    itemView.findViewById(
-                            R.id.tvPriority
                     );
 
 
