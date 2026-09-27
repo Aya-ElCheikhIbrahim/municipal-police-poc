@@ -138,4 +138,5 @@
     <string name="mission_max_photos_message">You can only add up to 5 photos per mission.</string>
     <string name="mission_photo_required_title">Photo required</string>
     <string name="mission_photo_required_stop_message">You need to add an image to stop this mission.</string>
+    <string name="panic_button_text">Emergency</string>
 </resources>

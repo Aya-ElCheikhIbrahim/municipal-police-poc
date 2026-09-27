@@ -134,4 +134,5 @@
     <string name="mission_max_photos_message">يمكنك إضافة 5 صور كحد أقصى لكل مهمة.</string>
     <string name="mission_photo_required_title">صورة مطلوبة</string>
     <string name="mission_photo_required_stop_message">يجب عليك إضافة صورة لإيقاف هذه المهمة.</string>
+    <string name="panic_button_text">للطوارئ</string>
 </resources>
