@@ -1,5 +1,5 @@
 """
-Arabic wording and PDF text drawing for the exported reports (CSV and  PDF).
+Arabic wording and PDF text drawing for the exported reports (Excel and PDF).
 
 The exports are always in Arabic, whatever the user's preffered_language:
 the municipality reads its reports in Arabic. The JSON endpoints are unaffected;
@@ -11,7 +11,8 @@ Arabic letters by itself, so PDF text goes through shape():
 - arabic_reshaper swaps each letteer for itss joined (start/middle/end) form;
 - python-bidi puts the line in visual order, right to left.
 
-PDFs use Arabic-Indic digits and written months , CSV keep and sort them.
+PDFs use Arabic-Indic digits and written months; the Excel sheet keeps real
+numbers and dates so it can still be sorted and filtered.
 
 Badge number are identifiers and never converted. 
 """
@@ -27,8 +28,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
-FONT = "Cairo"
-FONT_BOLD = "Cairo-Bold"
+FONT = "Amiri"
+FONT_BOLD = "Amiri-Bold"
 
 RIGHT = 545
 
@@ -129,8 +130,8 @@ def _register_fonts() -> None:
     PDF export only, not stop the whole API from starting.
     """
     if FONT not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont(FONT, FONT_DIR / "Cairo-Regular.ttf"))
-        pdfmetrics.registerFont(TTFont(FONT_BOLD, FONT_DIR / "Cairo-Bold.ttf"))
+        pdfmetrics.registerFont(TTFont(FONT, FONT_DIR / "Amiri-Regular.ttf"))
+        pdfmetrics.registerFont(TTFont(FONT_BOLD, FONT_DIR / "Amiri-Bold.ttf"))
 
 
 def shape(text) -> str:
@@ -138,8 +139,9 @@ def shape(text) -> str:
     _register_fonts()
     in_font = pdfmetrics.getFont(FONT).face.charToGlyph
     joined = arabic_reshaper.reshape(str(text))
-    # Cairo has no separate glyph for a few stand-alone letter forms (ا ر ن ...).
-    # A stand-alone letter looks exactly like the plain letter, which it has.
+    # Amiri covers the Arabic presentation forms, but should the font ever lack
+    # a joined glyph, fall back to the plain letter, which looks the same when
+    # it stands alone. Harmless when every glyph is present.
     joined = "".join(
         c if ord(c) in in_font else unicodedata.normalize("NFKC", c) for c in joined
     )

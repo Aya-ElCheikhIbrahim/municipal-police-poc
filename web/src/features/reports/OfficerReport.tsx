@@ -3,7 +3,7 @@ import { MissionDetailPage } from '../missions/MissionDetailPage';
 import { useActiveOfficers } from '../officers/useOfficers';
 import { displayOfficerStatus } from '../officers/types';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
-import { exportDailyCSV, exportDailyPDF, fetchOfficerReport } from './api';
+import { exportDailyExcel, exportDailyPDF, fetchOfficerReport } from './api';
 import type {
   FilterState,
   OfficerMission,
@@ -156,9 +156,9 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
     ? formatDate(periodStart)
     : `${formatDate(periodStart)} — ${formatDate(periodEnd)}`;
 
-  const handleExport = (format: 'CSV' | 'PDF') => {
-    if (format === 'CSV') {
-      exportDailyCSV(periodStart, officerId, missionStatus);
+  const handleExport = (format: 'EXCEL' | 'PDF') => {
+    if (format === 'EXCEL') {
+      exportDailyExcel(periodStart, officerId, missionStatus);
     } else {
       exportDailyPDF(periodStart, officerId, missionStatus);
     }
@@ -228,8 +228,8 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
         </button>
 
         <div className="flex gap-2">
-          <button onClick={() => handleExport('CSV')} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer">
-            Export CSV
+          <button onClick={() => handleExport('EXCEL')} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer">
+            Export Excel
           </button>
           <button onClick={() => handleExport('PDF')} className="inline-flex h-10 items-center justify-center rounded-md bg-[#203E72] px-4 text-sm font-semibold text-white shadow-xs hover:bg-[#19345f] cursor-pointer">
             Export PDF
