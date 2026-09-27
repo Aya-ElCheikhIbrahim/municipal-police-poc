@@ -235,7 +235,6 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
             <option value="ALL">All Statuses</option>
             <option value="new">New</option>
             <option value="assigned">Assigned</option>
-            <option value="acknowledged">Acknowledged</option>
             <option value="in_progress">In progress</option>
             <option value="paused">Paused</option>
             <option value="completed">Completed</option>
