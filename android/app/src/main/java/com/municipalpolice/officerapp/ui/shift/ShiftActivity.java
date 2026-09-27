@@ -138,13 +138,11 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
 
     @Override
     public void onPanicSent() {
-        Toast.makeText(this, "PANIC ACTIVE - DISPATCH NOTIFIED", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.panic_toast_sent), Toast.LENGTH_LONG).show();
 
-        View panicButton = findViewById(R.id.btnPanicCircle);
-        if (panicButton instanceof android.widget.ImageView) {
-            ((android.widget.ImageView) panicButton).setColorFilter(
-                    androidx.core.content.ContextCompat.getColor(this, R.color.urgent_alert)
-            );
+        TextView tv = findViewById(R.id.tvPanicButtonText);
+        if (tv != null) {
+            tv.setText(getString(R.string.panic_title));
         }
     }
 }

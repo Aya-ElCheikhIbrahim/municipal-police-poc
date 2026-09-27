@@ -196,18 +196,45 @@
 
     </LinearLayout>
 
-    <ImageButton
+    <LinearLayout
         android:id="@+id/btnPanicCircle"
-        android:layout_width="88dp"
-        android:layout_height="88dp"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="@dimen/space_m"
         android:layout_marginEnd="@dimen/space_m"
         android:layout_marginBottom="@dimen/space_m"
-        android:background="@drawable/bg_panic_circle"
-        android:src="@drawable/ic_warning"
-        android:scaleType="fitCenter"
-        android:padding="16dp"
-        app:tint="@color/white"
+        android:background="@drawable/ripple_panic_button"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/siren"
+            android:contentDescription="Siren" />
+
+        <TextView
+            android:id="@+id/tvPanicButtonText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/panic_button_text"
+            android:textColor="@color/urgent_alert"
+            android:textSize="@dimen/panic_button_text_size"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="32dp"
+            android:layout_height="32dp" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
