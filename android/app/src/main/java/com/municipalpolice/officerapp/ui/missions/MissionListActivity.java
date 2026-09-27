@@ -319,29 +319,7 @@ public class MissionListActivity extends BaseActivity
         // PANIC BUTTON
         // =====================================================
 
-        View panicButton =
-                findViewById(
-                        R.id.btnPanicCircle
-                );
-
-        if (panicButton != null) {
-
-            panicButton.setOnClickListener(
-                    v -> {
-                        PrefsManager prefs = new PrefsManager(this);
-                        if (!prefs.isShiftActive()) {
-                            Toast.makeText(this, "Please start a shift before pressing the panic button.", Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        PanicAlertDialogFragment
-                                .newInstance()
-                                .show(
-                                        getSupportFragmentManager(),
-                                        "panic"
-                                );
-                    }
-            );
-        }
+        setupPanicButton();
 
 
         // =====================================================

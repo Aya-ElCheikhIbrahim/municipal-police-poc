@@ -72,16 +72,7 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
         findViewById(R.id.btnSettings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.btnStartShift).setOnClickListener(v -> startShift());
 
-        View panicButton = findViewById(R.id.btnPanicCircle);
-        if (panicButton != null) {
-            panicButton.setOnClickListener(v -> {
-                if (!prefs.isShiftActive()) {
-                    Toast.makeText(this, "Please start a shift before pressing the panic button.", Toast.LENGTH_LONG).show();
-                    return;
-                }
-                PanicAlertDialogFragment.newInstance().show(getSupportFragmentManager(), "panic");
-            });
-        }
+        setupPanicButton();
 
         renderOffDuty();
 

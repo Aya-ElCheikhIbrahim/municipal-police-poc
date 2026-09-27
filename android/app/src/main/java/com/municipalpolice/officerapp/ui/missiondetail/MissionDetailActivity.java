@@ -201,26 +201,7 @@ public class MissionDetailActivity extends BaseActivity
         findViewById(R.id.btnCompleteMission)
                 .setOnClickListener(v -> completeMission());
 
-        View panicButton =
-                findViewById(R.id.btnPanicCircle);
-
-        if (panicButton != null) {
-            panicButton.setOnClickListener(
-                    v -> {
-                        PrefsManager prefs = new PrefsManager(this);
-                        if (!prefs.isShiftActive()) {
-                            Toast.makeText(this, "Please start a shift before pressing the panic button.", Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        PanicAlertDialogFragment
-                                .newInstance()
-                                .show(
-                                        getSupportFragmentManager(),
-                                        "panic"
-                                );
-                    }
-            );
-        }
+        setupPanicButton();
 
         // FULL-RESOLUTION CAMERA
         cameraLauncher =
