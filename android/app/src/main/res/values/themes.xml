@@ -80,11 +80,13 @@
     <style name="StatusPill">
         <item name="android:paddingStart">10dp</item>
         <item name="android:paddingEnd">10dp</item>
-        <item name="android:paddingTop">4dp</item>
-        <item name="android:paddingBottom">4dp</item>
+        <item name="android:paddingTop">2dp</item>
+        <item name="android:paddingBottom">2dp</item>
         <item name="android:textSize">@dimen/text_caption</item>
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">@color/text_on_brand</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:gravity">center</item>
     </style>
 
     <style name="CardSurface">

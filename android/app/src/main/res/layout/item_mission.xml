@@ -80,7 +80,8 @@
                 android:layout_marginStart="@dimen/space_s"
                 android:minWidth="80dp"
                 android:text="Start work"
-                android:textSize="14sp" />
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
 
             <!-- Existing priority pill.
@@ -91,10 +92,12 @@
                 style="@style/StatusPill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:layout_marginTop="-3dp"
                 android:layout_marginStart="@dimen/space_s"
                 android:background="@drawable/pill_urgent"
-                android:visibility="gone"
-                tools:text="Urgent" />
+                android:visibility="visible"
+                tools:text="Medium" />
 
         </LinearLayout>
 

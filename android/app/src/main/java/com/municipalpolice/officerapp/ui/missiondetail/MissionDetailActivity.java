@@ -526,7 +526,6 @@ public class MissionDetailActivity extends BaseActivity
         switch (mission.getPriority()) {
 
             case URGENT:
-            case HIGH:
 
                 priorityResource =
                         R.drawable.pill_urgent;
@@ -536,20 +535,31 @@ public class MissionDetailActivity extends BaseActivity
 
                 break;
 
+            case HIGH:
+
+                priorityResource =
+                        R.drawable.pill_high;
+
+                priorityLabel =
+                        getString(R.string.priority_high);
+
+                break;
+
             case MEDIUM:
 
                 priorityResource =
-                        R.drawable.pill_pending;
+                        R.drawable.pill_medium;
 
                 priorityLabel =
                         getString(R.string.priority_medium);
 
                 break;
 
+            case LOW:
             default:
 
                 priorityResource =
-                        R.drawable.pill_active;
+                        R.drawable.pill_low;
 
                 priorityLabel =
                         getString(R.string.priority_low);
