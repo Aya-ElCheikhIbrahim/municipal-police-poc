@@ -144,8 +144,8 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
   }
 
   return (
-    <div className="flex-1 bg-[#EAEFF5] p-6 overflow-y-auto space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex-1 bg-[#EAEFF5] px-6 pb-6 overflow-y-auto space-y-4">
+      <div className="sticky top-0 z-30 -mx-6 px-6 py-4 bg-[#EAEFF5] flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70">
         <div className="flex items-center gap-3">
           <div className="bg-white/80 p-0.5 rounded-md border border-slate-200 flex items-center">
             {(['Daily activity', 'Weekly summary', 'Custom range'] as ReportSubTab[]).map((tab) => (
