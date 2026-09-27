@@ -17,21 +17,12 @@ type CustomSortField =
   | 'completed'
   | 'cancelled'
   | 'panic'
-  | 'avgAcknowledgement'
   | 'avgCompletion';
 
 function formatMinutes(totalMinutes: number) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = Math.round(totalMinutes % 60);
   return `${hours}h ${String(minutes).padStart(2, '0')}m`;
-}
-
-function formatAcknowledgement(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '—';
-  const rounded = Math.round(seconds);
-  const minutes = Math.floor(rounded / 60);
-  const secs = rounded % 60;
-  return `${minutes}m ${String(secs).padStart(2, '0')}s`;
 }
 
 function SortHeader({
@@ -96,8 +87,6 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
       completed: officer.missions_completed,
       cancelled: officer.missions_cancelled,
       panic: officer.panic_events,
-      avgAcknowledgement: formatAcknowledgement(officer.average_acknowledgement_seconds),
-      avgAckSecs: officer.average_acknowledgement_seconds,
       avgCompletion: formatMinutes(officer.average_completion_seconds / 60),
       avgCompSecs: officer.average_completion_seconds,
     }));
@@ -114,7 +103,6 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
         case 'completed': diff = a.completed - b.completed; break;
         case 'cancelled': diff = a.cancelled - b.cancelled; break;
         case 'panic': diff = a.panic - b.panic; break;
-        case 'avgAcknowledgement': diff = a.avgAckSecs - b.avgAckSecs; break;
         case 'avgCompletion': diff = a.avgCompSecs - b.avgCompSecs; break;
       }
       return sortAsc ? diff : -diff;
@@ -160,10 +148,10 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
           <h3 className="text-base font-bold text-slate-800">Officer Activity</h3>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[65vh]">
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[1080px]">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
+              <tr className="sticky top-0 z-10 bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
                 <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Period" field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Duty Hours" field="dutyMinutes" currentField={sortField} asc={sortAsc} onSort={handleSort} />
@@ -173,7 +161,6 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
                 <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Cancelled" field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Panic" field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Avg Acknowledgement" field="avgAcknowledgement" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label="Avg Completion" field="avgCompletion" currentField={sortField} asc={sortAsc} onSort={handleSort} />
               </tr>
             </thead>
@@ -203,14 +190,13 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
                   <td className="px-4 py-3"><span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{row.completed}</span></td>
                   <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.cancelled}</span></td>
                   <td className="px-4 py-3">{row.panic}</td>
-                  <td className="px-4 py-3">{row.avgAcknowledgement}</td>
                   <td className="px-4 py-3">{row.avgCompletion}</td>
                 </tr>
               ))}
 
               {sortedRows.length === 0 && (
                 <tr>
-                  <td colSpan={filters.location !== 'ALL' ? 11 : 10} className="px-5 py-10 text-center text-slate-400">
+                  <td colSpan={filters.location !== 'ALL' ? 10 : 9} className="px-5 py-10 text-center text-slate-400">
                     No officer activity found in the selected date range.
                   </td>
                 </tr>

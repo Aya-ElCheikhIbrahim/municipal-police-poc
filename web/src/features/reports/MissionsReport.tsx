@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
 import { useMissions } from '../missions/useMissions';
+import { useActiveOfficers } from '../officers/useOfficers';
+import { displayOfficerStatus } from '../officers/types';
 import { statusLabel, priorityLabel, formatTime, type MissionListItem } from '../missions/types';
-import { fetchDailySummary } from './api';
 
 type StatusFilter = 'ALL' | MissionListItem['status'];
 type PriorityFilter = 'ALL' | MissionListItem['priority'];
@@ -33,24 +34,13 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
   // Real missions from the backend (GET /missions/?date=today), polled live.
   const { missions, isLoading, error, refresh } = useMissions({ date: today });
 
-  // Officer status cards come from the daily summary + panic feed (real telemetry).
+  // Officer status cards reflect who is on duty RIGHT NOW (live /shifts/active/ feed)
+  // plus the panic feed — not the whole-day summary, which also lists ended shifts.
   const { alerts: panics } = usePanicAlerts();
-  const [liveOfficers, setLiveOfficers] = useState<any[]>([]);
+  const { officers: activeOfficers, refresh: refreshOfficers } = useActiveOfficers();
   const [lastUpdated, setLastUpdated] = useState(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   );
-
-  const loadOfficers = () => {
-    fetchDailySummary({ date: today })
-      .then((data) => data?.officers && setLiveOfficers(data.officers))
-      .catch(console.error);
-    setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-  };
-
-  useEffect(() => {
-    loadOfficers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [priority, setPriority] = useState<PriorityFilter>('ALL');
@@ -105,10 +95,27 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
   const cancelled = missions.filter((m) => m.status === 'cancelled').length;
   const urgent = missions.filter((m) => m.priority === 'urgent').length;
 
-  const panicNames = new Set(panics.map((panic) => panic.officer.full_name));
-  const officerCardNames = Array.from(
-    new Set([...liveOfficers.map((o) => o.officer_name), ...panics.map((p) => p.officer.full_name)]),
-  ).sort();
+  const cardOfficers = useMemo(() => {
+    const activeById = new Map(activeOfficers.map((o) => [o.officer.id, o]));
+    const ids = new Set<number>([
+      ...activeOfficers.map((o) => o.officer.id),
+      ...panics.map((p) => p.officer.id),
+    ]);
+    return Array.from(ids)
+      .map((id) => {
+        const entry = activeById.get(id);
+        const panic = panics.find((p) => p.officer.id === id);
+        const feed = entry ? displayOfficerStatus(entry) : null;
+        return {
+          id,
+          name: entry?.officer.full_name ?? panic?.officer.full_name ?? 'Officer',
+          badge: entry?.officer.badge_number ?? panic?.officer.badge_number ?? '',
+          isPanic: Boolean(panic) || feed === 'panic',
+          isOnMission: feed === 'on_mission',
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeOfficers, panics]);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -121,7 +128,8 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
 
   const handleRefresh = () => {
     refresh();
-    loadOfficers();
+    refreshOfficers();
+    setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   };
 
   return (
@@ -174,20 +182,18 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
-          {officerCardNames.map((name) => {
-            const backendOfficer = liveOfficers.find((o) => o.officer_name === name);
-            const isPanic = panicNames.has(name) || (backendOfficer?.panic_events ?? 0) > 0;
-            const isOnMission = (backendOfficer?.missions_in_progress ?? 0) > 0;
+          {cardOfficers.map((o) => {
+            const { isPanic, isOnMission } = o;
             const statusLabelText = isPanic ? 'Panic' : isOnMission ? 'On Mission' : 'Available';
 
             return (
               <div
-                key={name}
+                key={o.id}
                 className={`rounded-lg border px-4 py-3 ${isPanic ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/70'}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-bold text-slate-800">
-                    {name} {backendOfficer?.badge_number ? `(${backendOfficer.badge_number})` : ''}
+                    {o.name} {o.badge ? `(${o.badge})` : ''}
                   </span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
@@ -201,8 +207,8 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
               </div>
             );
           })}
-          {officerCardNames.length === 0 && (
-            <div className="col-span-full py-4 text-center text-slate-400 text-sm">No officers on duty today.</div>
+          {cardOfficers.length === 0 && (
+            <div className="col-span-full py-4 text-center text-slate-400 text-sm">No officers on duty right now.</div>
           )}
         </div>
       </div>
@@ -229,7 +235,6 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
             <option value="ALL">All Statuses</option>
             <option value="new">New</option>
             <option value="assigned">Assigned</option>
-            <option value="acknowledged">Acknowledged</option>
             <option value="in_progress">In progress</option>
             <option value="paused">Paused</option>
             <option value="completed">Completed</option>

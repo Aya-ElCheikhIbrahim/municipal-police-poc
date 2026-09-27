@@ -319,29 +319,7 @@ public class MissionListActivity extends BaseActivity
         // PANIC BUTTON
         // =====================================================
 
-        View panicButton =
-                findViewById(
-                        R.id.btnPanicCircle
-                );
-
-        if (panicButton != null) {
-
-            panicButton.setOnClickListener(
-                    v -> {
-                        PrefsManager prefs = new PrefsManager(this);
-                        if (!prefs.isShiftActive()) {
-                            Toast.makeText(this, "Please start a shift before pressing the panic button.", Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        PanicAlertDialogFragment
-                                .newInstance()
-                                .show(
-                                        getSupportFragmentManager(),
-                                        "panic"
-                                );
-                    }
-            );
-        }
+        setupPanicButton();
 
 
         // =====================================================
@@ -698,15 +676,13 @@ public class MissionListActivity extends BaseActivity
     public void onPanicSent() {
         Toast.makeText(
                 this,
-                "PANIC ACTIVE - DISPATCH NOTIFIED",
+                getString(R.string.panic_toast_sent),
                 Toast.LENGTH_LONG
         ).show();
 
-        View panicButton = findViewById(R.id.btnPanicCircle);
-        if (panicButton instanceof android.widget.ImageView) {
-            ((android.widget.ImageView) panicButton).setColorFilter(
-                    ContextCompat.getColor(this, R.color.urgent_alert)
-            );
+        TextView tv = findViewById(R.id.tvPanicButtonText);
+        if (tv != null) {
+            tv.setText(getString(R.string.panic_title));
         }
     }
 

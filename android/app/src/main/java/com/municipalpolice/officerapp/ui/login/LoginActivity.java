@@ -5,8 +5,12 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -30,6 +34,7 @@ public class LoginActivity extends BaseActivity {
 
     private EditText etUsername;
     private EditText etPassword;
+    private TextView tvPasswordError;
     private Button btnLogin;
     private Button btnForgotPassword;
 
@@ -49,8 +54,39 @@ public class LoginActivity extends BaseActivity {
 
         etUsername = findViewById(R.id.etUsername);
         etPassword = findViewById(R.id.etPassword);
+        tvPasswordError = findViewById(R.id.tvPasswordError);
         btnLogin = findViewById(R.id.btnLogin);
         btnForgotPassword = findViewById(R.id.btnForgotPassword);
+
+        TextWatcher clearErrorWatcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(
+                    CharSequence s,
+                    int start,
+                    int count,
+                    int after
+            ) {}
+
+            @Override
+            public void onTextChanged(
+                    CharSequence s,
+                    int start,
+                    int before,
+                    int count
+            ) {
+                if (tvPasswordError != null
+                        && tvPasswordError.getVisibility() != View.GONE) {
+
+                    tvPasswordError.setVisibility(View.GONE);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        };
+
+        etUsername.addTextChangedListener(clearErrorWatcher);
+        etPassword.addTextChangedListener(clearErrorWatcher);
 
         btnLogin.setOnClickListener(v -> attemptLogin());
 
@@ -122,6 +158,8 @@ public class LoginActivity extends BaseActivity {
         String password =
                 etPassword.getText().toString().trim();
 
+        tvPasswordError.setVisibility(View.GONE);
+
         if (username.isEmpty() || password.isEmpty()) {
             Toast.makeText(
                     this,
@@ -146,8 +184,8 @@ public class LoginActivity extends BaseActivity {
                             public void onSuccess(Officer result) {
                                 btnLogin.setEnabled(true);
 
-                                // Login succeeded. Register this
-                                // device's FCM token with the backend.
+                                // Register this device's FCM token
+                                // after successful login.
                                 DeviceTokenManager.registerCurrentToken(
                                         LoginActivity.this
                                 );
@@ -158,12 +196,7 @@ public class LoginActivity extends BaseActivity {
                             @Override
                             public void onError(Throwable error) {
                                 btnLogin.setEnabled(true);
-
-                                Toast.makeText(
-                                        LoginActivity.this,
-                                        R.string.login_error_incorrect,
-                                        Toast.LENGTH_SHORT
-                                ).show();
+                                tvPasswordError.setVisibility(View.VISIBLE);
                             }
                         }
                 );

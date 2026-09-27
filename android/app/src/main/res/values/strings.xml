@@ -11,7 +11,7 @@
     <string name="login_forgot_password_msg">A supervisor will send you a code shortly.</string>
     <string name="login_footnote">Accounts are created by your supervisor. There is no self sign-up.</string>
     <string name="login_error_required">Enter your username and password</string>
-    <string name="login_error_incorrect">Incorrect, try again</string>
+    <string name="login_error_incorrect">Wrong password, try again.</string>
 
     <!-- Forgot Password -->
     <string name="reset_password_title">Reset password</string>
@@ -138,4 +138,5 @@
     <string name="mission_max_photos_message">You can only add up to 5 photos per mission.</string>
     <string name="mission_photo_required_title">Photo required</string>
     <string name="mission_photo_required_stop_message">You need to add an image to stop this mission.</string>
+    <string name="panic_button_text">Emergency</string>
 </resources>

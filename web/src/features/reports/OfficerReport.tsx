@@ -3,7 +3,7 @@ import { MissionDetailPage } from '../missions/MissionDetailPage';
 import { useActiveOfficers } from '../officers/useOfficers';
 import { displayOfficerStatus } from '../officers/types';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
-import { exportDailyCSV, exportDailyPDF, fetchOfficerReport } from './api';
+import { exportDailyExcel, exportDailyPDF, fetchOfficerReport } from './api';
 import type {
   FilterState,
   OfficerMission,
@@ -20,7 +20,7 @@ interface OfficerReportProps {
 }
 
 type PeriodMode = 'DAY' | 'WEEK' | 'CUSTOM';
-type MissionSortField = 'date' | 'title' | 'status' | 'priority' | 'location' | 'assignedAt' | 'acknowledgedAt' | 'completedAt';
+type MissionSortField = 'date' | 'title' | 'status' | 'priority' | 'location' | 'assignedAt' | 'completedAt';
 
 function formatDate(date: string) {
   if (!date) return '—';
@@ -156,9 +156,9 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
     ? formatDate(periodStart)
     : `${formatDate(periodStart)} — ${formatDate(periodEnd)}`;
 
-  const handleExport = (format: 'CSV' | 'PDF') => {
-    if (format === 'CSV') {
-      exportDailyCSV(periodStart, officerId, missionStatus);
+  const handleExport = (format: 'EXCEL' | 'PDF') => {
+    if (format === 'EXCEL') {
+      exportDailyExcel(periodStart, officerId, missionStatus);
     } else {
       exportDailyPDF(periodStart, officerId, missionStatus);
     }
@@ -228,8 +228,8 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
         </button>
 
         <div className="flex gap-2">
-          <button onClick={() => handleExport('CSV')} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer">
-            Export CSV
+          <button onClick={() => handleExport('EXCEL')} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer">
+            Export Excel
           </button>
           <button onClick={() => handleExport('PDF')} className="inline-flex h-10 items-center justify-center rounded-md bg-[#203E72] px-4 text-sm font-semibold text-white shadow-xs hover:bg-[#19345f] cursor-pointer">
             Export PDF
@@ -350,11 +350,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
 
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-5">
           <h3 className="text-base font-bold text-slate-900 mb-4">Performance</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <ResponseCard
-              value={performance?.average_acknowledgement_seconds ? `${Math.round(performance.average_acknowledgement_seconds / 60)}m` : '—'}
-              label="Avg acknowledgement"
-            />
+          <div className="grid grid-cols-1 gap-3">
             <ResponseCard
               value={performance?.average_completion_seconds ? `${Math.round(performance.average_completion_seconds / 60)}m` : '—'}
               label="Avg completion"
@@ -402,7 +398,6 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
                 <SortHeader label="Status" field="status" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
                 <th className="px-4 py-3">Area / Location</th>
                 <SortHeader label="Assigned" field="assignedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
-                <SortHeader label="Acknowledged" field="acknowledgedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
                 <SortHeader label="Completed" field="completedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
               </tr>
             </thead>
@@ -418,7 +413,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
                 />
               ))}
               {sortedMissions.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">No missions match this period and status.</td></tr>
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400">No missions match this period and status.</td></tr>
               )}
             </tbody>
           </table>
@@ -532,7 +527,6 @@ function MissionRow({ mission, onSelect }: { mission: OfficerMission; onSelect: 
       <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded text-sm font-bold ${statusStyle}`}>{mission.status.replace('_', ' ')}</span></td>
       <td className="px-4 py-3 text-slate-600">{mission.area || '—'}</td>
       <td className="px-4 py-3 text-slate-600">{formatTime(mission.assigned_at)}</td>
-      <td className="px-4 py-3 text-slate-600">{formatTime(mission.acknowledged_at)}</td>
       <td className="px-4 py-3 text-slate-600">{formatTime(mission.completed_at)}</td>
     </tr>
   );

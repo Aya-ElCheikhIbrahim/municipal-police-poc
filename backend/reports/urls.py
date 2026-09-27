@@ -6,9 +6,9 @@ from .views import (
     OfficerReportView,
     DailySummaryView,
     WeeklySummaryView,
-    DailyOfficerReportCSVView,
+    DailyOfficerReportXLSXView,
     DailyOfficerReportPDFView,
-    WeeklySummaryCSVView,
+    WeeklySummaryXLSXView,
     WeeklySummaryPDFView,
 )
 
@@ -39,9 +39,9 @@ urlpatterns = [
     name="weekly-summary",
     ),
     path(
-    "reports/daily/export/csv/",
-    DailyOfficerReportCSVView.as_view(),
-    name="daily-officer-report-csv",
+    "reports/daily/export/xlsx/",
+    DailyOfficerReportXLSXView.as_view(),
+    name="daily-officer-report-xlsx",
     ),
     path(
     "reports/daily/export/pdf/",
@@ -49,9 +49,9 @@ urlpatterns = [
     name="daily-officer-report-pdf",
     ),
     path(
-        "reports/weekly/export/csv/",
-        WeeklySummaryCSVView.as_view(),
-        name="weekly-summary-csv",
+        "reports/weekly/export/xlsx/",
+        WeeklySummaryXLSXView.as_view(),
+        name="weekly-summary-xlsx",
     ),
     path(
         "reports/weekly/export/pdf/",
