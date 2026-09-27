@@ -51,7 +51,7 @@ public class RetrofitShiftRepository implements ShiftRepository {
                         if (prefs != null) prefs.setShiftActive(true);
                         callback.onSuccess(new Shift());
                     } else {
-                        formatErrorMessage(response.code(), errorBodyStr);
+                        String errorMsg = formatErrorMessage(response.code(), errorBodyStr);
                         callback.onError(new Exception(errorMsg));
                     }
                 }
@@ -98,11 +98,11 @@ public class RetrofitShiftRepository implements ShiftRepository {
             }
         });
     }
-}
-private String formatErrorMessage(int code, String errorBodyStr) {
-    if (errorBodyStr != null && (errorBodyStr.trim().startsWith("<!DOCTYPE") || errorBodyStr.trim().startsWith("<html"))) {
-        return "HTTP " + code + " Server Error";
+
+    private String formatErrorMessage(int code, String errorBodyStr) {
+        if (errorBodyStr != null && (errorBodyStr.trim().startsWith("<!DOCTYPE") || errorBodyStr.trim().startsWith("<html"))) {
+            return "HTTP " + code + " Server Error";
+        }
+        return "HTTP " + code + " Error: " + errorBodyStr;
     }
-    return "HTTP " + code + " Error: " + errorBodyStr;
-}
 }
