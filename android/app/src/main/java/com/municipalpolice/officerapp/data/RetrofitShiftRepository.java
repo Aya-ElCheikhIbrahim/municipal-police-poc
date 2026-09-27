@@ -106,4 +106,3 @@ public class RetrofitShiftRepository implements ShiftRepository {
         return "HTTP " + code + " Error: " + errorBodyStr;
     }
 }
-
