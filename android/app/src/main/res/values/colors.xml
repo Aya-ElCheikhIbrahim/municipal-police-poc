@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Launcher background color -->
+    <color name="ic_launcher_background">#ffffff</color>
+
     <!-- Palette straight from the Figma spec sheet -->
     <color name="brand">#1F3864</color>        <!-- Brand / primary navy -->
     <color name="accent">#2E5496</color>       <!-- Accent blue -->
