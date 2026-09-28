@@ -370,7 +370,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
           </table>
         </div>
         <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">
-          Click an officer’s name to view details.
+          {t.reports.clickOfficer}
         </div>
       </div>
     </div>

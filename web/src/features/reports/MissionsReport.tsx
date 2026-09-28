@@ -252,7 +252,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <h3 className="text-base font-bold text-slate-800">{t.reports.activity}</h3>
           <span className="text-sm font-semibold text-slate-500">
-            {rows.length} mission{rows.length === 1 ? '' : 's'}
+            {rows.length} {language === 'ar' ? 'مهام' : `mission${rows.length === 1 ? '' : 's'}`}
           </span>
         </div>
 
@@ -294,7 +294,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-slate-400">
-                    {isLoading ? 'Loading missions from backend...' : 'No missions match the selected filters.'}
+                    {isLoading ? 'Loading missions from backend...' : language === 'ar' ? 'لا توجد مهام تطابق عوامل التصفية المحددة' : 'No missions match the selected filters.'}
                   </td>
                 </tr>
               )}
