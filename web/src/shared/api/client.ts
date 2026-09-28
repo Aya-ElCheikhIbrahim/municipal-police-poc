@@ -131,7 +131,9 @@ function describeError(status: number, body: unknown): string {
     if (Array.isArray(first) && typeof first[0] === 'string') return first[0];
   }
   if (status === 403) return 'You do not have permission to do that.';
-  if (status >= 500) return 'The server ran into a problem. Try again shortly.';
+  if (status >= 500) return localStorage.getItem('language') === 'ar'
+    ? 'واجه الخادم مشكلة. حاول مرة أخرى بعد قليل.'
+    : 'The server ran into a problem. Try again shortly.';
   return `Request failed (${status}).`;
 }
 

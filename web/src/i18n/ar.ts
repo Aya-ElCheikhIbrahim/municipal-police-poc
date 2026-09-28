@@ -1,23 +1,10 @@
 export const ar = {
-  nav: {
-    liveMap: 'الخريطة المباشرة',
-    missions: 'المهام',
-    reports: 'التقارير',
-    users: 'المستخدمون',
-  },
-
-  common: {
-    logout: 'تسجيل الخروج',
-    language: 'اللغة',
-    english: 'English',
-    arabic: 'العربية',
-  },
-
-  panic: {
-    panic: 'استغاثة',
-    activeAlerts: 'تنبيهات الاستغاثة النشطة',
-    noActiveAlerts: 'لا توجد تنبيهات استغاثة نشطة',
-    badge: 'الرقم التعريفي',
-    resolve: 'إنهاء التنبيه',
-  },
+  nav: { liveMap: 'الخريطة المباشرة', missions: 'المهام', reports: 'التقارير', users: 'المستخدمون' },
+  common: { logout: 'تسجيل الخروج', language: 'اللغة', english: 'English', arabic: 'العربية', close: 'إغلاق', cancel: 'إلغاء', save: 'حفظ', clear: 'مسح', apply: 'تطبيق', all: 'الكل', loading: 'جارٍ التحميل…', noResults: 'لا توجد نتائج', badge: 'الرقم التعريفي', serverProblem: 'واجه الخادم مشكلة. حاول مرة أخرى بعد قليل.' },
+  auth: { title: 'شرطة البلدية — العمليات', signIn: 'تسجيل الدخول', subtitle: 'دخول غرفة العمليات والمشرف', username: 'اسم المستخدم', password: 'كلمة المرور', usernamePlaceholder: 'أدخل اسم المستخدم', passwordPlaceholder: 'أدخل كلمة المرور', invalidCredentials: 'اسم المستخدم أو كلمة المرور غير صحيحة', serverError: 'تعذر الاتصال بالخادم. هل الخادم يعمل؟', signingIn: 'جارٍ تسجيل الدخول…' },
+  panic: { panic: 'استغاثة', activeAlerts: 'تنبيهات الاستغاثة النشطة', noActiveAlerts: 'لا توجد تنبيهات استغاثة نشطة', badge: 'الرقم التعريفي', resolve: 'إنهاء التنبيه' },
+  map: { onDuty: 'في الخدمة', officers: 'عناصر', noOfficers: 'لا يوجد عناصر في الخدمة', noOfficersHint: 'سيظهر العناصر هنا عند بدء مناوبتهم من تطبيق الهاتف.', hideList: 'إخفاء قائمة العناصر', showList: 'إظهار قائمة العناصر', selectOfficer: 'اختر عنصرًا لعرض تفاصيل مناوبته.', noLocation: 'لا يوجد موقع بعد', close: 'إغلاق', coveredToday: 'المسافة المقطوعة اليوم', lastFix: 'آخر تحديث', battery: 'البطارية', accuracy: 'الدقة', todaysPath: 'مسار اليوم', zoomPath: 'تكبير المسار', loadingPath: 'جارٍ تحميل المسار…', noHistory: 'لا يوجد سجل مواقع لهذا اليوم.', points: 'نقطة', stalePosition: 'قد تكون المواقع قديمة. آخر تحديث' },
+  users: { allRoles: 'كل الأدوار', activeOnly: 'النشطون فقط', add: 'إضافة مستخدم', noMatch: 'لا يوجد مستخدمون يطابقون هذا المرشح.', active: 'نشط', inactive: 'غير نشط', resetPassword: 'إعادة تعيين كلمة المرور', activate: 'تفعيل', deactivate: 'إلغاء التفعيل', name: 'الاسم', role: 'الدور', phone: 'الهاتف', status: 'الحالة', fullName: 'الاسم الكامل', badgeNumber: 'رقم التعريف', username: 'اسم المستخدم', temporaryPassword: 'كلمة المرور المؤقتة', preferredLanguage: 'اللغة المفضلة', create: 'إنشاء مستخدم', creating: 'جارٍ الإنشاء…' },
+  reports: { daily: 'النشاط اليومي', weekly: 'الملخص الأسبوعي', custom: 'نطاق مخصص', missions: 'ملخص المهام', exportCsv: 'تصدير CSV بعد التصفية', exportPdf: 'تصدير PDF بعد التصفية', summary: 'الملخص اليومي', snapshot: 'لقطة زمنية', filter: 'تصفية التقرير', clear: 'مسح', fromTime: 'من وقت', toTime: 'إلى وقت', week: 'الأسبوع', startDate: 'تاريخ البداية', endDate: 'تاريخ النهاية', date: 'التاريخ', officer: 'العنصر', allOfficers: 'كل العناصر', area: 'المنطقة/الموقع', allAreas: 'كل المناطق', loadingDaily: 'جارٍ تحميل النشاط اليومي…', loadingWeekly: 'جارٍ تحميل الملخص الأسبوعي…', loadingRange: 'جارٍ تحميل تقرير النطاق…', activityLookup: 'البحث في النشاط', time: 'الوقت', location: 'الموقع', activity: 'النشاط', details: 'التفاصيل', noActivity: 'لا يوجد نشاط يطابق المرشحات المحددة.', noOfficerActivity: 'لم يتم العثور على نشاط للعناصر وفقًا لعوامل التصفية المحددة', officerDaily: 'النشاط اليومي للعناصر', dutyPeriod: 'فترة الخدمة', locations: 'المواقع', hours: 'الساعات', distance: 'المسافة', assigned: 'مُسندة', inProgress: 'قيد التنفيذ', completed: 'مكتملة', cancelled: 'ملغاة', panic: 'استغاثة', showLess: 'عرض أقل', clickOfficer: 'انقر على اسم العنصر لعرض التفاصيل', officerSummary: 'ملخص العناصر', totalCompleted: 'إجمالي المهام المكتملة', avgAcknowledgement: 'متوسط وقت الاستلام', avgCompletion: 'متوسط وقت الإنجاز', missionsByStatus: 'المهام حسب الحالة', missionsByPriority: 'المهام حسب الأولوية', missionsByType: 'المهام حسب النوع', noRecords: 'لا توجد سجلات تطابق عوامل التصفية المحددة', officerActivity: 'نشاط العناصر', missionsAtLocation: 'المهام في الموقع', noRange: 'لم يتم العثور على نشاط للعناصر ضمن النطاق الزمني المحدد' },
+  missions: { new: 'مهمة جديدة', title: 'العنوان', titlePlaceholder: 'ما الذي يحتاج إلى متابعة؟', description: 'الوصف', category: 'الفئة', priority: 'الأولوية', assignTo: 'تعيين إلى', selected: 'محدد', noOfficers: 'لا يوجد عناصر في الخدمة حاليًا.', address: 'العنوان', finding: 'جارٍ البحث…', nearestArea: 'أقرب منطقة', exactSpot: 'تم تحديد المنطقة — انقر على الخريطة للموقع الدقيق', addressPlaceholder: 'الحي أو الشارع', deadline: 'الموعد النهائي — اختياري', creating: 'جارٍ الإنشاء…', create: 'إنشاء المهمة', createAssign: 'إنشاء وتعيين', placeHint: 'انقر على الخريطة لتحديد المهمة وملء العنوان. النقاط تمثل العناصر في الخدمة — انقر على أحدها لتعيينه.', noLocation: 'لم يتم تحديد موقع', setLocation: 'حدد مكان المهمة: انقر على الخريطة أو اختر منطقة من قائمة العنوان.', createError: 'تعذر إنشاء المهمة. حاول مرة أخرى.', openOnly: 'المفتوحة فقط', today: 'اليوم', filter: 'تصفية', clear: 'مسح', apply: 'تطبيق', officer: 'العنصر', all: 'الكل', status: 'الحالة', newMission: 'مهمة جديدة', noMatch: 'لا توجد مهام تطابق هذه المرشحات', clearHint: 'حاول مسح المرشحات أو إنشاء مهمة جديدة.', clearFilters: 'مسح المرشحات', low: 'منخفضة', medium: 'متوسطة', high: 'عالية', urgent: 'عاجلة', municipal: 'بلدية', sanitation: 'نظافة', traffic: 'مرور', infrastructure: 'بنية تحتية' }
 };

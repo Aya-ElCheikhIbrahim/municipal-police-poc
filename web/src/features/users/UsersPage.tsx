@@ -5,8 +5,10 @@ import { roleLabel } from '../auth/types';
 import { ResetPasswordModal } from './password_res';
 import type { CreateUserRequest, UserFilters } from './types';
 import { usersApi } from './api';
+import { useLanguage } from '../../i18n/languagecontext';
 
 export function UsersPage() {
+  const { translations: t } = useLanguage();
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [resetUser, setResetUser] = useState<any | null>(null);
@@ -37,10 +39,10 @@ export function UsersPage() {
       <div className="shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4">
           <FilterButton active={!showActiveOnly} onClick={() => setShowActiveOnly(false)}>
-            All roles
+            {t.users.allRoles}
           </FilterButton>
           <FilterButton active={showActiveOnly} onClick={() => setShowActiveOnly(true)}>
-            Active only
+            {t.users.activeOnly}
           </FilterButton>
         </div>
 
@@ -48,7 +50,7 @@ export function UsersPage() {
           onClick={() => setIsAddingUser(true)}
           className="bg-[#1F3864] hover:bg-[#182c50] text-white text-sm lg:text-base font-semibold px-4 lg:px-5 py-2 rounded-md transition-colors shadow-xs cursor-pointer"
         >
-          Add user
+          {t.users.add}
         </button>
       </div>
 
@@ -65,7 +67,7 @@ export function UsersPage() {
             <SkeletonCards />
           ) : users.length === 0 ? (
             <div className="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">
-              No users match this filter.
+              {t.users.noMatch}
             </div>
           ) : (
             users.map((user) => (
@@ -82,7 +84,7 @@ export function UsersPage() {
                         : 'bg-slate-100 text-slate-400'
                     }`}
                   >
-                    {user.is_active ? 'Active' : 'Inactive'}
+                    {user.is_active ? t.users.active : t.users.inactive}
                   </span>
                 </div>
                 <div className="text-sm text-slate-600">
@@ -96,7 +98,7 @@ export function UsersPage() {
                       onClick={() => setResetUser(user)}
                       className="px-2.5 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer whitespace-nowrap"
                     >
-                      Reset password
+                      {t.users.resetPassword}
                     </button>
                   </div>
 
@@ -106,7 +108,7 @@ export function UsersPage() {
                       onClick={() => setActive(user.id, !user.is_active)}
                       className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold cursor-pointer"
                     >
-                      {user.is_active ? 'Deactivate' : 'Activate'}
+                      {user.is_active ? t.users.deactivate : t.users.activate}
                     </button>
                   </div>
                 </div>
@@ -120,11 +122,11 @@ export function UsersPage() {
           <table className="w-full text-left text-sm lg:text-base border-collapse">
             <thead>
               <tr className="text-slate-400 font-semibold uppercase tracking-wider text-xs lg:text-sm *:sticky *:top-0 *:z-10 *:bg-slate-50 *:shadow-[inset_0_-1px_0_var(--color-slate-200)]">
-                <th className="px-4 py-3">NAME</th>
-                <th className="px-4 py-3">BADGE</th>
-                <th className="px-4 py-3">ROLE</th>
-                <th className="px-4 py-3">PHONE</th>
-                <th className="px-4 py-3">STATUS</th>
+                <th className="px-4 py-3">{t.users.name}</th>
+                <th className="px-4 py-3">{t.common.badge}</th>
+                <th className="px-4 py-3">{t.users.role}</th>
+                <th className="px-4 py-3">{t.users.phone}</th>
+                <th className="px-4 py-3">{t.users.status}</th>
                 <th className="px-4 py-3 text-right"></th>
               </tr>
             </thead>
@@ -134,7 +136,7 @@ export function UsersPage() {
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-sm lg:text-base text-slate-500">
-                    No users match this filter.
+                    {t.users.noMatch}
                   </td>
                 </tr>
               ) : (
@@ -152,7 +154,7 @@ export function UsersPage() {
                             : 'bg-slate-100 text-slate-400'
                         }`}
                       >
-                        {user.is_active ? 'Active' : 'Inactive'}
+                        {user.is_active ? t.users.active : t.users.inactive}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -164,7 +166,7 @@ export function UsersPage() {
                             onClick={() => setResetUser(user)}
                             className="px-2.5 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer whitespace-nowrap"
                           >
-                            Reset password
+                            {t.users.resetPassword}
                           </button>
                         </div>
 
@@ -175,7 +177,7 @@ export function UsersPage() {
                             onClick={() => setActive(user.id, !user.is_active)}
                             className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold cursor-pointer"
                           >
-                            {user.is_active ? 'Deactivate' : 'Activate'}
+                            {user.is_active ? t.users.deactivate : t.users.activate}
                           </button>
                         </div>
                       </div>

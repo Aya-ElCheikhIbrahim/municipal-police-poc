@@ -1,23 +1,10 @@
 export const en = {
-  nav: {
-    liveMap: 'Live map',
-    missions: 'Missions',
-    reports: 'Reports',
-    users: 'Users',
-  },
-
-  common: {
-    logout: 'Log out',
-    language: 'Language',
-    english: 'English',
-    arabic: 'Arabic',
-  },
-
-  panic: {
-    panic: 'Panic',
-    activeAlerts: 'Active panic alerts',
-    noActiveAlerts: 'No active panic alerts',
-    badge: 'Badge',
-    resolve: 'Resolve',
-  },
+  nav: { liveMap: 'Live map', missions: 'Missions', reports: 'Reports', users: 'Users' },
+  common: { logout: 'Log out', language: 'Language', english: 'English', arabic: 'Arabic', close: 'Close', cancel: 'Cancel', save: 'Save', clear: 'Clear', apply: 'Apply', all: 'All', loading: 'Loading…', noResults: 'No results found', badge: 'Badge', serverProblem: 'The server ran into a problem. Try again shortly.' },
+  auth: { title: 'Municipal Police — Operations', signIn: 'Sign in', subtitle: 'Dispatcher and supervisor access', username: 'Username', password: 'Password', usernamePlaceholder: 'Enter your username', passwordPlaceholder: 'Enter your password', invalidCredentials: 'Invalid username or password', serverError: 'Cannot reach the server. Is the backend running?', signingIn: 'Signing in…' },
+  panic: { panic: 'Panic', activeAlerts: 'Active panic alerts', noActiveAlerts: 'No active panic alerts', badge: 'Badge', resolve: 'Resolve' },
+  map: { onDuty: 'On duty', officers: 'officers', noOfficers: 'No officers on duty', noOfficersHint: 'Officers appear here once they start a shift from the mobile app.', hideList: 'Hide officer list', showList: 'Show officer list', selectOfficer: 'Select an officer to see their shift details.', noLocation: 'No location yet', close: 'Close', coveredToday: 'Covered today', lastFix: 'Last fix', battery: 'Battery', accuracy: 'Accuracy', todaysPath: "Today's path", zoomPath: 'Zoom to path', loadingPath: 'Loading path…', noHistory: 'No location history for today.', points: 'points', stalePosition: 'Positions may be out of date. Last update' },
+  users: { allRoles: 'All roles', activeOnly: 'Active only', add: 'Add user', noMatch: 'No users match this filter.', active: 'Active', inactive: 'Inactive', resetPassword: 'Reset password', activate: 'Activate', deactivate: 'Deactivate', name: 'Name', role: 'Role', phone: 'Phone', status: 'Status', fullName: 'Full name', badgeNumber: 'Badge number', username: 'Username', temporaryPassword: 'Temporary password', preferredLanguage: 'Preferred language', create: 'Create user', creating: 'Creating…' },
+  reports: { daily: 'Daily activity', weekly: 'Weekly summary', custom: 'Custom range', missions: 'Mission overview', exportCsv: 'Export filtered CSV', exportPdf: 'Export filtered PDF', summary: 'Daily summary', snapshot: 'Time snapshot', filter: 'Filter report', clear: 'Clear', fromTime: 'From time', toTime: 'To time', week: 'Week', startDate: 'Start date', endDate: 'End date', date: 'Date', officer: 'Officer', allOfficers: 'All officers', area: 'Area / location', allAreas: 'All areas', loadingDaily: 'Loading daily activity data…', loadingWeekly: 'Loading weekly summary…', loadingRange: 'Loading range report…', activityLookup: 'Activity lookup', time: 'Time', location: 'Location', activity: 'Activity', details: 'Details', noActivity: 'No activity matches the selected filters.', noOfficerActivity: 'No officer activity found for the selected filters.', officerDaily: 'Officer daily activity', dutyPeriod: 'Duty period', locations: 'Locations', hours: 'Hours', distance: 'Distance', assigned: 'Assigned', inProgress: 'In progress', completed: 'Completed', cancelled: 'Cancelled', panic: 'Panic events', showLess: 'Show less', clickOfficer: 'Click an officer’s name to view details.', officerSummary: 'Officer summary', totalCompleted: 'Total completed missions', avgAcknowledgement: 'Avg acknowledgement', avgCompletion: 'Avg completion', missionsByStatus: 'Missions by status', missionsByPriority: 'Missions by priority', missionsByType: 'Missions by type', noRecords: 'No records match the selected filters.', officerActivity: 'Officer activity', missionsAtLocation: 'Missions at location', noRange: 'No officer activity found in the selected date range.' },
+  missions: { new: 'New mission', title: 'Title', titlePlaceholder: 'What needs attention?', description: 'Description', category: 'Category', priority: 'Priority', assignTo: 'Assign to', selected: 'selected', noOfficers: 'No officers on duty right now.', address: 'Address', finding: 'finding…', nearestArea: 'nearest area', exactSpot: 'pinned on the area — click the map for the exact spot', addressPlaceholder: 'Neighbourhood or street', deadline: 'Deadline — optional', creating: 'Creating…', create: 'Create mission', createAssign: 'Create and assign', placeHint: 'Click the map to place the mission and fill in the address. The dots are officers on duty — click one to assign them.', noLocation: 'No location set', setLocation: 'Set where the mission is: click the map, or pick an area from the address list.', createError: 'Could not create the mission. Try again.', openOnly: 'Open only', today: 'Today', filter: 'Filter', clear: 'Clear', apply: 'Apply', officer: 'Officer', all: 'All', status: 'Status', newMission: 'New mission', noMatch: 'No missions match these filters', clearHint: 'Try clearing the filters, or create a new mission.', clearFilters: 'Clear filters', low: 'Low', medium: 'Medium', high: 'High', urgent: 'Urgent', municipal: 'Municipal', sanitation: 'Sanitation', traffic: 'Traffic', infrastructure: 'Infrastructure' }
 };

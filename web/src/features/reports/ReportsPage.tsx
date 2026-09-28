@@ -5,6 +5,7 @@ import { WeeklySummary } from './WeeklySummary';
 import { OfficerReport } from './OfficerReport';
 import { CustomRangeReport } from './CustomRangeReport';
 import { MissionsReport } from './MissionsReport';
+import { useLanguage } from '../../i18n/languagecontext';
 import {
   exportDailyCSV,
   exportDailyPDF,
@@ -28,6 +29,7 @@ interface ReportsPageProps {
 }
 
 export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
+  const { translations: t } = useLanguage();
   const [reportSubTab, setReportSubTab] = useState<ReportsView>('Daily activity');
   const [dailyView, setDailyView] = useState<DailyViewMode>('SUMMARY');
   const [selectedOfficer, setSelectedOfficer] = useState<number | null>(null);
@@ -159,7 +161,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                {tab}
+                {tab === 'Daily activity' ? t.reports.daily : tab === 'Weekly summary' ? t.reports.weekly : t.reports.custom}
               </button>
             ))}
           </div>
@@ -174,7 +176,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
             }`}
           >
             <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70" />
-            Mission Overview
+            {t.reports.missions}
           </button>
         </div>
 
@@ -184,14 +186,14 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
             onClick={() => handleExportFiltered('CSV')}
             className="bg-white hover:bg-slate-50 border border-slate-200 px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
           >
-            Export Filtered CSV
+            {t.reports.exportCsv}
           </button>
           <button
             type="button"
             onClick={() => handleExportFiltered('PDF')}
             className="bg-white hover:bg-slate-50 border border-slate-200 px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
           >
-            Export Filtered PDF
+            {t.reports.exportPdf}
           </button>
         </div>
       </div>
@@ -207,7 +209,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Daily Summary
+            {t.reports.summary}
           </button>
           <button
             type="button"
@@ -218,7 +220,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Time Snapshot
+            {t.reports.snapshot}
           </button>
         </div>
       )}
@@ -228,14 +230,14 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
           <div className="bg-white/90 backdrop-blur rounded-lg border border-slate-200/80 shadow-xs">
             <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
               <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">
-                Filter Report
+                {t.reports.filter}
               </span>
               <button
                 type="button"
                 onClick={resetFilters}
                 className="text-sm text-slate-500 hover:text-slate-800 font-medium cursor-pointer underline"
               >
-                Clear
+                {t.reports.clear}
               </button>
             </div>
 
@@ -273,7 +275,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                       handleFilterChange('endDate', value);
                     }}
                   />
-                  <FilterField label="From Time">
+                  <FilterField label={t.reports.fromTime}>
                     <input
                       type="time"
                       value={filters.fromTime}
@@ -282,7 +284,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
                       className="filter-control"
                     />
                   </FilterField>
-                  <FilterField label="To Time">
+                  <FilterField label={t.reports.toTime}>
                     <input
                       type="time"
                       value={filters.toTime}
@@ -306,7 +308,7 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
 
               {reportSubTab === 'Weekly summary' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl">
-                  <FilterField label="Week">
+                  <FilterField label={t.reports.week}>
                     <CalendarDateInput
                       value={filters.endDate}
                       max={todayStr}
@@ -328,14 +330,14 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
 
               {reportSubTab === 'Custom range' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <FilterField label="Start Date">
+                  <FilterField label={t.reports.startDate}>
                     <CalendarDateInput
                       value={filters.startDate}
                       max={filters.endDate || todayStr}
                       onChange={(value) => handleFilterChange('startDate', value)}
                     />
                   </FilterField>
-                  <FilterField label="End Date">
+                  <FilterField label={t.reports.endDate}>
                     <CalendarDateInput
                       value={filters.endDate}
                       min={filters.startDate}
@@ -408,8 +410,9 @@ function FilterField({ label, children }: { label: string; children: ReactNode }
 }
 
 function DateFilter({ value, max, onChange }: { value: string; max: string; onChange: (value: string) => void }) {
+  const { translations: t } = useLanguage();
   return (
-    <FilterField label="Date">
+    <FilterField label={t.reports.date}>
       <CalendarDateInput value={value} max={max} onChange={onChange} />
     </FilterField>
   );
@@ -471,10 +474,11 @@ function OfficerFilter({
   options: { id: number; name: string }[];
   onChange: (value: string) => void;
 }) {
+  const { translations: t } = useLanguage();
   return (
-    <FilterField label="Officer">
+    <FilterField label={t.reports.officer}>
       <select value={value} onChange={(e) => onChange(e.target.value)} className="filter-control">
-        <option value="ALL">All Officers</option>
+        <option value="ALL">{t.reports.allOfficers}</option>
         {options.map((off) => (
           <option key={off.id} value={String(off.id)}>
             {off.name}
@@ -486,10 +490,11 @@ function OfficerFilter({
 }
 
 function LocationFilter({ value, areas, onChange }: { value: string; areas: Area[]; onChange: (value: string) => void }) {
+  const { translations: t } = useLanguage();
   return (
-    <FilterField label="Area / Location">
+    <FilterField label={t.reports.area}>
       <select value={value} onChange={(e) => onChange(e.target.value)} className="filter-control">
-        <option value="ALL">All Areas</option>
+        <option value="ALL">{t.reports.allAreas}</option>
         {areas.map((area) => <option key={area.id} value={String(area.id)}>{area.name}</option>)}
       </select>
     </FilterField>

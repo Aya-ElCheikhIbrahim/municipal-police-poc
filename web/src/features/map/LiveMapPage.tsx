@@ -12,6 +12,7 @@ import {
   displayOfficerStatus,
 } from '../officers/types';
 import { usePanicRadius } from './usePanicRadius';
+import { useLanguage } from '../../i18n/languagecontext';
 /** A request to zoom in on an officer, e.g. from "Locate on Map" on a panic banner. */
 export interface MapFocus {
   officerId: number;
@@ -24,6 +25,7 @@ export interface MapFocus {
 const FOCUS_ZOOM = 17;
 
 export function LiveMapPage({ focus = null }: { focus?: MapFocus | null }) {
+  const { translations: t } = useLanguage();
   const { officers, isLoading, error, secondsSinceUpdate } = useActiveOfficers();
   const [selectedOfficerId, setSelectedOfficerId] = useState<number | null>(focus?.officerId ?? null);
   const [showList, setShowList] = useState(true);
@@ -70,15 +72,15 @@ export function LiveMapPage({ focus = null }: { focus?: MapFocus | null }) {
     <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_2fr_1fr] lg:grid-rows-[minmax(0,1fr)] w-full min-h-0 overflow-y-auto lg:overflow-hidden">
             <aside className={`bg-white border-r border-slate-200 flex-col z-10 shadow-xs overflow-hidden lg:flex ${showList ? 'flex' : 'hidden'} max-h-64 lg:max-h-none lg:min-h-0`}>
         <div className="p-4 lg:p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <span className="font-bold text-lg lg:text-xl text-slate-700">On duty</span>
+          <span className="font-bold text-lg lg:text-xl text-slate-700">{t.map.onDuty}</span>
           <span className="text-sm lg:text-base text-slate-400 font-medium">
-            {isLoading ? '…' : `${officers.length} officers`}
+            {isLoading ? t.common.loading : `${officers.length} ${t.map.officers}`}
           </span>
         </div>
 
         {error && (
           <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-800">
-            Positions may be out of date. Last update {secondsSinceUpdate}s ago.
+            {t.map.stalePosition} {secondsSinceUpdate}s ago.
           </div>
         )}
 
@@ -95,10 +97,10 @@ export function LiveMapPage({ focus = null }: { focus?: MapFocus | null }) {
           ) : officers.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-sm font-semibold text-slate-700 mb-1">
-                No officers on duty
+                {t.map.noOfficers}
               </p>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Officers appear here once they start a shift from the mobile app.
+                {t.map.noOfficersHint}
               </p>
             </div>
           ) : (
@@ -122,7 +124,7 @@ export function LiveMapPage({ focus = null }: { focus?: MapFocus | null }) {
           onClick={() => setShowList(!showList)}
           className="text-sm font-semibold text-[#1F3864] cursor-pointer"
         >
-          {showList ? 'Hide officer list' : 'Show officer list'}
+          {showList ? t.map.hideList : t.map.showList}
         </button>
       </div>
 
@@ -145,7 +147,7 @@ export function LiveMapPage({ focus = null }: { focus?: MapFocus | null }) {
       {!selected && (
         <aside className="hidden lg:flex bg-white border-l border-slate-200 flex-col p-6 overflow-y-auto z-10 shadow-xs">
           <p className="text-sm lg:text-base text-slate-400 text-center mt-8">
-            Select an officer to see their shift details.
+            {t.map.selectOfficer}
           </p>
         </aside>
       )}

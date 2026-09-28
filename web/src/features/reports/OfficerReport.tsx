@@ -4,6 +4,7 @@ import { useActiveOfficers } from '../officers/useOfficers';
 import { displayOfficerStatus } from '../officers/types';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
 import { exportDailyCSV, exportDailyPDF, fetchOfficerReport } from './api';
+import { useLanguage } from '../../i18n/languagecontext';
 import type {
   FilterState,
   OfficerMission,
@@ -85,6 +86,7 @@ function SortHeader({
 }
 
 export function OfficerReport({ officerId, sourceTab, filters, onBack, onMissionSelect }: OfficerReportProps) {
+  const { language, translations: t } = useLanguage();
   const today = localDateString(new Date());
 
   const initialMode: PeriodMode = sourceTab === 'Daily activity' ? 'DAY' : sourceTab === 'Weekly summary' ? 'WEEK' : 'CUSTOM';
@@ -176,7 +178,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
   }
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500 font-semibold">Loading officer report...</div>;
+    return <div className="p-8 text-center text-slate-500 font-semibold">{t.reports.loadingRange}</div>;
   }
 
   const summary = reportData?.summary;
@@ -241,7 +243,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
         <div className="h-1 bg-[#203E72]" />
         <div className="p-5 flex flex-wrap items-start justify-between gap-5">
           <div>
-            <div className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1">Officer Details</div>
+            <div className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1">{t.reports.details}</div>
             <h2 className="text-xl font-extrabold !text-[#203E72]">{officerInfo?.name || `Officer #${officerId}`}</h2>
             <p className="mt-1 text-sm text-slate-500">
               Badge {officerInfo?.badge_number || '—'}
@@ -302,7 +304,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
       {periodMode === 'DAY' && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-base font-bold text-slate-900">Activity Timeline</h3>
+            <h3 className="text-base font-bold text-slate-900">{t.reports.activity}</h3>
             <span className="text-base font-semibold text-slate-500">{timeline.length} event{timeline.length === 1 ? '' : 's'}</span>
           </div>
 
@@ -310,10 +312,10 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
             <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[720px]">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
-                  <th className="px-5 py-3">Time</th>
-                  <th className="px-4 py-3">Area / Location</th>
-                  <th className="px-4 py-3">Activity</th>
-                  <th className="px-4 py-3">Details</th>
+                  <th className="px-5 py-3">{t.reports.time}</th>
+                  <th className="px-4 py-3">{t.reports.area}</th>
+                  <th className="px-4 py-3">{t.reports.activity}</th>
+                  <th className="px-4 py-3">{t.reports.details}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -330,7 +332,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
                   </tr>
                 ))}
                 {timeline.length === 0 && (
-                  <tr><td colSpan={4} className="px-5 py-10 text-center text-slate-400">No activity found for this day.</td></tr>
+                  <tr><td colSpan={4} className="px-5 py-10 text-center text-slate-400">{language === 'ar' ? 'لا يوجد نشاط لهذا اليوم.' : 'No activity found for this day.'}</td></tr>
                 )}
               </tbody>
             </table>
@@ -340,7 +342,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-5">
-          <h3 className="text-base font-bold text-slate-900 mb-4">Mission Outcomes</h3>
+          <h3 className="text-base font-bold text-slate-900 mb-4">{t.reports.missions}</h3>
           <div className="grid grid-cols-3 gap-3">
             <OutcomeCard value={completedCount} label="Completed" />
             <OutcomeCard value={inProgressCount} label="In progress" />
@@ -349,7 +351,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-5">
-          <h3 className="text-base font-bold text-slate-900 mb-4">Performance</h3>
+          <h3 className="text-base font-bold text-slate-900 mb-4">{t.reports.officerActivity}</h3>
           <div className="grid grid-cols-2 gap-3">
             <ResponseCard
               value={performance?.average_acknowledgement_seconds ? `${Math.round(performance.average_acknowledgement_seconds / 60)}m` : '—'}
@@ -366,7 +368,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-base font-bold text-slate-900">Mission History</h3>
+          <h3 className="text-base font-bold text-slate-900">{t.reports.missions}</h3>
             <div className="flex items-center gap-1">
               {(['ALL', 'COMPLETED', 'IN_PROGRESS', 'CANCELLED'] as const).map((status) => (
                 <button
@@ -400,7 +402,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
                 <SortHeader label="Date" field="date" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
                 <SortHeader label="Mission" field="title" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
                 <SortHeader label="Status" field="status" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
-                <th className="px-4 py-3">Area / Location</th>
+                <th className="px-4 py-3">{t.reports.area}</th>
                 <SortHeader label="Assigned" field="assignedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
                 <SortHeader label="Acknowledged" field="acknowledgedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
                 <SortHeader label="Completed" field="completedAt" currentField={missionSortField} asc={missionSortAsc} onSort={handleMissionSort} />
@@ -418,7 +420,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
                 />
               ))}
               {sortedMissions.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">No missions match this period and status.</td></tr>
+                <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">{language === 'ar' ? 'لا توجد مهام تطابق الفترة والحالة المحددتين.' : 'No missions match this period and status.'}</td></tr>
               )}
             </tbody>
           </table>

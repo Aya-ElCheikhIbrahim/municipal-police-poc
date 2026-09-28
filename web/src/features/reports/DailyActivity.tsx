@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchDailySummary, fetchActivityFeed } from './api';
 import type { ActivityRow, Area, DailySummaryResponse, FilterState } from './types.ts';
+import { useLanguage } from '../../i18n/languagecontext';
 
 export type DailyViewMode = 'SUMMARY' | 'SNAPSHOT';
 
@@ -51,6 +52,7 @@ function SortHeader({
 }
 
 export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelect }: DailyActivityProps) {
+  const { translations: t } = useLanguage();
   const selectedDate = filters?.startDate || new Date().toISOString().slice(0, 10);
   const officerFilter = filters?.officer ?? 'ALL';
   const locationFilter = filters?.location ?? 'ALL';
@@ -163,14 +165,14 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500 font-semibold">Loading daily activity data...</div>;
+    return <div className="p-8 text-center text-slate-500 font-semibold">{t.reports.loadingDaily}</div>;
   }
 
   if (mode === 'SNAPSHOT') {
     return (
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-          <h3 className="text-base font-bold text-slate-800">Activity Lookup</h3>
+          <h3 className="text-base font-bold text-slate-800">{t.reports.activityLookup}</h3>
           {locationFilter !== 'ALL' && <span className="text-xs font-semibold text-slate-500">{areaName}</span>}
         </div>
 
@@ -178,11 +180,11 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[780px]">
             <thead>
               <tr className="bg-slate-50/80 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
-                <th className="px-4 py-3">Officer</th>
-                <th className="px-4 py-3">Time</th>
-                <th className="px-4 py-3">Location</th>
-                <th className="px-4 py-3">Activity</th>
-                <th className="px-4 py-3">Details</th>
+                <th className="px-4 py-3">{t.reports.officer}</th>
+                <th className="px-4 py-3">{t.reports.time}</th>
+                <th className="px-4 py-3">{t.reports.location}</th>
+                <th className="px-4 py-3">{t.reports.activity}</th>
+                <th className="px-4 py-3">{t.reports.details}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -226,7 +228,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
               {(!activityRows || activityRows.length === 0) && (
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
-                    No activity matches the selected filters.
+                    {t.reports.noActivity}
                   </td>
                 </tr>
               )}
@@ -234,7 +236,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
           </table>
         </div>
         <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">
-          Click an officer’s name to view details.
+          {t.reports.clickOfficer}
         </div>
       </div>
     );
@@ -245,36 +247,36 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-        <SummaryCard value={totals?.officers_on_duty ?? 0} label="Officers on duty" />
-        <SummaryCard value={formatMinutes(Math.round((totals?.hours_on_duty ?? 0) * 60))} label="Duty hours" />
-        <SummaryCard value={`${((totals?.distance_covered_m ?? 0) / 1000).toFixed(1)} km`} label="Distance" />
-        <SummaryCard value={totals?.missions_assigned ?? 0} label="Assigned" />
-        <SummaryCard value={totals?.missions_in_progress ?? 0} label="In Progress" />
-        <SummaryCard value={totals?.missions_completed ?? 0} label="Completed" />
-        <SummaryCard value={totals?.missions_cancelled ?? 0} label="Cancelled" />
-        <SummaryCard value={totals?.panic_events ?? 0} label="Panic events" />
+        <SummaryCard value={totals?.officers_on_duty ?? 0} label={t.reports.officer} />
+        <SummaryCard value={formatMinutes(Math.round((totals?.hours_on_duty ?? 0) * 60))} label={t.reports.hours} />
+        <SummaryCard value={`${((totals?.distance_covered_m ?? 0) / 1000).toFixed(1)} km`} label={t.reports.distance} />
+        <SummaryCard value={totals?.missions_assigned ?? 0} label={t.reports.assigned} />
+        <SummaryCard value={totals?.missions_in_progress ?? 0} label={t.reports.inProgress} />
+        <SummaryCard value={totals?.missions_completed ?? 0} label={t.reports.completed} />
+        <SummaryCard value={totals?.missions_cancelled ?? 0} label={t.reports.cancelled} />
+        <SummaryCard value={totals?.panic_events ?? 0} label={t.reports.panic} />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-base font-bold text-slate-800">Officer Daily Activity</h3>
+          <h3 className="text-base font-bold text-slate-800">{t.reports.officerDaily}</h3>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[1180px]">
             <thead>
               <tr className="bg-slate-50/80 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
-                <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Duty Period" field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Locations" field="location" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                {locationFilter !== 'ALL' && <th className="px-4 py-3">Activity at Location</th>}
-                <SortHeader label="Hours" field="hours" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Distance" field="distance" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Assigned" field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="In Progress" field="inProgress" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Cancelled" field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Panic" field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.officer} field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.dutyPeriod} field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.locations} field="location" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                {locationFilter !== 'ALL' && <th className="px-4 py-3">{t.reports.activity}</th>}
+                <SortHeader label={t.reports.hours} field="hours" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.distance} field="distance" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.assigned} field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.inProgress} field="inProgress" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.completed} field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.cancelled} field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.panic} field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
               </tr>
             </thead>
 
@@ -360,7 +362,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
               {sortedDailyRows.length === 0 && (
                 <tr>
                   <td colSpan={locationFilter !== 'ALL' ? 11 : 10} className="px-5 py-10 text-center text-slate-400">
-                    No officer activity found for the selected filters.
+                    {t.reports.noOfficerActivity}
                   </td>
                 </tr>
               )}

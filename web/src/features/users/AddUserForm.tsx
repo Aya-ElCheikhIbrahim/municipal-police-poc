@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ApiError } from '../../shared/api/client';
 import type { CreateUserRequest, UserRole, LanguageCode } from './types';
+import { useLanguage } from '../../i18n/languagecontext';
 
 interface AddUserFormProps {
   onSubmit: (payload: CreateUserRequest) => Promise<unknown>;
@@ -10,6 +11,7 @@ interface AddUserFormProps {
 type FieldErrors = Partial<Record<keyof CreateUserRequest | 'detail', string>>;
 
 export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
+  const { translations: t } = useLanguage();
   const [fullName, setFullName] = useState('');
   const [badgeNumber, setBadgeNumber] = useState('');
   const [phone, setPhone] = useState('+961 ');
@@ -61,7 +63,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
 
   return (
 <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs p-5 lg:p-6 mt-2">
-      <h2 className="text-lg lg:text-xl font-bold text-slate-900 mb-5">Add user</h2>
+      <h2 className="text-lg lg:text-xl font-bold text-slate-900 mb-5">{t.users.add}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {errors.detail && (
@@ -71,7 +73,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
         )}
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Full name" error={errors.full_name}>
+          <Field label={t.users.fullName} error={errors.full_name}>
             <input
               type="text"
               placeholder="Enter full name"
@@ -82,7 +84,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
             />
           </Field>
 
-          <Field label="Badge number" error={errors.badge_number}>
+          <Field label={t.users.badgeNumber} error={errors.badge_number}>
             <input
               type="text"
               placeholder="e.g. 214"
@@ -95,7 +97,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Phone" error={errors.phone}>
+          <Field label={t.users.phone} error={errors.phone}>
             <input
               type="text"
               placeholder="+961"
@@ -105,21 +107,21 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
             />
           </Field>
 
-          <Field label="Role" error={errors.role}>
+          <Field label={t.users.role} error={errors.role}>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
               className={`${inputClass} bg-white text-slate-600`}
             >
-              <option value="officer">Officer</option>
-              <option value="dispatcher">Dispatcher</option>
-              <option value="supervisor">Supervisor</option>
+              <option value="officer">{language === 'ar' ? 'عنصر' : 'Officer'}</option>
+              <option value="dispatcher">{language === 'ar' ? 'مُنسّق' : 'Dispatcher'}</option>
+              <option value="supervisor">{language === 'ar' ? 'مشرف' : 'Supervisor'}</option>
             </select>
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Username" error={errors.username}>
+          <Field label={t.users.username} error={errors.username}>
             <input
               type="text"
               placeholder="Used to sign in"
@@ -130,7 +132,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
             />
           </Field>
 
-          <Field label="Temporary password" error={errors.password}>
+          <Field label={t.users.temporaryPassword} error={errors.password}>
             <input
               type="password"
               placeholder="At least 8 characters"
@@ -144,7 +146,7 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Preferred language" error={errors.preferred_language}>
+          <Field label={t.users.preferredLanguage} error={errors.preferred_language}>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as LanguageCode)}
@@ -162,14 +164,14 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
             disabled={isSubmitting}
             className="bg-[#1F3864] hover:bg-[#182c50] disabled:bg-slate-400 text-white text-sm lg:text-base font-semibold px-5 py-2 rounded-md transition-colors shadow-xs cursor-pointer"
           >
-            {isSubmitting ? 'Creating…' : 'Create user'}
+            {isSubmitting ? t.users.creating : t.users.create}
           </button>
           <button
             type="button"
             onClick={onCancel}
             className="bg-white border border-slate-200 text-slate-700 text-sm lg:text-base font-semibold px-5 py-2 rounded-md hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
           >
-            Cancel
+            {t.common.cancel}
           </button>
         </div>
       </form>

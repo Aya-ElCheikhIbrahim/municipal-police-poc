@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchWeeklySummary } from './api';
 import type { Area, FilterState, WeeklySummaryResponse } from './types';
+import { useLanguage } from '../../i18n/languagecontext';
 
 interface CustomRangeReportProps {
   filters: FilterState;
@@ -60,6 +61,7 @@ function SortHeader({
 }
 
 export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRangeReportProps) {
+  const { language, translations: t } = useLanguage();
   const [sortField, setSortField] = useState<CustomSortField>('dutyMinutes');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -130,7 +132,7 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500 font-semibold">Loading range report...</div>;
+    return <div className="p-8 text-center text-slate-500 font-semibold">{t.reports.loadingRange}</div>;
   }
 
   const totals = summaryData?.totals || {
@@ -146,35 +148,35 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-        <SummaryCard value={totals.officers} label="Officers" />
-        <SummaryCard value={formatMinutes(totals.hours_on_duty * 60)} label="Duty hours" />
-        <SummaryCard value={`${(totals.distance_covered_m / 1000).toFixed(1)} km`} label="Distance" />
-        <SummaryCard value={totals.missions_assigned} label="Assigned" />
-        <SummaryCard value={totals.missions_completed} label="Completed" />
-        <SummaryCard value={totals.missions_cancelled} label="Cancelled" />
-        <SummaryCard value={totals.panic_events} label="Panic events" />
+        <SummaryCard value={totals.officers} label={t.reports.officer} />
+        <SummaryCard value={formatMinutes(totals.hours_on_duty * 60)} label={t.reports.hours} />
+        <SummaryCard value={`${(totals.distance_covered_m / 1000).toFixed(1)} km`} label={t.reports.distance} />
+        <SummaryCard value={totals.missions_assigned} label={t.reports.assigned} />
+        <SummaryCard value={totals.missions_completed} label={t.reports.completed} />
+        <SummaryCard value={totals.missions_cancelled} label={t.reports.cancelled} />
+        <SummaryCard value={totals.panic_events} label={t.reports.panic} />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-base font-bold text-slate-800">Officer Activity</h3>
+          <h3 className="text-base font-bold text-slate-800">{t.reports.officerActivity}</h3>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[1080px]">
             <thead>
               <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
-                <SortHeader label="Officer" field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Duty Period" field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Duty Hours" field="dutyMinutes" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Distance" field="distanceKm" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                {filters.location !== 'ALL' && <th className="px-4 py-3">Missions at Location</th>}
-                <SortHeader label="Assigned" field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Completed" field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Cancelled" field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Panic" field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Avg Acknowledgement" field="avgAcknowledgement" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Avg Completion" field="avgCompletion" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.officer} field="name" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.dutyPeriod} field="dutyPeriod" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'ساعات الخدمة' : 'Duty Hours'} field="dutyMinutes" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.distance} field="distanceKm" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                {filters.location !== 'ALL' && <th className="px-4 py-3">{t.reports.missionsAtLocation}</th>}
+                <SortHeader label={t.reports.assigned} field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.completed} field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.cancelled} field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.panic} field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.avgAcknowledgement} field="avgAcknowledgement" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={t.reports.avgCompletion} field="avgCompletion" currentField={sortField} asc={sortAsc} onSort={handleSort} />
               </tr>
             </thead>
 
@@ -211,7 +213,7 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
               {sortedRows.length === 0 && (
                 <tr>
                   <td colSpan={filters.location !== 'ALL' ? 11 : 10} className="px-5 py-10 text-center text-slate-400">
-                    No officer activity found in the selected date range.
+                    {t.reports.noRange}
                   </td>
                 </tr>
               )}
@@ -219,7 +221,7 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
           </table>
         </div>
         <div className="px-5 py-3 border-t border-slate-100 text-sm text-slate-500">
-          Click an officer’s name to view details.
+          {t.reports.clickOfficer}
         </div>
       </div>
     </div>
