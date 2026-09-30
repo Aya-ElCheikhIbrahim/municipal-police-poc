@@ -76,7 +76,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:layoutDirection="ltr">
 
                     <TextView
                         android:id="@+id/tvMissionTitle"
@@ -93,6 +94,8 @@
                         style="@style/StatusPill"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="top"
+                        android:layout_marginTop="-3dp"
                         android:layout_marginStart="@dimen/space_s"
                         android:background="@drawable/pill_urgent" />
 
@@ -134,7 +137,7 @@
                     android:padding="8dp"
                     android:text="@string/mission_navigate_button"
                     android:textColor="@color/brand"
-                    android:textSize="@dimen/text_caption"
+                    android:textSize="18sp"
                     android:textStyle="bold" />
 
             </LinearLayout>
@@ -217,9 +220,11 @@
                         android:id="@+id/btnAcknowledge"
                         style="@style/Button.Primary"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="72dp"
                         android:layout_marginTop="@dimen/space_m"
-                        android:text="@string/mission_step_start" />
+                        android:text="@string/mission_step_start"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
 
                     <Button
                         android:id="@+id/btnNavigate"
@@ -227,7 +232,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/space_s"
-                        android:text="@string/mission_navigate_button" />
+                        android:text="@string/mission_navigate_button"
+                        android:textSize="22sp" />
 
                 </LinearLayout>
 

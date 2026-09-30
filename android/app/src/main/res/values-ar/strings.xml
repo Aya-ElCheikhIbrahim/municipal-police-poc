@@ -79,6 +79,7 @@
 
     <!-- الأولوية -->
     <string name="priority_urgent">عاجل</string>
+    <string name="priority_high">عالية</string>
     <string name="priority_medium">متوسط</string>
     <string name="priority_low">منخفض</string>
 

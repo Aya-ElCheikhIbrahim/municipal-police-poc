@@ -420,7 +420,7 @@ public class MissionAdapter
         holder.tvSubtitle.setText(
                 locationStr +
                         distanceStr +
-                        " · " +
+                        "\n" +
                         timeStr
         );
 
@@ -992,8 +992,6 @@ public class MissionAdapter
 
         final TextView tvSubtitle;
 
-        final TextView tvPriority;
-
         final Button btnAction;
 
 
@@ -1033,12 +1031,6 @@ public class MissionAdapter
             tvSubtitle =
                     itemView.findViewById(
                             R.id.tvSubtitle
-                    );
-
-
-            tvPriority =
-                    itemView.findViewById(
-                            R.id.tvPriority
                     );
 
 
