@@ -24,6 +24,7 @@ import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
+import com.municipalpolice.officerapp.util.SessionExpiry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,7 +81,19 @@ public class LoginActivity extends BaseActivity {
             goToShift();
         }
 
+        // Sent here because the session could no longer be refreshed.
+        // Only on first creation, so a rotation doesn't repeat the message.
+        if (savedInstanceState == null
+                && getIntent().getBooleanExtra(SessionExpiry.EXTRA_SESSION_EXPIRED, false)) {
+            Toast.makeText(this, R.string.session_expired_message, Toast.LENGTH_LONG).show();
+        }
+
         checkAndRequestPermissions();
+    }
+
+    @Override
+    protected boolean requiresLogin() {
+        return false;
     }
 
     private void checkAndRequestPermissions() {
@@ -125,6 +138,7 @@ public class LoginActivity extends BaseActivity {
         RetrofitAuthRepository.getInstance(prefs).login(username, password, new Callback<Officer>() {
             @Override
             public void onSuccess(Officer result) {
+                SessionExpiry.reset();
                 btnLogin.setEnabled(true);
                 goToShift();
             }

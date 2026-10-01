@@ -12,6 +12,7 @@
     <string name="login_footnote">Accounts are created by your supervisor. There is no self sign-up.</string>
     <string name="login_error_required">Enter your username and password</string>
     <string name="login_error_incorrect">Wrong password, try again.</string>
+    <string name="session_expired_message">Your session expired. Please log in again.</string>
 
     <!-- Forgot Password -->
     <string name="reset_password_title">Reset password</string>

@@ -3,9 +3,12 @@ package com.municipalpolice.officerapp.data;
 import android.content.Context;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import com.municipalpolice.officerapp.util.PrefsManager;
+import com.municipalpolice.officerapp.util.SessionExpiry;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.Authenticator;
 import okhttp3.MediaType;
@@ -28,6 +31,9 @@ public class RetrofitClient {
             BASE_URL + "token/refresh/";
 
     private static Retrofit retrofit = null;
+
+    /** Serialises token refreshes across OkHttp threads. */
+    private static final Object REFRESH_LOCK = new Object();
 
     public static synchronized Retrofit getClient(Context context) {
 
@@ -79,115 +85,225 @@ public class RetrofitClient {
                                 return null;
                             }
 
-                            String refreshToken =
-                                    prefs.getRefreshToken();
-
-                            if (refreshToken == null
-                                    || refreshToken.isEmpty()) {
-
-                                return null;
-                            }
-
-                            // -------------------------------------
-                            // BUILD REFRESH REQUEST JSON
-                            // -------------------------------------
-
-                            TokenRefreshRequest refreshRequest =
-                                    new TokenRefreshRequest(
-                                            refreshToken
-                                    );
-
-                            String json =
-                                    gson.toJson(
-                                            refreshRequest
-                                    );
-
-                            RequestBody requestBody =
-                                    RequestBody.create(
-                                            json,
-                                            MediaType.parse(
-                                                    "application/json; charset=utf-8"
-                                            )
-                                    );
-
-                            Request tokenRequest =
-                                    new Request.Builder()
-                                            .url(REFRESH_URL)
-                                            .post(requestBody)
-                                            .build();
-
                             /*
-                             * Separate client:
+                             * Only one thread refreshes at a time.
                              *
-                             * It deliberately does NOT have this
-                             * authenticator attached. Otherwise a failed
-                             * token refresh could recursively trigger
-                             * another token refresh.
+                             * Refresh tokens are rotated and the used one
+                             * is blacklisted, so two threads refreshing
+                             * with the same token means one of them is
+                             * guaranteed to be rejected.
                              */
-                            OkHttpClient refreshClient =
-                                    new OkHttpClient.Builder()
-                                            .build();
+                            synchronized (REFRESH_LOCK) {
 
-                            try (
-                                    Response tokenResponse =
-                                            refreshClient
-                                                    .newCall(tokenRequest)
-                                                    .execute()
-                            ) {
+                                // ---------------------------------
+                                // ALREADY REFRESHED BY ANOTHER THREAD?
+                                //
+                                // If the stored access token differs from
+                                // the one this request failed with, another
+                                // thread refreshed while this one waited.
+                                // Retry with the current token instead of
+                                // refreshing again.
+                                // ---------------------------------
 
-                                if (!tokenResponse.isSuccessful()) {
+                                String failedAuthHeader =
+                                        response
+                                                .request()
+                                                .header("Authorization");
+
+                                String currentAccessToken =
+                                        prefs.getAuthToken();
+
+                                if (currentAccessToken != null
+                                        && !currentAccessToken.isEmpty()) {
+
+                                    String currentAuthHeader =
+                                            "Bearer "
+                                                    + currentAccessToken;
+
+                                    if (!currentAuthHeader.equals(
+                                            failedAuthHeader
+                                    )) {
+
+                                        return response
+                                                .request()
+                                                .newBuilder()
+                                                .header(
+                                                        "Authorization",
+                                                        currentAuthHeader
+                                                )
+                                                .build();
+                                    }
+                                }
+
+                                String refreshToken =
+                                        prefs.getRefreshToken();
+
+                                if (refreshToken == null
+                                        || refreshToken.isEmpty()) {
+
                                     return null;
                                 }
 
-                                ResponseBody responseBody =
-                                        tokenResponse.body();
+                                // ---------------------------------
+                                // BUILD REFRESH REQUEST JSON
+                                // ---------------------------------
 
-                                if (responseBody == null) {
-                                    return null;
-                                }
-
-                                String responseJson =
-                                        responseBody.string();
-
-                                TokenRefreshResponse refreshResponse =
-                                        gson.fromJson(
-                                                responseJson,
-                                                TokenRefreshResponse.class
+                                TokenRefreshRequest refreshRequest =
+                                        new TokenRefreshRequest(
+                                                refreshToken
                                         );
 
-                                if (refreshResponse == null
-                                        || refreshResponse.getAccess() == null
-                                        || refreshResponse
-                                        .getAccess()
-                                        .isEmpty()) {
+                                String json =
+                                        gson.toJson(
+                                                refreshRequest
+                                        );
 
-                                    return null;
+                                RequestBody requestBody =
+                                        RequestBody.create(
+                                                json,
+                                                MediaType.parse(
+                                                        "application/json; charset=utf-8"
+                                                )
+                                        );
+
+                                Request tokenRequest =
+                                        new Request.Builder()
+                                                .url(REFRESH_URL)
+                                                .post(requestBody)
+                                                .build();
+
+                                /*
+                                 * Separate client:
+                                 *
+                                 * It deliberately does NOT have this
+                                 * authenticator attached. Otherwise a failed
+                                 * token refresh could recursively trigger
+                                 * another token refresh.
+                                 *
+                                 * Call timeout: REFRESH_LOCK is held for the
+                                 * whole refresh call, so an unbounded refresh
+                                 * would stall every other 401 behind it.
+                                 */
+                                OkHttpClient refreshClient =
+                                        new OkHttpClient.Builder()
+                                                .callTimeout(
+                                                        10,
+                                                        TimeUnit.SECONDS
+                                                )
+                                                .build();
+
+                                try (
+                                        Response tokenResponse =
+                                                refreshClient
+                                                        .newCall(tokenRequest)
+                                                        .execute()
+                                ) {
+
+                                    /*
+                                     * 401/403 here means the backend
+                                     * rejected a refresh token that, after
+                                     * the check above, is still the current
+                                     * one. The session is dead: clear it so
+                                     * the app stops retrying.
+                                     *
+                                     * Any other failure may be transient,
+                                     * so it returns null WITHOUT clearing.
+                                     * Destroying a working session is worse
+                                     * than leaving a dead one the officer
+                                     * can log out of.
+                                     */
+                                    if (tokenResponse.code() == 401
+                                            || tokenResponse.code() == 403) {
+
+                                        prefs.clear();
+                                        SessionExpiry.onSessionExpired(
+                                                appContext
+                                        );
+                                        return null;
+                                    }
+
+                                    if (!tokenResponse.isSuccessful()) {
+                                        return null;
+                                    }
+
+                                    ResponseBody responseBody =
+                                            tokenResponse.body();
+
+                                    if (responseBody == null) {
+                                        return null;
+                                    }
+
+                                    String responseJson =
+                                            responseBody.string();
+
+                                    TokenRefreshResponse refreshResponse;
+
+                                    try {
+                                        refreshResponse =
+                                                gson.fromJson(
+                                                        responseJson,
+                                                        TokenRefreshResponse.class
+                                                );
+                                    } catch (JsonSyntaxException e) {
+                                        return null;
+                                    }
+
+                                    if (refreshResponse == null
+                                            || refreshResponse.getAccess() == null
+                                            || refreshResponse
+                                            .getAccess()
+                                            .isEmpty()) {
+
+                                        return null;
+                                    }
+
+                                    // ---------------------------------
+                                    // SAVE NEW ACCESS TOKEN
+                                    // ---------------------------------
+
+                                    String newAccessToken =
+                                            refreshResponse.getAccess();
+
+                                    prefs.setAuthToken(
+                                            newAccessToken
+                                    );
+
+                                    // ---------------------------------
+                                    // SAVE ROTATED REFRESH TOKEN
+                                    //
+                                    // The backend rotates refresh tokens and
+                                    // blacklists the one just used, so failing
+                                    // to store the new one kills the session on
+                                    // the next refresh. Guarded so a backend
+                                    // without rotation (no "refresh" in the
+                                    // response) keeps the existing token.
+                                    // ---------------------------------
+
+                                    String newRefreshToken =
+                                            refreshResponse.getRefresh();
+
+                                    if (newRefreshToken != null
+                                            && !newRefreshToken.isEmpty()) {
+
+                                        prefs.setRefreshToken(
+                                                newRefreshToken
+                                        );
+                                    }
+
+                                    // ---------------------------------
+                                    // RETRY ORIGINAL REQUEST
+                                    // ---------------------------------
+
+                                    return response
+                                            .request()
+                                            .newBuilder()
+                                            .header(
+                                                    "Authorization",
+                                                    "Bearer "
+                                                            + newAccessToken
+                                            )
+                                            .build();
                                 }
-
-                                // ---------------------------------
-                                // SAVE NEW ACCESS TOKEN
-                                // ---------------------------------
-
-                                String newAccessToken =
-                                        refreshResponse.getAccess();
-
-                                prefs.setAuthToken(
-                                        newAccessToken
-                                );
-
-                                // ---------------------------------
-                                // RETRY ORIGINAL REQUEST
-                                // ---------------------------------
-
-                                return response
-                                        .request()
-                                        .newBuilder()
-                                        .header(
-                                                "Authorization",
-                                                "Bearer "
-                                                        + newAccessToken
-                                        )
-                                        .build();
                             }
                         }
                     };

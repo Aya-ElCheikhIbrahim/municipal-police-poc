@@ -13,6 +13,7 @@ import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.ui.dialogs.PanicAlertDialogFragment;
 import com.municipalpolice.officerapp.util.LocaleHelper;
 import com.municipalpolice.officerapp.util.PrefsManager;
+import com.municipalpolice.officerapp.util.SessionExpiry;
 
 /**
  * Every screen extends this so the officer's saved language (set from
@@ -23,6 +24,27 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void attachBaseContext(Context newBase) {
         super.attachBaseContext(LocaleHelper.wrap(newBase));
+    }
+
+    /**
+     * Safety net for a session that died while the app was in the background,
+     * when Android blocks SessionExpiry's redirect.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (requiresLogin() && !new PrefsManager(this).isLoggedIn()) {
+            startActivity(SessionExpiry.loginIntent(this));
+            finish();
+        }
+    }
+
+    /**
+     * Screens shown before login (LoginActivity, ForgotPasswordActivity)
+     * override this to return false, so they never redirect to login.
+     */
+    protected boolean requiresLogin() {
+        return true;
     }
 
     protected void setupPanicButton() {
