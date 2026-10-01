@@ -12,6 +12,7 @@
     <string name="login_footnote">الحسابات يُنشئها المشرف. لا يوجد تسجيل ذاتي.</string>
     <string name="login_error_required">أدخل اسم المستخدم وكلمة المرور</string>
     <string name="login_error_incorrect">كلمة المرور غير صحيحة، حاول مرة أخرى</string>
+    <string name="session_expired_message">انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى.</string>
 
     <!-- إعادة تعيين كلمة المرور -->
     <string name="reset_password_title">إعادة تعيين كلمة المرور</string>
