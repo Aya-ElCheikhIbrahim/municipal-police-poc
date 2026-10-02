@@ -48,6 +48,10 @@
     <!-- Status -->
     <string name="status_online">Online</string>
     <string name="status_no_signal">No signal</string>
+
+    <!-- Notification -->
+    <string name="notification_location_title">Municipal Police</string>
+    <string name="notification_location_text">Location Tracking Active</string>
     <string name="status_syncing">Syncing</string>
 
     <!-- End shift dialog -->

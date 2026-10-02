@@ -48,6 +48,10 @@
     <!-- الحالة -->
     <string name="status_online">متصل</string>
     <string name="status_no_signal">لا إشارة</string>
+
+    <!-- الإشعارات -->
+    <string name="notification_location_title">شرطة البلدية</string>
+    <string name="notification_location_text">تتبع الموقع نشط</string>
     <string name="status_syncing">مزامنة</string>
 
     <!-- إنهاء الدوام -->

@@ -24,6 +24,7 @@ import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
 import com.municipalpolice.officerapp.data.ShiftRepository;
 import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.model.Shift;
+import com.municipalpolice.officerapp.service.LocationService;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.EndShiftDialogFragment;
 import com.municipalpolice.officerapp.ui.dialogs.PanicAlertDialogFragment;
@@ -47,8 +48,8 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
             registerForActivityResult(
                     new ActivityResultContracts.RequestPermission(),
                     granted -> {
-                        if (granted && locationTracker != null) {
-                            locationTracker.startTracking("shift");
+                        if (granted) {
+                            startLocationService();
                         }
                     }
             );
@@ -105,9 +106,18 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
 
     private void startLocationTrackingIfAllowed() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            locationTracker.startTracking("shift");
+            startLocationService();
         } else {
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+    }
+
+    private void startLocationService() {
+        Intent serviceIntent = new Intent(this, LocationService.class);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
         }
     }
 
@@ -123,8 +133,6 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
 
     @Override
     public void onEndShiftConfirmed() {
-        // Redirect to mission list end shift logic if needed, 
-        // but ShiftActivity is now off-duty state only.
     }
 
     @Override
