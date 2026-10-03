@@ -15,6 +15,7 @@ import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
+import com.municipalpolice.officerapp.service.LocationService;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.login.LoginActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
@@ -429,6 +430,13 @@ public class SettingsActivity extends BaseActivity {
         RetrofitAuthRepository
                 .getInstance(prefs)
                 .logout();
+
+        stopService(
+                new Intent(
+                        this,
+                        LocationService.class
+                )
+        );
 
         Intent intent =
                 new Intent(

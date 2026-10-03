@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.municipalpolice.officerapp.service.LocationService;
 import com.municipalpolice.officerapp.ui.login.LoginActivity;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,6 +36,9 @@ public final class SessionExpiry {
      * comes back to the app.
      */
     public static void onSessionExpired(Context appContext) {
+        // Never keep tracking a logged-out officer. Harmless if not running.
+        appContext.stopService(new Intent(appContext, LocationService.class));
+
         if (!redirected.compareAndSet(false, true)) {
             return;
         }
