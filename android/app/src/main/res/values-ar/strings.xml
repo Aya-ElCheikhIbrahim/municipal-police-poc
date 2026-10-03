@@ -52,6 +52,8 @@
     <!-- الإشعارات -->
     <string name="notification_location_title">شرطة البلدية</string>
     <string name="notification_location_text">تتبع الموقع نشط</string>
+    <string name="notification_channel_location_name">تتبع الموقع</string>
+    <string name="notification_channel_location_description">يتابع موقعك عبر GPS بشكل متواصل خلال الدوام.</string>
     <string name="status_syncing">مزامنة</string>
 
     <!-- إنهاء الدوام -->

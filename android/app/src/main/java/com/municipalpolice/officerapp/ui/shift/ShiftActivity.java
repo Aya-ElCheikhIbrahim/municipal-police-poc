@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -34,6 +35,8 @@ import com.municipalpolice.officerapp.util.PrefsManager;
 
 public class ShiftActivity extends BaseActivity implements EndShiftDialogFragment.EndShiftListener, PanicAlertDialogFragment.PanicListener {
 
+    private static final String TAG = "ShiftActivity";
+
     private static final int PAGE_OFF_DUTY = 0;
 
     private ViewFlipper flipper;
@@ -44,14 +47,11 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
     private PrefsManager prefs;
     private RealLocationTracker locationTracker;
 
+    // The shift starts either way; startShift() only tracks if it was granted.
     private final ActivityResultLauncher<String> locationPermissionLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.RequestPermission(),
-                    granted -> {
-                        if (granted) {
-                            startLocationService();
-                        }
-                    }
+                    granted -> startShift()
             );
 
     @Override
@@ -71,7 +71,7 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
         tvTopBarTitle.setText(officer != null ? officer.getFullName() : getString(R.string.app_name));
 
         findViewById(R.id.btnSettings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
-        findViewById(R.id.btnStartShift).setOnClickListener(v -> startShift());
+        findViewById(R.id.btnStartShift).setOnClickListener(v -> requestLocationThenStartShift());
 
         setupPanicButton();
 
@@ -79,6 +79,18 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
 
         if (prefs.isShiftActive()) {
             navigateToMissions();
+        }
+    }
+
+    /*
+     * Ask before starting the shift: startShift() finishes this activity,
+     * and a permission result delivered after that is dropped.
+     */
+    private void requestLocationThenStartShift() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            startShift();
+        } else {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
         }
     }
 
@@ -107,17 +119,21 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
     private void startLocationTrackingIfAllowed() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             startLocationService();
-        } else {
-            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
         }
     }
 
     private void startLocationService() {
         Intent serviceIntent = new Intent(this, LocationService.class);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (IllegalStateException e) {
+            // ForegroundServiceStartNotAllowedException: the officer left the app
+            // before the start-shift response. MissionListActivity.onStart() retries.
+            Log.w(TAG, "Could not start LocationService", e);
         }
     }
 

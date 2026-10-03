@@ -79,7 +79,7 @@ public class PrefsManager {
     }
 
     public void setShiftActive(boolean active) {
-        prefs.edit().putBoolean(KEY_SHIFT_ACTIVE, active).apply();
+        prefs.edit().putBoolean(KEY_SHIFT_ACTIVE, active).commit();
     }
 
     public void clear() {
@@ -91,6 +91,6 @@ public class PrefsManager {
             .remove(KEY_USER_BADGE)
             .remove(KEY_USER_ID)
             .remove(KEY_SHIFT_ACTIVE)
-            .apply();
+            .commit();
     }
 }

@@ -1,8 +1,6 @@
 package com.municipalpolice.officerapp.service;
 
 import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
@@ -14,12 +12,13 @@ import androidx.core.app.NotificationCompat;
 
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.RealLocationTracker;
+import com.municipalpolice.officerapp.ui.missions.MissionListActivity;
+import com.municipalpolice.officerapp.util.NotificationHelper;
 import com.municipalpolice.officerapp.util.PrefsManager;
 
 public class LocationService extends Service {
 
     private static final int NOTIFICATION_ID = 1001;
-    private static final String CHANNEL_ID = "location_tracking_channel";
 
     private RealLocationTracker locationTracker;
     private PrefsManager prefs;
@@ -29,7 +28,6 @@ public class LocationService extends Service {
         super.onCreate();
         prefs = new PrefsManager(this);
         locationTracker = new RealLocationTracker(this);
-        createNotificationChannel();
     }
 
     @Override
@@ -41,9 +39,17 @@ public class LocationService extends Service {
             startForeground(NOTIFICATION_ID, notification);
         }
 
-        if (prefs.isShiftActive()) {
-            locationTracker.startTracking("shift");
+        /*
+         * No shift, e.g. a sticky restart after it ended: stop. This runs after
+         * startForeground() on purpose; a service started with
+         * startForegroundService() that stops before calling it crashes the app.
+         */
+        if (!prefs.isShiftActive()) {
+            stopSelf();
+            return START_NOT_STICKY;
         }
+
+        locationTracker.startTracking("shift");
 
         return START_STICKY;
     }
@@ -61,23 +67,10 @@ public class LocationService extends Service {
         return null;
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Location Tracking",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            channel.setDescription("Maintains continuous GPS location tracking during active shifts.");
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
-        }
-    }
-
     private Notification createNotification() {
-        Intent notificationIntent = new Intent();
+        Intent notificationIntent = new Intent(this, MissionListActivity.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
                 0,
@@ -85,10 +78,10 @@ public class LocationService extends Service {
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );
 
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
+        return new NotificationCompat.Builder(this, NotificationHelper.CHANNEL_ID_LOCATION)
                 .setContentTitle(getString(R.string.notification_location_title))
                 .setContentText(getString(R.string.notification_location_text))
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_shield)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)

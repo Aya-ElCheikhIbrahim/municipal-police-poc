@@ -17,6 +17,7 @@ public class NotificationHelper {
 
     public static final String CHANNEL_ID_MISSIONS = "missions_channel";
     public static final String CHANNEL_ID_PANIC = "panic_channel";
+    public static final String CHANNEL_ID_LOCATION = "location_tracking_channel";
 
     public static void createNotificationChannels(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -39,8 +40,17 @@ public class NotificationHelper {
             );
             panicChannel.setDescription("Alerts related to panic button activations");
 
+            // Location Tracking Channel (LocationService's ongoing notification)
+            NotificationChannel locationChannel = new NotificationChannel(
+                    CHANNEL_ID_LOCATION,
+                    context.getString(R.string.notification_channel_location_name),
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            locationChannel.setDescription(context.getString(R.string.notification_channel_location_description));
+
             manager.createNotificationChannel(missionsChannel);
             manager.createNotificationChannel(panicChannel);
+            manager.createNotificationChannel(locationChannel);
         }
     }
 

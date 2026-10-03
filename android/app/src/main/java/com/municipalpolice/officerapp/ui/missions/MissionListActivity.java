@@ -25,7 +25,6 @@ import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
 import com.municipalpolice.officerapp.data.MissionRepository;
 import com.municipalpolice.officerapp.data.NetworkMonitor;
-import com.municipalpolice.officerapp.data.RealLocationTracker;
 import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
@@ -35,6 +34,7 @@ import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.model.Priority;
 import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.model.Shift;
+import com.municipalpolice.officerapp.service.LocationService;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.dialogs.EndShiftDialogFragment;
 import com.municipalpolice.officerapp.ui.dialogs.PanicAlertDialogFragment;
@@ -66,7 +66,6 @@ public class MissionListActivity extends BaseActivity
     private MissionRepository missionRepository;
     private ShiftRepository shiftRepository;
     private PrefsManager prefs;
-    private RealLocationTracker locationTracker;
     private FusedLocationProviderClient fusedLocationClient;
 
     private NetworkMonitor networkMonitor;
@@ -121,9 +120,6 @@ public class MissionListActivity extends BaseActivity
                         prefs,
                         this
                 );
-
-        locationTracker =
-                new RealLocationTracker(this);
 
         fusedLocationClient =
                 LocationServices
@@ -612,6 +608,13 @@ public class MissionListActivity extends BaseActivity
                                 false
                         );
 
+                        stopService(
+                                new Intent(
+                                        MissionListActivity.this,
+                                        LocationService.class
+                                )
+                        );
+
                         Toast.makeText(
                                 MissionListActivity.this,
                                 "Shift ended",
@@ -641,6 +644,22 @@ public class MissionListActivity extends BaseActivity
                     public void onError(
                             Throwable error
                     ) {
+
+                        /*
+                         * An HTTP error also clears the shift locally
+                         * (RetrofitShiftRepository), so stop tracking.
+                         * A network failure leaves the shift active, and
+                         * tracking with it.
+                         */
+                        if (!prefs.isShiftActive()) {
+
+                            stopService(
+                                    new Intent(
+                                            MissionListActivity.this,
+                                            LocationService.class
+                                    )
+                            );
+                        }
 
                         Toast.makeText(
                                 MissionListActivity.this,
@@ -688,11 +707,13 @@ public class MissionListActivity extends BaseActivity
             networkMonitor.start();
         }
 
-        if (locationTracker != null) {
-
-            locationTracker.startTracking(
-                    "missions"
-            );
+        /*
+         * LocationService owns tracking. Starting it here brings it back
+         * after a force-stop, crash or update; starting it when it is
+         * already running is harmless.
+         */
+        if (prefs.isShiftActive()) {
+            startLocationService();
         }
 
         updateUserLocation();
@@ -709,10 +730,6 @@ public class MissionListActivity extends BaseActivity
 
         if (networkMonitor != null) {
             networkMonitor.stop();
-        }
-
-        if (locationTracker != null) {
-            locationTracker.stopTracking();
         }
 
         super.onStop();
@@ -732,10 +749,6 @@ public class MissionListActivity extends BaseActivity
 
         if (networkMonitor != null) {
             networkMonitor.stop();
-        }
-
-        if (locationTracker != null) {
-            locationTracker.stopTracking();
         }
 
         super.onDestroy();
@@ -758,6 +771,44 @@ public class MissionListActivity extends BaseActivity
     // =========================================================
     // LOCATION
     // =========================================================
+
+    private void startLocationService() {
+
+        /*
+         * On Android 14 the service's startForeground() throws without
+         * location permission.
+         */
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+        ) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        Intent serviceIntent =
+                new Intent(
+                        this,
+                        LocationService.class
+                );
+
+        try {
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+
+        } catch (IllegalStateException e) {
+
+            // ForegroundServiceStartNotAllowedException (Android 12+)
+            Log.w(
+                    "MissionListActivity",
+                    "Could not start LocationService",
+                    e
+            );
+        }
+    }
 
     private void updateUserLocation() {
 
