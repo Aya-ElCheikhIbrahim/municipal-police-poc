@@ -84,6 +84,11 @@ class DeviceTokenSerializer(serializers.ModelSerializer):
             "device_model",
             "app_version"
         ]
+        # token is unique on the model, so ModelSerializer would add a
+        # UniqueValidator and 400 every re-registration before create() runs.
+        # The app registers on every launch; update_or_create handles repeats.
+        extra_kwargs = {"token": {"validators": []}}
+
     def create(self, validated_data):
         user = self.context["request"].user
         token, _ = DeviceToken.objects.update_or_create(
