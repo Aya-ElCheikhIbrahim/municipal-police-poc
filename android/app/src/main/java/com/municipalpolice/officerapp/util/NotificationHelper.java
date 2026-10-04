@@ -15,22 +15,23 @@ import com.municipalpolice.officerapp.ui.missions.MissionListActivity;
 
 public class NotificationHelper {
 
-    public static final String CHANNEL_ID_MISSIONS = "missions_channel";
     public static final String CHANNEL_ID_PANIC = "panic_channel";
     public static final String CHANNEL_ID_LOCATION = "location_tracking_channel";
+    // Must match ANDROID_CHANNEL_ID in backend/notifications/push.py.
+    public static final String CHANNEL_ID_MISSIONS_PUSH = "missions";
+
+    /*
+     * Each notification that opens MissionListActivity needs its own request
+     * code: Android treats same-code PendingIntents to the same activity as one,
+     * and FLAG_UPDATE_CURRENT overwrites its extras. LocationService uses 0.
+     */
+    public static final int REQUEST_CODE_MISSION_LOCAL = 1;
+    public static final int REQUEST_CODE_MISSION_PUSH = 2;
 
     public static void createNotificationChannels(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager == null) return;
-
-            // Missions Channel
-            NotificationChannel missionsChannel = new NotificationChannel(
-                    CHANNEL_ID_MISSIONS,
-                    "Missions",
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            missionsChannel.setDescription("Notifications for new assigned missions");
 
             // Panic Channel
             NotificationChannel panicChannel = new NotificationChannel(
@@ -48,19 +49,31 @@ public class NotificationHelper {
             );
             locationChannel.setDescription(context.getString(R.string.notification_channel_location_description));
 
-            manager.createNotificationChannel(missionsChannel);
+            // Missions Push Channel (FCM: assigned, cancelled, dispatcher message)
+            NotificationChannel missionsPushChannel = new NotificationChannel(
+                    CHANNEL_ID_MISSIONS_PUSH,
+                    context.getString(R.string.notification_channel_missions_push_name),
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            missionsPushChannel.setDescription(context.getString(R.string.notification_channel_missions_push_description));
+
             manager.createNotificationChannel(panicChannel);
             manager.createNotificationChannel(locationChannel);
+            manager.createNotificationChannel(missionsPushChannel);
+
+            // Replaced by CHANNEL_ID_MISSIONS_PUSH; remove it from existing
+            // installs. No-op when absent. Never reuse this id.
+            manager.deleteNotificationChannel("missions_channel");
         }
     }
 
     public static void showNewMissionNotification(Context context, String title, String body) {
         Intent intent = new Intent(context, MissionListActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent,
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, REQUEST_CODE_MISSION_LOCAL, intent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID_MISSIONS)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID_MISSIONS_PUSH)
                 .setSmallIcon(R.drawable.ic_shield)
                 .setContentTitle(title)
                 .setContentText(body)

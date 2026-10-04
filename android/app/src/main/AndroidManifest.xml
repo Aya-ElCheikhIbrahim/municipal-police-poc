@@ -73,6 +73,14 @@
             </intent-filter>
         </receiver>
 
+        <service
+            android:name=".notifications.OfficerFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- Allows the camera to save a full-resolution photo -->
         <provider
             android:name="androidx.core.content.FileProvider"
