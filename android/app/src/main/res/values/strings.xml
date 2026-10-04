@@ -65,7 +65,7 @@
     <string name="end_shift_confirm">End shift</string>
 
     <!-- Panic dialog -->
-    <string name="panic_title">Dispatch has been alerted</string>
+    <string name="panic_title">Emergency</string>
     <string name="panic_body">Your name and location was sent to every dispatcher on duty.</string>
     <string name="panic_cancel_button">Cancel alert · %1$ds</string>
     <string name="panic_toast_sent">Alert sent to the operations room</string>

@@ -65,7 +65,7 @@
     <string name="end_shift_confirm">إنهاء الدوام</string>
 
     <!-- الاستغاثة -->
-    <string name="panic_title">تم تنبيه غرفة العمليات</string>
+    <string name="panic_title">Emergency</string>
     <string name="panic_body">أُرسل اسمك وموقعك إلى جميع المشرفين في الخدمة.</string>
     <string name="panic_cancel_button">إلغاء التنبيه · %1$d ثوانٍ</string>
     <string name="panic_toast_sent">تم إرسال الاستغاثة إلى غرفة العمليات</string>
