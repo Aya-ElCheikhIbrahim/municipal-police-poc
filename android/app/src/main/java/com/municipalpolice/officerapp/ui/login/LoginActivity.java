@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat;
 
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
+import com.municipalpolice.officerapp.data.DeviceTokenManager;
 import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.model.Officer;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
@@ -78,6 +79,7 @@ public class LoginActivity extends BaseActivity {
         // Skip straight to the shift screen if a session is already cached
         PrefsManager prefs = new PrefsManager(this);
         if (prefs.isLoggedIn() && RetrofitAuthRepository.getInstance(prefs).getCachedOfficer() != null) {
+            DeviceTokenManager.registerCurrentToken(this);
             goToShift();
         }
 
@@ -140,6 +142,7 @@ public class LoginActivity extends BaseActivity {
             public void onSuccess(Officer result) {
                 SessionExpiry.reset();
                 btnLogin.setEnabled(true);
+                DeviceTokenManager.registerCurrentToken(LoginActivity.this);
                 goToShift();
             }
 

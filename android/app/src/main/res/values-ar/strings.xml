@@ -54,6 +54,8 @@
     <string name="notification_location_text">تتبع الموقع نشط</string>
     <string name="notification_channel_location_name">تتبع الموقع</string>
     <string name="notification_channel_location_description">يتابع موقعك عبر GPS بشكل متواصل خلال الدوام.</string>
+    <string name="notification_channel_missions_push_name">تنبيهات المهام</string>
+    <string name="notification_channel_missions_push_description">المهام الجديدة والمهام الملغاة والرسائل من غرفة العمليات.</string>
     <string name="status_syncing">مزامنة</string>
 
     <!-- إنهاء الدوام -->

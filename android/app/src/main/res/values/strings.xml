@@ -54,6 +54,8 @@
     <string name="notification_location_text">Location Tracking Active</string>
     <string name="notification_channel_location_name">Location Tracking</string>
     <string name="notification_channel_location_description">Maintains continuous GPS location tracking during active shifts.</string>
+    <string name="notification_channel_missions_push_name">Mission alerts</string>
+    <string name="notification_channel_missions_push_description">New missions, cancelled missions and messages from dispatch.</string>
     <string name="status_syncing">Syncing</string>
 
     <!-- End shift dialog -->

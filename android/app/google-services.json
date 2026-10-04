@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "190748392290",
+    "project_id": "municipal-police-poc",
+    "storage_bucket": "municipal-police-poc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:190748392290:android:03f87a1c4624dc2f944a3b",
+        "android_client_info": {
+          "package_name": "com.municipalpolice.officerapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnevH1UB2fMx_VLthcPsE1lxszzczuJ4M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
