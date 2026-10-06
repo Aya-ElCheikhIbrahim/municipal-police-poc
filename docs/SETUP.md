@@ -138,6 +138,26 @@ android:usesCleartextTraffic="true"
 
 Without it, requests fail silently with no useful error
 
+### Push notifications (FCM)
+
+Optional. Everything else works without it, but no phone receives push notifications.
+
+Push needs two files from the SAME Firebase project:
+
+1. Backend: the service-account key. In the Firebase console: Project settings > Service accounts > Generate new private key. Save it in `backend/secrets/` and point `.env` at it:
+
+FCM_CREDENTIALS_FILE=secrets/<key-file>.json
+
+The path is relative to `backend/`. This key is a real secret: `backend/secrets/` is gitignored, never commit it.
+
+While `FCM_CREDENTIALS_FILE` is empty, push is off. Notifications are still saved, but nothing is sent, and the server log shows one warning saying so.
+
+2. Android: `android/app/google-services.json`. This is a different file from the key, it is not a secret, and it is already committed. You only need it again if the Firebase project changes.
+
+If the two files come from different Firebase projects, FCM rejects every send with `SenderIdMismatchError`, and the backend quietly deactivates the phone's token. Nothing arrives and nothing fails loudly.
+
+To test, use an emulator with a Google Play system image, or a real phone. A plain AOSP emulator image cannot get an FCM token.
+
 
 ### Daily workflow:
 
@@ -190,6 +210,7 @@ npm install
 | CORS error in the browser console | The dashboard is on a port the backend does not allow. Check Vite is on 5173. |
 | Login "works" with any username | `web/.env` is missing, so the API call never happens. See Part 2 step 2. |
 | Android requests fail with no error | Missing `usesCleartextTraffic`, or you used `localhost` instead of `10.0.2.2`. |
+| Push notifications never arrive | Check in this order:<br>1. Server log says `Push notifications are DISABLED`: `FCM_CREDENTIALS_FILE` is unset. Set it in `backend/.env` and restart the server. See Part 3, Push notifications.<br>2. In `/admin`, Device tokens has no row for the officer, or `Is active` is unticked: log in on the phone and reopen the app, it registers on every launch. Registration failures are in logcat under the tag `FcmTokenRegistration`.<br>3. `project_id` in the service-account key differs from `project_id` in `google-services.json`: the files come from different Firebase projects. Use matching files, then reopen the app to reactivate the token.<br>4. Logcat says `could not get a token from Firebase`: the emulator has no Google Play. Use a Google Play system image or a real phone.<br>5. Android 13+: notifications were denied for the app. Turn them on in the phone's Settings > Apps > the app > Notifications. |
 
 **When asking for help, post the full error text**, not a screenshot of part of
 it. The last line of a Python traceback is usually the useful one, but the

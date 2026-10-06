@@ -30,6 +30,9 @@ MAX_TOKENS_PER_REQUEST = 500
 
 _app = None
 
+# Whether the "push is disabled" warning has been logged in this process.
+_warned_disabled = False
+
 
 def is_enabled() -> bool:
     return bool(settings.FCM_CREDENTIALS_FILE)
@@ -66,6 +69,18 @@ def send_push(user, title: str, body: str, data: dict | None = None) -> int:
     not tried again.
     """
     if not is_enabled():
+        # Without this, a backend with no key looks exactly like a working
+        # one: tokens register, notifications are created, nothing arrives.
+        # Once per process, not once per notification.
+        global _warned_disabled
+        if not _warned_disabled:
+            _warned_disabled = True
+            logger.warning(
+                "Push notifications are DISABLED: FCM_CREDENTIALS_FILE is not set. "
+                "Notifications are saved but no phone will receive them. "
+                "Set FCM_CREDENTIALS_FILE in backend/.env to the Firebase "
+                "service-account key (see docs/SETUP.md)."
+            )
         return 0
 
     tokens = list(
