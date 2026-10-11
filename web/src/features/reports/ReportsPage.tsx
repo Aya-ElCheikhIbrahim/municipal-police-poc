@@ -7,9 +7,9 @@ import { CustomRangeReport } from './CustomRangeReport';
 import { MissionsReport } from './MissionsReport';
 import { useLanguage } from '../../i18n/languagecontext';
 import {
-  exportDailyCSV,
+  exportDailyExcel,
   exportDailyPDF,
-  exportWeeklyCSV,
+  exportWeeklyExcel,
   exportWeeklyPDF,
   fetchAreas,
   fetchDailySummary,
@@ -113,17 +113,17 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
     }));
   };
 
-  const handleExportFiltered = (format: 'CSV' | 'PDF') => {
+  const handleExportFiltered = (format: 'Excel' | 'PDF') => {
     const activeOfficerId = filters.officer !== 'ALL' ? Number(filters.officer) : undefined;
     try {
       if (reportSubTab === 'Daily activity') {
-        if (format === 'CSV') exportDailyCSV(filters.startDate, activeOfficerId, filters.status);
+        if (format === 'Excel') exportDailyExcel(filters.startDate, activeOfficerId, filters.status);
         else exportDailyPDF(filters.startDate, activeOfficerId, filters.status);
       } else if (reportSubTab === 'Weekly summary' || reportSubTab === 'Custom range') {
-        if (format === 'CSV') exportWeeklyCSV(filters.startDate, filters.endDate);
+        if (format === 'Excel') exportWeeklyExcel(filters.startDate, filters.endDate);
         else exportWeeklyPDF(filters.startDate, filters.endDate);
       } else {
-        if (format === 'CSV') exportDailyCSV(filters.startDate, activeOfficerId, filters.status);
+        if (format === 'Excel') exportDailyExcel(filters.startDate, activeOfficerId, filters.status);
         else exportDailyPDF(filters.startDate, activeOfficerId, filters.status);
       }
     } catch (error) {
@@ -183,10 +183,10 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => handleExportFiltered('CSV')}
+            onClick={() => handleExportFiltered('Excel')}
             className="bg-white hover:bg-slate-50 border border-slate-200 px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
           >
-            {t.reports.exportCsv}
+            {t.reports.exportExcel}
           </button>
           <button
             type="button"
