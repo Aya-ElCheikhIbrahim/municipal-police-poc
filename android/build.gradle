@@ -8,4 +8,7 @@ buildscript {
 plugins {
     // This allows the version to be pulled from gradle.properties
     id 'com.android.application' version "${agpVersion}" apply false
+
+    // Firebase / Google Services
+    id 'com.google.gms.google-services' version '4.4.4' apply false
 }

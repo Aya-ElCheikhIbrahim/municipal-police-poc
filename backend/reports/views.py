@@ -1,4 +1,3 @@
-import csv
 from django.http import HttpResponse
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -36,6 +35,7 @@ from .arabic import (
     written_date,
 )
 from . import activity
+from .xlsx import daily_xlsx, weekly_xlsx
 from .params import (
     activity_params,
     daily_params,
@@ -147,11 +147,11 @@ class WeeklySummaryView(APIView):
             WeeklySummarySerializer(report).data
         )
 
-class DailyOfficerReportCSVView(APIView):
+class DailyOfficerReportXLSXView(APIView):
     """
-    GET /api/v1/reports/daily/export/csv/
+    GET /api/v1/reports/daily/export/xlsx/
 
-    Export a daily activity report as CSV.
+    Export a daily activity report as a right-to-left Excel workbook.
     """
 
     permission_classes = [
@@ -199,20 +199,7 @@ class DailyOfficerReportCSVView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = (
-            f'attachment; filename="daily_report_{date}_{officer_id}.csv"'
-        )
-        # Byte-order mark first, or Excel opens the file with the wrong
-        # encoding and the Arabic comes out as garbage.
-        response.write("\ufeff")
-
-        writer = csv.writer(response)
-        writer.writerow([LABELS["metric"], LABELS["value"]])
-        for label, value in daily_rows(report):
-            writer.writerow([label, value])
-
-        return response
+        return daily_xlsx(report, f"daily_report_{date}_{officer_id}.xlsx")
 
 
 class DailyOfficerReportPDFView(APIView):
@@ -288,7 +275,7 @@ class DailyOfficerReportPDFView(APIView):
         return response
 
     
-class WeeklySummaryCSVView(APIView):
+class WeeklySummaryXLSXView(APIView):
     permission_classes = [IsAuthenticated, IsSupervisor]
 
     @extend_schema(
@@ -308,7 +295,7 @@ class WeeklySummaryCSVView(APIView):
                 description="End date, YYYY-MM-DD.",
             ),
         ],
-        responses={(200, "text/csv"): OpenApiTypes.BINARY},
+        responses={200: OpenApiTypes.BINARY},
     )
     def get(self, request):
         start_date, end_date, officer_id, area_id = weekly_params(request)
@@ -319,59 +306,8 @@ class WeeklySummaryCSVView(APIView):
             area_id=area_id,
         )
 
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = (
-            f'attachment; filename="weekly_report_'
-            f'{start_date}_{end_date}.csv"'
-        )
-        # Byte-order mark first, or Excel opens the file with the wrong
-        # encoding and the Arabic comes out as garbage.
-        response.write("\ufeff")
+        return weekly_xlsx(report, f"weekly_report_{start_date}_{end_date}.xlsx")
 
-        writer = csv.writer(response)
-
-        writer.writerow([LABELS["weekly_title"]])
-        writer.writerow([LABELS["start_date"], report["start_date"]])
-        writer.writerow([LABELS["end_date"], report["end_date"]])
-        writer.writerow([])
-
-        writer.writerow([LABELS["missions_by_priority"]])
-        writer.writerow([LABELS["priority"], LABELS["count"]])
-        for priority, count in report["missions_by_priority"].items():
-            writer.writerow([PRIORITIES[priority], count])
-        writer.writerow([])
-        writer.writerow([LABELS["missions_by_category"]])
-        writer.writerow([LABELS["category"], LABELS["count"]])
-        for category, count in report["missions_by_category"].items():
-            writer.writerow([CATEGORIES[category], count])
-        writer.writerow([])
-
-        writer.writerow([
-            f'{LABELS["avg_ack"]} ({LABELS["seconds"]})',
-            report["average_acknowledgement_seconds"],
-        ])
-        writer.writerow([
-            f'{LABELS["avg_completion"]} ({LABELS["seconds"]})',
-            report["average_completion_seconds"],
-        ])
-        writer.writerow([])
-
-        writer.writerow([LABELS["top_officers"]])
-        writer.writerow([
-            LABELS["officer_id"],
-            LABELS["officer"],
-            LABELS["completed_missions"],
-        ])
-        
-        for officer in report["top_officers"]:
-            writer.writerow([
-                officer["officer_id"],
-                officer["officer_name"],
-                officer["completed_missions"],
-            ])
-
-        return response
-    
 class WeeklySummaryPDFView(APIView):
     permission_classes = [IsAuthenticated, IsSupervisor]
     @extend_schema(

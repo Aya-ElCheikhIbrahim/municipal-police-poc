@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'
 }
 
 android {
@@ -12,6 +13,11 @@ android {
         targetSdk 34
         versionCode 1
         versionName "0.1.0-mock"
+    }
+
+    // BuildConfig.VERSION_NAME is sent with the FCM device token
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
@@ -64,4 +70,8 @@ dependencies {
     // Loads saved mission photos into the photo preview boxes
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+
+    // Firebase Cloud Messaging (FCM)
+    implementation platform('com.google.firebase:firebase-bom:34.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }

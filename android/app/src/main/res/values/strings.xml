@@ -11,7 +11,8 @@
     <string name="login_forgot_password_msg">A supervisor will send you a code shortly.</string>
     <string name="login_footnote">Accounts are created by your supervisor. There is no self sign-up.</string>
     <string name="login_error_required">Enter your username and password</string>
-    <string name="login_error_incorrect">Incorrect, try again</string>
+    <string name="login_error_incorrect">Wrong password, try again.</string>
+    <string name="session_expired_message">Your session expired. Please log in again.</string>
 
     <!-- Forgot Password -->
     <string name="reset_password_title">Reset password</string>
@@ -47,6 +48,14 @@
     <!-- Status -->
     <string name="status_online">Online</string>
     <string name="status_no_signal">No signal</string>
+
+    <!-- Notification -->
+    <string name="notification_location_title">Municipal Police</string>
+    <string name="notification_location_text">Location Tracking Active</string>
+    <string name="notification_channel_location_name">Location Tracking</string>
+    <string name="notification_channel_location_description">Maintains continuous GPS location tracking during active shifts.</string>
+    <string name="notification_channel_missions_push_name">Mission alerts</string>
+    <string name="notification_channel_missions_push_description">New missions, cancelled missions and messages from dispatch.</string>
     <string name="status_syncing">Syncing</string>
 
     <!-- End shift dialog -->
@@ -79,6 +88,7 @@
 
     <!-- Priority -->
     <string name="priority_urgent">Urgent</string>
+    <string name="priority_high">High</string>
     <string name="priority_medium">Medium</string>
     <string name="priority_low">Low</string>
 
@@ -138,4 +148,5 @@
     <string name="mission_max_photos_message">You can only add up to 5 photos per mission.</string>
     <string name="mission_photo_required_title">Photo required</string>
     <string name="mission_photo_required_stop_message">You need to add an image to stop this mission.</string>
+    <string name="panic_button_text">Emergency</string>
 </resources>

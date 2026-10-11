@@ -56,11 +56,24 @@
                 style="@style/Input.EditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/space_m"
+                android:layout_marginBottom="@dimen/space_xs"
                 android:hint="@string/login_password_hint"
                 android:inputType="textPassword"
                 android:importantForAutofill="yes"
                 android:autofillHints="password" />
+
+            <TextView
+                android:id="@+id/tvPasswordError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/space_s"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:text="@string/login_error_incorrect"
+                android:textColor="@color/urgent_alert"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <Button
                 android:id="@+id/btnLogin"

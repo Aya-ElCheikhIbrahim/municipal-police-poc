@@ -101,4 +101,9 @@ public class ForgotPasswordActivity extends BaseActivity {
             });
         });
     }
+
+    @Override
+    protected boolean requiresLogin() {
+        return false;
+    }
 }

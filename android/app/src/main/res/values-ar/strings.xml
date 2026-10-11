@@ -11,7 +11,8 @@
     <string name="login_forgot_password_msg">يرجى الاتصال بمشرفك لإعادة تعيين كلمة المرور الخاصة بك.</string>
     <string name="login_footnote">الحسابات يُنشئها المشرف. لا يوجد تسجيل ذاتي.</string>
     <string name="login_error_required">أدخل اسم المستخدم وكلمة المرور</string>
-    <string name="login_error_incorrect">البيانات غير صحيحة، حاول مرة أخرى</string>
+    <string name="login_error_incorrect">كلمة المرور غير صحيحة، حاول مرة أخرى</string>
+    <string name="session_expired_message">انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى.</string>
 
     <!-- إعادة تعيين كلمة المرور -->
     <string name="reset_password_title">إعادة تعيين كلمة المرور</string>
@@ -47,6 +48,14 @@
     <!-- الحالة -->
     <string name="status_online">متصل</string>
     <string name="status_no_signal">لا إشارة</string>
+
+    <!-- الإشعارات -->
+    <string name="notification_location_title">شرطة البلدية</string>
+    <string name="notification_location_text">تتبع الموقع نشط</string>
+    <string name="notification_channel_location_name">تتبع الموقع</string>
+    <string name="notification_channel_location_description">يتابع موقعك عبر GPS بشكل متواصل خلال الدوام.</string>
+    <string name="notification_channel_missions_push_name">تنبيهات المهام</string>
+    <string name="notification_channel_missions_push_description">المهام الجديدة والمهام الملغاة والرسائل من غرفة العمليات.</string>
     <string name="status_syncing">مزامنة</string>
 
     <!-- إنهاء الدوام -->
@@ -79,6 +88,7 @@
 
     <!-- الأولوية -->
     <string name="priority_urgent">عاجل</string>
+    <string name="priority_high">عالية</string>
     <string name="priority_medium">متوسط</string>
     <string name="priority_low">منخفض</string>
 
@@ -134,4 +144,5 @@
     <string name="mission_max_photos_message">يمكنك إضافة 5 صور كحد أقصى لكل مهمة.</string>
     <string name="mission_photo_required_title">صورة مطلوبة</string>
     <string name="mission_photo_required_stop_message">يجب عليك إضافة صورة لإيقاف هذه المهمة.</string>
+    <string name="panic_button_text">للطوارئ</string>
 </resources>

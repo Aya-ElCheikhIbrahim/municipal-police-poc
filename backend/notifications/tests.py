@@ -406,3 +406,16 @@ class SendPushTests(NotificationTestCase):
         self.register(self.officer, "token")
         self.assertEqual(push.send_push(self.officer, "t", "b"), 0)
         send.assert_not_called()
+
+    @override_settings(FCM_CREDENTIALS_FILE="")
+    @mock.patch.object(push, "_warned_disabled", False)
+    def test_warns_once_that_push_is_disabled(self, send, _get_app):
+        self.register(self.officer, "token")
+
+        with self.assertLogs("notifications.push", level="WARNING") as logs:
+            push.send_push(self.officer, "t", "b")
+        self.assertEqual(len(logs.records), 1)
+        self.assertIn("FCM_CREDENTIALS_FILE", logs.output[0])
+
+        with self.assertNoLogs("notifications.push", level="WARNING"):
+            push.send_push(self.officer, "t", "b")

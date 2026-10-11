@@ -70,7 +70,7 @@ export const fetchOfficerReport = async (params?: ReportFilterParams): Promise<O
   return (response as any).data ?? response;
 };
 
-// --- Report file exports (CSV / PDF) ---------------------------------------
+// --- Report file exports (Excel / PDF) -------------------------------------
 // These endpoints are supervisor-only and return a file, so we can't use
 // window.open (it can't send the JWT header) or apiClient.get (it JSON-parses
 // the body). We fetch the blob with the auth token and trigger a download.
@@ -92,14 +92,14 @@ async function downloadReport(path: string, filename: string, params?: Record<st
 }
 
 // Daily report is per-officer: the backend requires officer_id.
-export const exportDailyCSV = (date: string, officerId?: number, status?: string) =>
-  downloadReport('/reports/daily/export/csv/', `daily-${date}.csv`, { date, officer_id: officerId, status });
+export const exportDailyExcel = (date: string, officerId?: number, status?: string) =>
+  downloadReport('/reports/daily/export/xlsx/', `daily-${date}.xlsx`, { date, officer_id: officerId, status });
 
 export const exportDailyPDF = (date: string, officerId?: number, status?: string) =>
   downloadReport('/reports/daily/export/pdf/', `daily-${date}.pdf`, { date, officer_id: officerId, status });
 
-export const exportWeeklyCSV = (startDate: string, endDate: string) =>
-  downloadReport('/reports/weekly/export/csv/', `weekly-${startDate}_${endDate}.csv`, { start_date: startDate, end_date: endDate });
+export const exportWeeklyExcel = (startDate: string, endDate: string) =>
+  downloadReport('/reports/weekly/export/xlsx/', `weekly-${startDate}_${endDate}.xlsx`, { start_date: startDate, end_date: endDate });
 
 export const exportWeeklyPDF = (startDate: string, endDate: string) =>
   downloadReport('/reports/weekly/export/pdf/', `weekly-${startDate}_${endDate}.pdf`, { start_date: startDate, end_date: endDate });

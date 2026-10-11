@@ -3,7 +3,6 @@
 *.pem
 *.key
 credentials.json
-google-services.json
 local.properties
 
 __pycache__/
@@ -35,7 +34,6 @@ Thumbs.db.env
 *.pem
 *.key
 credentials.json
-google-services.json
 local.properties
 
 __pycache__/

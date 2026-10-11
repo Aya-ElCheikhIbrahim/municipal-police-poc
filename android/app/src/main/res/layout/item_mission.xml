@@ -38,7 +38,8 @@
             android:layout_height="wrap_content"
             android:minHeight="@dimen/tap_target_min"
             android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:layoutDirection="ltr">
 
 
             <!-- TITLE + SUBTITLE -->
@@ -81,20 +82,6 @@
                 android:minWidth="80dp"
                 android:text="Start work"
                 android:textSize="14sp" />
-
-
-            <!-- Existing priority pill.
-                 We keep it because MissionAdapter currently expects it,
-                 but it stays hidden. -->
-            <TextView
-                android:id="@+id/tvPriority"
-                style="@style/StatusPill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/space_s"
-                android:background="@drawable/pill_urgent"
-                android:visibility="gone"
-                tools:text="Urgent" />
 
         </LinearLayout>
 

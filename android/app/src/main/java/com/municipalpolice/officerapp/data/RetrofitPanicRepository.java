@@ -18,19 +18,30 @@ public class RetrofitPanicRepository implements PanicRepository {
 
     @Override
     public void triggerPanic(Double lat, Double lon, Callback<PanicEventResponse> callback) {
-        triggerPanic(lat, lon, 12.5f, 85, callback);
+        triggerPanic(lat, lon, null, null, callback);
     }
 
     @Override
     public void triggerPanic(Double lat, Double lon, Float accuracy, Integer battery, Callback<PanicEventResponse> callback) {
-        Double finalLat = (lat != null && lat != 0.0) ? lat : 33.8938;
-        Double finalLon = (lon != null && lon != 0.0) ? lon : 35.5018;
-        Float finalAccuracy = (accuracy != null) ? accuracy : 12.5f;
-        Integer finalBattery = (battery != null && battery >= 0 && battery <= 100) ? battery : 85;
+        // The backend requires both coordinates. Substituting a placeholder position would
+        // put the officer somewhere they are not on the dispatcher's map, and the request
+        // would succeed, so nothing would look broken. Fail loudly instead.
+        if (lat == null || lon == null) {
+            Log.e(TAG, "Refusing to trigger panic without coordinates");
+            callback.onError(new IllegalArgumentException("A location fix is required to send a panic alert"));
+            return;
+        }
 
-        PositionRequest request = new PositionRequest(finalLat, finalLon, finalAccuracy, finalBattery);
-        Log.d(TAG, "Triggering panic payload: lat=" + finalLat + ", lon=" + finalLon + ", accuracy=" + finalAccuracy + ", battery=" + finalBattery);
+        // accuracy_m and battery_level are optional; send nothing rather than a guess.
+        Integer finalBattery = (battery != null && battery >= 0 && battery <= 100) ? battery : null;
 
+        PositionRequest request = new PositionRequest(lat, lon, accuracy, finalBattery);
+        Log.d(TAG, "Triggering panic payload: lat=" + lat + ", lon=" + lon + ", accuracy=" + accuracy + ", battery=" + finalBattery);
+
+        // The Call is deliberately NOT retained and there is deliberately no way to cancel
+        // it. A panic POST has to outlive the dialog that started it: the 10s countdown
+        // auto-dismisses while the officer has already stopped looking at the screen, so
+        // aborting the request on teardown would turn a slow panic into no panic.
         apiService.triggerPanic(request).enqueue(new retrofit2.Callback<PanicEventResponse>() {
             @Override
             public void onResponse(Call<PanicEventResponse> call, Response<PanicEventResponse> response) {
