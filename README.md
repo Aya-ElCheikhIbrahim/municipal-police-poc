@@ -8,18 +8,17 @@ Built by a Beirut Arab University student team, 12 weeks.
 | Folder | Contents | Owning squad |
 |---|---|---|
 | `backend/` | Django REST Framework API | Backend |
-| `android/` | Officer mobile app (Kotlin) | Android |
+| `android/` | Officer mobile app (Java) | Android |
 | `web/` | Dispatcher & supervisor dashboard | Web |
-| `docs/decisions/` | Written decision records | All |
-| `docs/api/` | OpenAPI specification | Backend + squad leads |
-| `docs/design/` | Mockup source files | All |
-| `docs/manuals/` | Arabic user manuals | All |
+| `docs/` | Setup, architecture, schema, progress, contributing, configuration | All |
+| `docs/api/` | Per-app API contracts | Backend + squad leads |
+| `docs/manuals/` | Arabic user manuals (not written yet - stub) | All |
 
 ## Design
 
 Figma mockups — [officer app](https://www.figma.com/design/eVZW8wpfWk3oxAmKCKlULw/Untitled?node-id=0-1) · [web dashboard](https://www.figma.com/design/eVZW8wpfWk3oxAmKCKlULw/Untitled?node-id=6-3043)
 
-Both are in Arabic (RTL) and English. Source HTML files are in `docs/design/`.
+Both are in Arabic (RTL) and English. The mockups live in Figma (links above).
 
 Follows Section 8 of the requirements: municipal blue `#1F3864`, accent `#2E5496`,
 status colours green `#2E7D32` / amber `#F9A825` / red `#C62828`.
@@ -53,4 +52,6 @@ Each folder has its own README with setup instructions for that component.
 
 ## Team
 
-See `docs/decisions/000-team-structure.md` for squad assignments and ownership.
+Three squads - Backend, Android, Web - with a squad lead each; see the owning
+squad named per folder in the table above. Ownership detail is tracked with the
+team lead.

@@ -33,6 +33,8 @@ Query parameters: `unread` (pass `true` to exclude already-read notifications), 
 
 `mission_id`, `mission_title`, and `mission_status` are `null` when the notification is not linked to a mission — for example, a `dispatcher_message` sent without a mission context. `notification_type` is one of `mission_assigned`, `mission_cancelled`, `mission_unacknowledged`, `dispatcher_message`, `panic_alert`. Notifications are ordered newest-first. Page size is 25.
 
+> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. This affects the `mission_unacknowledged` type and the unacknowledged-sweep trigger below.
+
 `GET /api/v1/notifications/unread-count/`
 
 All roles. Returns the unread count for the requesting user only. This endpoint exists separately from the list because the dashboard badge polls it far more often than the full list is opened — no serialisation of rows the caller discards.
@@ -83,11 +85,11 @@ Notifications are created by `notifications/services.py` in response to domain e
 
 `mission_cancelled` — written by `notify_mission_cancelled()` when a mission is cancelled. Recipient is the officer who was assigned at the time of cancellation. If the mission was never assigned `officer` is `None` and the function returns `None` without writing a row — there is nobody to tell.
 
-`mission_unacknowledged` — written by `notify_mission_unacknowledged()` from inside the unacknowledged sweep. Fans out to every active dispatcher and supervisor. Officers are not notified — this alert belongs on the dashboard, not the officer's phone. `bulk_create` is used so one sweep that covers many overdue missions does not issue N×recipients individual inserts. Inactive users are excluded from the fan-out.
+`mission_unacknowledged` - written by `notify_mission_unacknowledged()` from inside the unacknowledged sweep. Fans out to every active dispatcher and supervisor. Officers are not notified - this alert belongs on the dashboard, not the officer's phone. `bulk_create` is used so one sweep that covers many overdue missions does not issue N×recipients individual inserts. Inactive users are excluded from the fan-out. **[ACK-REMOVAL PENDING]** - this type and its sweep are cancelled; kept until the Acknowledge step is removed.
 
 `dispatcher_message` — written by `notify_dispatcher_message()`. Recipient is a named officer. The related mission is optional.
 
-`panic_alert` — the type is defined in the model but no trigger is wired yet. The panic app has no model at this point in the POC.
+`panic_alert` - now wired. The panic app has a model (`alerts_panicevent`) and a working trigger. `notify_panic_triggered()` fans a `panic_alert` out to every active dispatcher and supervisor when `panic.services.trigger_panic` creates an alert (created branch only, so a repeated tap does not re-alert). In addition, `notify_nearby_officers_of_panic()` sends a `panic_alert` to every on-duty officer within `panic_nearby_radius_m` of the alert (default 2000m), each carrying their distance from it, and pushes it. `Notification` has no FK to `PanicEvent` yet (`related_panic_event` is still commented out, pending a migration), so the officer, position and distance are written into the notification body.
 
 `Scoping`
 

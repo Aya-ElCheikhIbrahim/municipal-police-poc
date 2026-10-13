@@ -99,17 +99,19 @@ Deleted after 90 days.
 
 ## missions_mission
 
+> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. The `acknowledged` status value, `acknowledged_at` and `ack_alert_sent_at` columns below remain until removal.
+
 Field - Type - Notes
 id - bigint PK
 title - varchar(200)
 description - text
 priority - varchar(10) - low, medium, high, urgent
-status - varchar(15) - new, acknowledged, in_progress, completed, cancelled
+status - varchar(16) - new, assigned, acknowledged, in_progress, paused, completed, cancelled
 latitude - decimal(9,6) - where the officer must go
 longitude - decimal(9,6)
 address - varchar(300) - free text, may be blank
 created_by_id - FK user - the dispatcher
-assigned_to_id - FK user - the officer
+assigned_to - M2M user - the assigned officers; a mission can be assigned to several. Stored in the join table `missions_mission_assigned_to`, not as a column on this table
 deadline - timestamptz - optional
 created_at - timestamptz
 assigned_at - timestamptz
@@ -125,11 +127,11 @@ notes - text - officer's notes, Arabic and English
 cancellation_reason - text
 ack_alert_sent_at - timestamptz - stops the 5-min alarm repeating
 
-Status flow: new → acknowledged → in_progress → completed. Cancel is reachable from new, acknowledged, or in_progress.
+Status flow (live): new → assigned → in_progress → completed. Cancel is reachable from new, assigned, acknowledged, in_progress or paused. The `acknowledged` status still exists but is cancelled - `start` is allowed straight from `assigned` (**[ACK-REMOVAL PENDING]**).
 
-Reassignment allowed only while status is new (§4.4).
-Complete requires at least one photo already uploaded, otherwise 400.
-assigned_at is separate from created_at — the report averages, depend on it.
+Reassignment allowed only while status is `assigned` (before work starts), §4.4.
+Complete requires at least `mission_photo_min` photo(s) already uploaded, otherwise 400 (enforced server-side in `complete_mission`).
+assigned_at is separate from created_at - the report averages depend on it.
 
 ## missions_missionphoto
 
@@ -192,11 +194,12 @@ updated_by_id - FK user
 
 Keys and defaults:
 location_ping_interval_seconds - 30, clamp 10 to 120
-mission_ack_timeout_minutes - 5
+mission_ack_timeout_minutes - 5  (ACK-REMOVAL PENDING - cancelled, see docs/PROGRESS.md)
 location_retention_days - 90
 panic_cancel_grace_seconds - 10
 mission_photo_min - 1
 mission_photo_max - 5
+panic_nearby_radius_m - 2000, clamp 100 to 20000  (officers on duty within this radius of a panic are alerted)
 map_refresh_seconds - 20
 
 Supervisor edits; the app fetches on login and at shift start. Changes take effect on the officer's next shift.

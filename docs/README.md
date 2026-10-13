@@ -1,9 +1,9 @@
 # Documentation
 
-- [SETUP.md](SETUP.md): Running backend, web and th Android app from a clean checkout- For eveyone.
-- [CONTRIBUTINGmd](CONTRIBUTING.md): Git workflow, branch , and commit rules, ownership- Fro Everyone.
+- [SETUP.md](SETUP.md): Running backend, web and the Android app from a clean checkout- For everyone.
+- [CONTRIBUTING.md](CONTRIBUTING.md): Git workflow, branch , and commit rules, ownership- For Everyone.
 - [ARCHITECTURE.md](ARCHITECTURE.md): App layout and request flow- For everyone.
-- [CONFIGURATION.md](CONFIGURATION.md): Environment varivbales and settings- For Backend.
+- [CONFIGURATION.md](CONFIGURATION.md): Environment variables and settings- For Backend.
 - [PROGRESS.md](PROGRESS.md): What is built, decisions taken, what comes next- For everyone.
 - [api/](api/): API contracts per app- For Android, Web
 - [manuals/](manuals/): ---
@@ -24,6 +24,6 @@ The per-app contracts explain the behavior behind each endpoint: who may call it
 [CONTRACT-notifications.md]: Notification feed 
 [CONTRACT-reports.md]: Daily officer reports, weekly summary, CSV and PDF export.
 
-Field-level refrence lives in the code, not here
+Field-level reference lives in the code, not here
 --> Swagger at `/api/docs/`
 and the OpenAPI schema at `/api/schema/` are generated from the serializers and are always current.

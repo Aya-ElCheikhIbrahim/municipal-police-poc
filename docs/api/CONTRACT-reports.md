@@ -118,6 +118,8 @@ Query parameters: `officer_id`, `start_date` and `end_date` (all required; pass 
 
 A **paused** mission counts as in progress: it is still work in hand, not a finished one. `performance` is this officer's own averages, not the period's.
 
+> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. The `average_acknowledgement_seconds` metric (here and in the weekly report) and the per-mission `acknowledged_at` depend on Acknowledge and are scheduled for removal; once Acknowledge is gone they will read 0 / null.
+
 `timeline` is filled only when `start_date` equals `end_date`, which is what the screen asks for. Over a longer range it is an empty array and the client asks `/reports/activity/` for whatever slice it needs, rather than the server building a month of rows nobody asked to see.
 
 An id that is not an officer's returns 404. The figures come from the same helper the weekly and custom range tables use, so a number cannot disagree between two screens.

@@ -11,7 +11,7 @@ Auth
 SimpleJWT
 Password hashing: Argon2
 Database: PostgreSQL 18 (Docker, host port 5433)
-Cache/Channels: Redis 7 (Docker, port 5379)
+Cache: Redis 7 (Docker, port 5379)
 API docs: drf-spectacular + Swagger UI
 
 Django itself runs on thee host in a virtualenv, not in Docker.
@@ -37,15 +37,16 @@ Implemented:
 - Areas: GET /areas/ (Tripoli districts)
 - Shifts: start, end, active officers, officer trail
 - Location: batch ping ingest with offline dedupe
-- Missions: create, assign, acknowledge, start, complete, cancel, notes, photos, unacknowledged sweep
-- Panic (Alerts): trigger, active feed, cancel (grace window), resolve, location
+- Missions: create, assign, acknowledge, start, complete, cancel, notes, photos, unacknowledged sweep  <!-- ACK-REMOVAL PENDING: acknowledge + unacknowledged sweep are cancelled; see docs/PROGRESS.md -->
+- Panic (Alerts): trigger, active feed, cancel (grace window), resolve, location; nearby on-duty officers within `panic_nearby_radius_m` are alerted
 - Notifications: in-app feed, unread count, mark read / mark all read
 - Reports: daily (per-officer + all-officer summary), weekly/custom range, activity feed, officer report; CSV + Arabic PDF export
-- Push (FCM): backend delivery on mission assigned / cancelled / dispatcher message. Off while FCM_CREDENTIALS_FILE is empty; on once it points at the Firebase service-account key.
+- Push (FCM): backend delivery on mission assigned / cancelled / dispatcher message / panic alert. Off while FCM_CREDENTIALS_FILE is empty; on once it points at the Firebase service-account key. Now also integrated in the Android officer app (messaging SDK + device-token registration via POST /device-tokens/).
+
+> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only the owner requires it again
 
 Not started / out of scope:
-- WebSocket push: the map polls /shifts/active/ every 15s, which meets the refresh requirement without a socket layer.
-- Android FCM integration: backend push is done and the Firebase project is configured; the officer app still needs to add the messaging SDK and register its device token via POST /device-tokens/.
+- WebSocket / SSE push: the dashboard polls the REST API instead (the live map and panic feed every 5s). A deliberate decision - polling meets the refresh requirement without a socket layer. See docs/PROGRESS.md.
 ## Common commands
 
 python manage.py runserver
