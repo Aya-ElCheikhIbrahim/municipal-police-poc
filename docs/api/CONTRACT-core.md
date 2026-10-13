@@ -16,11 +16,14 @@ Returns all system settings as a flat object. A missing row in the database is n
   "panic_cancel_grace_seconds": 10,
   "mission_photo_min": 1,
   "mission_photo_max": 5,
+  "panic_nearby_radius_m": 2000,
   "map_refresh_seconds": 20
 }
 ```
 
-The Android app reads `location_ping_interval_seconds` when the shift starts and should re-read it periodically so a change from the dashboard takes effect without an app update. The web dashboard reads `map_refresh_seconds` on load to set its polling interval, and reads `mission_ack_timeout_minutes` to know how long to wait before alerting on an unacknowledged mission.
+The Android app reads `location_ping_interval_seconds` when the shift starts and should re-read it periodically so a change from the dashboard takes effect without an app update.
+
+> ⚠ As of 2026-10-13 the web dashboard does **not** read `map_refresh_seconds`; it polls the live map every 5s with a value hardcoded in `web/src/features/officers/useOfficers.ts`. `mission_ack_timeout_minutes` governs the unacknowledged-mission sweep (**[ACK-REMOVAL PENDING]** - cancelled, kept until the Acknowledge step is removed).
 
 Settings are cached server-side for 60 seconds. A change from the dashboard reaches every client within one cache cycle.
 
@@ -40,6 +43,7 @@ Supervisor only. Partial update — send only the keys you want to change. Retur
   "panic_cancel_grace_seconds": 10,
   "mission_photo_min": 1,
   "mission_photo_max": 5,
+  "panic_nearby_radius_m": 2000,
   "map_refresh_seconds": 20
 }
 ```
@@ -97,6 +101,13 @@ Returns the definition for each setting — its description, default, and bounds
     "maximum": 10
   },
   {
+    "key": "panic_nearby_radius_m",
+    "description": "Officers on duty within this many metres of a panic alert are notified.",
+    "default": 2000,
+    "minimum": 100,
+    "maximum": 20000
+  },
+  {
     "key": "map_refresh_seconds",
     "description": "How often the dispatcher dashboard reloads the map, in seconds.",
     "default": 20,
@@ -118,7 +129,9 @@ Any signed-in user. The city's districts, for the dashboard's area filters and f
 
 All role checks are defined in `core/permissions.py` and used across every app. They are enforced server-side — a client that omits a restricted field does not get a silent pass, the endpoint returns 403.
 
-`IsOfficer` — the user must have `role: officer`. Applied to shift start/end, location ping upload, mission acknowledge/start/complete, photo upload, and panic trigger.
+`IsOfficer` - the user must have `role: officer`. Applied to shift start/end, location ping upload, mission acknowledge/start/complete, photo upload, and panic trigger. <!-- ACK-REMOVAL PENDING: acknowledge is cancelled; see docs/PROGRESS.md -->
+
+`IsDispatcherOrSupervisor` below also covers the unacknowledged sweep (**[ACK-REMOVAL PENDING]**).
 
 `IsDispatcher` — the user must have `role: dispatcher`.
 

@@ -125,9 +125,11 @@ Reassignment after acknowledgement is refused with 400. At that point the office
 
 `POST /api/v1/missions/{id}/acknowledge/`
 
+> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete.
+
 Officer only. No request body.
 
-The officer confirms they have seen the mission. This is what changes the map marker from green to blue — not assignment. An officer being assigned a mission does not mean they have seen it yet.
+The officer confirms they have seen the mission. This is what changes the map marker from green to blue - not assignment. An officer being assigned a mission does not mean they have seen it yet. (Cancelled: `start` is allowed straight from `assigned`, and the Android app no longer shows this step.)
 
 `POST /api/v1/missions/{id}/start/`
 
@@ -202,5 +204,7 @@ Dispatcher and Supervisor only. No request body.
 Finds missions that have been assigned but not acknowledged within `mission_ack_timeout_minutes` (from `GET /api/v1/settings/`), flags each one, and returns the newly flagged missions. Safe to call on every dashboard poll — each mission is flagged only once. An empty list means nothing new was flagged this sweep.
 
 The status machine is: new → assigned → acknowledged → in_progress → completed. Any open status can transition to cancelled. An illegal transition returns 400 with a message naming the allowed statuses, never 500. `reassign` is a sideways move within assigned — it moves the mission to a different officer without changing the status.
+
+> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. `start` is allowed straight from `assigned`, so the live path is new → assigned → in_progress → completed; the `acknowledged` status and the `acknowledge`/`sweep-unacknowledged` endpoints above remain until removal.
 
 Event types written by the machine: `created`, `assigned`, `reassigned`, `acknowledged`, `started`, `completed`, `cancelled`, `photo_added`, `note_added`, `ack_alert_sent` (actor is null — raised by the system, not a person).

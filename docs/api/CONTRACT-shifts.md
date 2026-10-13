@@ -99,7 +99,9 @@ Distance computation excludes pings with `accuracy_m` greater than 100m (bad fix
 
 `GET /api/v1/shifts/active/`
 
-Dispatcher and Supervisor only. Returns every officer currently on duty, with their latest position and current mission. This is the data source for the live map (§4.6). Poll every 15–30 seconds — `map_refresh_seconds` from `GET /api/v1/settings/` gives the configured interval.
+Dispatcher and Supervisor only. Returns every officer currently on duty, with their latest position and current mission. This is the data source for the live map (§4.6).
+
+> ⚠ As of 2026-10-13 the web dashboard polls this endpoint every **5s** (`web/src/features/officers/useOfficers.ts`) and does not read `map_refresh_seconds`. The `map_refresh_seconds` setting (default 20) and the "15–30 seconds" figure are not what the client currently uses. See docs/PROGRESS.md.
 
 ```json
 [
@@ -127,13 +129,15 @@ Dispatcher and Supervisor only. Returns every officer currently on duty, with th
       "id": 31,
       "title": "Traffic obstruction on Al-Mina road",
       "priority": "high",
-      "status": "acknowledged"
+      "status": "in_progress"
     }
   }
 ]
 ```
 
-`status` is `in_mission` when the officer has an acknowledged or in-progress mission, and `available` otherwise. An officer who has been assigned a mission but has not yet acknowledged it is still `available` — showing them as busy would hide a free officer from the dispatcher. This is the same rule that controls map marker colour.
+`status` is `in_mission` only when the officer has an `in_progress` mission, and `available` otherwise (a `panic` status outranks both when the officer has an open alert). An officer who has been assigned a mission but has not yet started it is still `available` - showing them as busy would hide a free officer from the dispatcher. This is the same rule that controls map marker colour: blue means "working", not "notified".
+
+> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. An `acknowledged` officer (while that status still exists) counts as `available`, the same as an `assigned` one - only `in_progress` is `in_mission`.
 
 `current_mission` carries exactly four fields: `id`, `title`, `priority`, and `status`. The dispatcher drawer calls `GET /api/v1/missions/{id}/` for the full record; sending more here would duplicate data that is already one request away.
 

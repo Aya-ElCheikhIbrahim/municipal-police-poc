@@ -3,18 +3,22 @@
 Django 5.2 + PostgreSQL, split into nine apps by domain
 
 
-## The tree components
+## The three components
 
 Officer app
 Dispatcher dashboard
 Backend
 
 **REST** for everything the client asks for. **FCM push** for things the server
-must tell the phone (mission assigned). **WebSocket** for things the server must
-tell the dashboard instantly (officer moved, panic alert).
+must tell the phone (mission assigned, panic alert to nearby officers). The
+dispatcher dashboard gets its live updates (officer moved, panic alert) by
+**polling** the REST API on a short timer, not over a WebSocket.
 
-The asymmetry is deliberate: a browser tab is awake so a socket is cheap; a
-phone in a pocket has its radio off, so push is the only battery-sane option.
+The asymmetry is deliberate: a phone in a pocket has its radio off, so push is
+the only battery-sane way to reach it; a browser tab is awake and polling a
+couple of endpoints every few seconds is cheap enough that it is not worth a
+realtime layer, its infrastructure and its deployment story at POC scale. See
+`docs/PROGRESS.md` for the polling decision and the current intervals.
 
 # Backend layout
 
@@ -29,10 +33,10 @@ pagination, commands
 |--panic/
 |--reports/
 model
-|--realtime/
 |--notifications/
 
-Four apps own no database tables.
+Several apps own no database tables of their own - for example `reports`, which
+reads from `missions`, `shifts` and `panic` and owns no models or migrations.
 
 ## Files in an app
 
@@ -52,7 +56,7 @@ config/urls.py -> app/urls.py -> views.py -> permissions.py ->
 
 Completing a mission means: validate the status transition, confirm a photo
 exists, stamp `completed_at` and location, write a `MissionEvent` audit row,
-and broadcast over WebSocket.
+and send any notifications (the dashboard sees the change on its next poll).
 
 That is not view code. In `views.py` it becomes a 600-line file that four
 people edit at once. In `services.py` the view is four lines and the rules are
