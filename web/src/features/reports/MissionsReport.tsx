@@ -1,9 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
 import { useMissions } from '../missions/useMissions';
-import { useActiveOfficers } from '../officers/useOfficers';
-import { displayOfficerStatus } from '../officers/types';
+import { useLanguage } from '../../i18n/languagecontext';
 import { statusLabel, priorityLabel, formatTime, type MissionListItem } from '../missions/types';
+import { fetchDailySummary } from './api';
 
 type StatusFilter = 'ALL' | MissionListItem['status'];
 type PriorityFilter = 'ALL' | MissionListItem['priority'];
@@ -29,18 +29,30 @@ interface MissionsReportProps {
 }
 
 export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
+  const { language, translations: t } = useLanguage();
   const today = todayLocal();
 
   // Real missions from the backend (GET /missions/?date=today), polled live.
   const { missions, isLoading, error, refresh } = useMissions({ date: today });
 
-  // Officer status cards reflect who is on duty RIGHT NOW (live /shifts/active/ feed)
-  // plus the panic feed — not the whole-day summary, which also lists ended shifts.
+  // Officer status cards come from the daily summary + panic feed (real telemetry).
   const { alerts: panics } = usePanicAlerts();
-  const { officers: activeOfficers, refresh: refreshOfficers } = useActiveOfficers();
+  const [liveOfficers, setLiveOfficers] = useState<any[]>([]);
   const [lastUpdated, setLastUpdated] = useState(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   );
+
+  const loadOfficers = () => {
+    fetchDailySummary({ date: today })
+      .then((data) => data?.officers && setLiveOfficers(data.officers))
+      .catch(console.error);
+    setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  };
+
+  useEffect(() => {
+    loadOfficers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [priority, setPriority] = useState<PriorityFilter>('ALL');
@@ -95,27 +107,10 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
   const cancelled = missions.filter((m) => m.status === 'cancelled').length;
   const urgent = missions.filter((m) => m.priority === 'urgent').length;
 
-  const cardOfficers = useMemo(() => {
-    const activeById = new Map(activeOfficers.map((o) => [o.officer.id, o]));
-    const ids = new Set<number>([
-      ...activeOfficers.map((o) => o.officer.id),
-      ...panics.map((p) => p.officer.id),
-    ]);
-    return Array.from(ids)
-      .map((id) => {
-        const entry = activeById.get(id);
-        const panic = panics.find((p) => p.officer.id === id);
-        const feed = entry ? displayOfficerStatus(entry) : null;
-        return {
-          id,
-          name: entry?.officer.full_name ?? panic?.officer.full_name ?? 'Officer',
-          badge: entry?.officer.badge_number ?? panic?.officer.badge_number ?? '',
-          isPanic: Boolean(panic) || feed === 'panic',
-          isOnMission: feed === 'on_mission',
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeOfficers, panics]);
+  const panicNames = new Set(panics.map((panic) => panic.officer.full_name));
+  const officerCardNames = Array.from(
+    new Set([...liveOfficers.map((o) => o.officer_name), ...panics.map((p) => p.officer.full_name)]),
+  ).sort();
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -128,29 +123,28 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
 
   const handleRefresh = () => {
     refresh();
-    refreshOfficers();
-    setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    loadOfficers();
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Mission Overview</h2>
-          <p className="mt-1 text-sm text-slate-500">Today's live missions from the backend for {today}.</p>
+          <h2 className="text-lg font-bold text-slate-900">{t.reports.missions}</h2>
+          <p className="mt-1 text-sm text-slate-500">{language === 'ar' ? `المهام المباشرة لهذا اليوم من النظام الخلفي بتاريخ ${today}` : `Today's live missions from the backend for ${today}.`}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-slate-400">Last updated: {lastUpdated}</span>
+          <span className="text-xs font-medium text-slate-400">{language === 'ar' ? 'آخر تحديث' : 'Last updated'}: {lastUpdated}</span>
           <button
             type="button"
             onClick={handleRefresh}
             className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
           >
-            ↻ Refresh
+            ↻ {language === 'ar' ? 'تحديث' : 'Refresh'}
           </button>
           <span className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Live / Current
+            {language === 'ar' ? 'مباشر / حالي' : 'Live / Current'}
           </span>
         </div>
       </div>
@@ -162,38 +156,40 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <SummaryCard label="Today's missions" value={missions.length} />
-        <SummaryCard label="In progress" value={inProgress} />
-        <SummaryCard label="Completed" value={completed} />
-        <SummaryCard label="Cancelled" value={cancelled} />
-        <SummaryCard label="Urgent" value={urgent} />
+        <SummaryCard label={language === 'ar' ? 'مهام اليوم' : "Today's missions"} value={missions.length} />
+        <SummaryCard label={t.reports.inProgress} value={inProgress} />
+        <SummaryCard label={t.reports.completed} value={completed} />
+        <SummaryCard label={t.reports.cancelled} value={cancelled} />
+        <SummaryCard label={language === 'ar' ? 'عاجلة' : 'Urgent'} value={urgent} />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="text-base font-bold text-slate-800">Current Officer Status</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Directly reflecting backend officer telemetry.</p>
+            <h3 className="text-base font-bold text-slate-800">{t.reports.officerSummary}</h3>
+            <p className="mt-0.5 text-xs text-slate-500">{t.reports.officerSummary}</p>
           </div>
           <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Available</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />On Mission</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-500" />Panic</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />{language === 'ar' ? 'متاح' : 'Available'}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />{language === 'ar' ? 'في مهمة' : 'On Mission'}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-500" />{language === 'ar' ? 'استغاثة' : 'Panic'}</span>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
-          {cardOfficers.map((o) => {
-            const { isPanic, isOnMission } = o;
+          {officerCardNames.map((name) => {
+            const backendOfficer = liveOfficers.find((o) => o.officer_name === name);
+            const isPanic = panicNames.has(name) || (backendOfficer?.panic_events ?? 0) > 0;
+            const isOnMission = (backendOfficer?.missions_in_progress ?? 0) > 0;
             const statusLabelText = isPanic ? 'Panic' : isOnMission ? 'On Mission' : 'Available';
 
             return (
               <div
-                key={o.id}
+                key={name}
                 className={`rounded-lg border px-4 py-3 ${isPanic ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/70'}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-bold text-slate-800">
-                    {o.name} {o.badge ? `(${o.badge})` : ''}
+                    {name} {backendOfficer?.badge_number ? `(${backendOfficer.badge_number})` : ''}
                   </span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
@@ -207,15 +203,15 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
               </div>
             );
           })}
-          {cardOfficers.length === 0 && (
-            <div className="col-span-full py-4 text-center text-slate-400 text-sm">No officers on duty right now.</div>
+          {officerCardNames.length === 0 && (
+            <div className="col-span-full py-4 text-center text-slate-400 text-sm">{language === 'ar' ? 'لا يوجد عناصر في الخدمة اليوم.' : 'No officers on duty today.'}</div>
           )}
         </div>
       </div>
 
       <div className="bg-white/90 rounded-lg border border-slate-200/80 shadow-xs">
         <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
-          <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">Filter Missions</span>
+          <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">{t.reports.filter}</span>
           <button
             type="button"
             onClick={() => {
@@ -226,36 +222,27 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
             }}
             className="text-sm text-slate-500 hover:text-slate-800 font-medium cursor-pointer underline"
           >
-            Clear
+            {language === 'ar' ? 'مسح' : 'Clear'}
           </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4">
-          <Filter label="Status" value={status} onChange={(value) => setStatus(value as StatusFilter)}>
-            <option value="ALL">All Statuses</option>
-            <option value="new">New</option>
-            <option value="assigned">Assigned</option>
-            <option value="in_progress">In progress</option>
-            <option value="paused">Paused</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+          <Filter label={language === 'ar' ? 'الحالة' : 'Status'} value={status} onChange={(value) => setStatus(value as StatusFilter)}>
+            <option value="ALL">{language === 'ar' ? 'كل الحالات' : 'All Statuses'}</option>
+            <option value="new">{language === 'ar' ? 'جديدة' : 'New'}</option><option value="assigned">{language === 'ar' ? 'مُسندة' : 'Assigned'}</option><option value="acknowledged">{language === 'ar' ? 'تم الاستلام' : 'Acknowledged'}</option><option value="in_progress">{language === 'ar' ? 'قيد التنفيذ' : 'In progress'}</option><option value="paused">{language === 'ar' ? 'متوقفة مؤقتًا' : 'Paused'}</option><option value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</option><option value="cancelled">{language === 'ar' ? 'ملغاة' : 'Cancelled'}</option>
           </Filter>
 
-          <Filter label="Priority" value={priority} onChange={(value) => setPriority(value as PriorityFilter)}>
-            <option value="ALL">All Priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+          <Filter label={language === 'ar' ? 'الأولوية' : 'Priority'} value={priority} onChange={(value) => setPriority(value as PriorityFilter)}>
+            <option value="ALL">{language === 'ar' ? 'كل الأولويات' : 'All Priorities'}</option><option value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</option><option value="high">{language === 'ar' ? 'عالية' : 'High'}</option><option value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</option><option value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</option>
           </Filter>
 
-          <Filter label="Assigned Officer" value={officer} onChange={setOfficer}>
-            <option value="ALL">All Officers</option>
+          <Filter label={language === 'ar' ? 'العنصر المُسند إليه' : 'Assigned Officer'} value={officer} onChange={setOfficer}>
+            <option value="ALL">{language === 'ar' ? 'كل العناصر' : 'All Officers'}</option>
             {officerOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </Filter>
 
-          <Filter label="Area / Location" value={location} onChange={setLocation}>
-            <option value="ALL">All Areas</option>
+          <Filter label={language === 'ar' ? 'المنطقة/الموقع' : 'Area / Location'} value={location} onChange={setLocation}>
+            <option value="ALL">{language === 'ar' ? 'كل المناطق' : 'All Areas'}</option>
             {locationOptions.map((area) => <option key={area} value={area}>{area}</option>)}
           </Filter>
         </div>
@@ -263,9 +250,9 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-          <h3 className="text-base font-bold text-slate-800">Mission Activity</h3>
+          <h3 className="text-base font-bold text-slate-800">{t.reports.activity}</h3>
           <span className="text-sm font-semibold text-slate-500">
-            {rows.length} mission{rows.length === 1 ? '' : 's'}
+            {rows.length} {language === 'ar' ? 'مهام' : `mission${rows.length === 1 ? '' : 's'}`}
           </span>
         </div>
 
@@ -273,13 +260,13 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
           <table className="w-full text-left text-sm lg:text-base border-collapse min-w-[1020px]">
             <thead>
               <tr className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-100">
-                <SortHeader label="Mission" field="title" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Assigned Officer" field="officer" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Status" field="status" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Priority" field="priority" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Area / Location" field="location" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Assigned" field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label="Created" field="created" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'المهمة' : 'Mission'} field="title" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'العنصر المُسند إليه' : 'Assigned Officer'} field="officer" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'الحالة' : 'Status'} field="status" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'الأولوية' : 'Priority'} field="priority" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'المنطقة/الموقع' : 'Area / Location'} field="location" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'مُسندة' : 'Assigned'} field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
+                <SortHeader label={language === 'ar' ? 'تاريخ الإنشاء' : 'Created'} field="created" currentField={sortField} asc={sortAsc} onSort={handleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -307,7 +294,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-slate-400">
-                    {isLoading ? 'Loading missions from backend...' : 'No missions match the selected filters.'}
+                    {isLoading ? 'Loading missions from backend...' : language === 'ar' ? 'لا توجد مهام تطابق عوامل التصفية المحددة' : 'No missions match the selected filters.'}
                   </td>
                 </tr>
               )}

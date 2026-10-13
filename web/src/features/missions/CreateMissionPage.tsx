@@ -5,9 +5,10 @@ import { useMissionPin } from '../map/useMissionPin';
 import { useOfficerMarkers } from '../map/useOfficerMarkers';
 import { reverseGeocode } from '../map/reverseGeocode';
 import { locationCoords, searchTripoliLocations } from '../../data/tripoliLocations';
-import { MISSION_PRIORITIES, priorityLabel } from './types';
+import { MISSION_PRIORITIES } from './types';
 import type { CreateMissionRequest, MissionPriority } from './types';
 import type { ActiveOfficer } from '../officers/types';
+import { useLanguage } from '../../i18n/languagecontext';
 
 const TRIPOLI_CENTRE: [number, number] = [34.4367, 35.8497];
 
@@ -27,6 +28,7 @@ export function CreateMissionPage({
   onSubmit,
   onCancel,
 }: CreateMissionPageProps) {
+  const { translations: t } = useLanguage();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Municipal');
@@ -194,7 +196,7 @@ export function CreateMissionPage({
   return (
     <div className="flex-1 bg-white flex flex-col lg:flex-row w-full overflow-y-auto lg:overflow-hidden">
       <div className="w-full lg:w-1/2 p-4 lg:p-5 flex flex-col gap-2 lg:gap-3 lg:min-h-0 lg:overflow-hidden">
-        <h2 className="text-base lg:text-lg font-bold text-slate-900">New mission</h2>
+        <h2 className="text-base lg:text-lg font-bold text-slate-900">{t.missions.new}</h2>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-2 lg:gap-2.5 lg:flex-1 lg:min-h-0">
           {errors.detail && (
@@ -205,13 +207,13 @@ export function CreateMissionPage({
 
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-0.5">
-              Title
+              {t.missions.title}
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="What needs attention?"
+              placeholder={t.missions.titlePlaceholder}
               className={inputClass}
               required
             />
@@ -220,7 +222,7 @@ export function CreateMissionPage({
 
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-0.5">
-              Description
+              {t.missions.description}
             </label>
             <textarea
               rows={2}
@@ -233,23 +235,23 @@ export function CreateMissionPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-0.5">
-                Category
+                {t.missions.category}
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className={`${inputClass} bg-white`}
               >
-                <option value="Municipal">Municipal</option>
-                <option value="Sanitation">Sanitation</option>
-                <option value="Traffic">Traffic</option>
-                <option value="Infrastructure">Infrastructure</option>
+                <option value="Municipal">{t.missions.municipal}</option>
+                <option value="Sanitation">{t.missions.sanitation}</option>
+                <option value="Traffic">{t.missions.traffic}</option>
+                <option value="Infrastructure">{t.missions.infrastructure}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-0.5">
-                Priority
+                {t.missions.priority}
               </label>
               <select
                 value={priority}
@@ -258,7 +260,7 @@ export function CreateMissionPage({
               >
                 {MISSION_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
-                    {priorityLabel(p)}
+                    {t.missions[p]}
                   </option>
                 ))}
               </select>
@@ -268,7 +270,7 @@ export function CreateMissionPage({
           {/* Multi-Officer Selection Area */}
           <div className="flex flex-col lg:flex-1 lg:min-h-0">
             <label className="block text-xs font-medium text-slate-500 mb-0.5">
-              Assign to ({selectedOfficerIds.length} selected)
+              {t.missions.assignTo} ({selectedOfficerIds.length} {t.missions.selected})
             </label>
             <div
               ref={officerListRef}
@@ -276,7 +278,7 @@ export function CreateMissionPage({
             >
               {officers.length === 0 ? (
                 <p className="p-3 text-xs sm:text-sm text-amber-600">
-                  No officers on duty right now.
+                  {t.missions.noOfficers}
                 </p>
               ) : (
                 officers.map((entry) => {
@@ -308,7 +310,7 @@ export function CreateMissionPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="relative">
               <label className="block text-xs font-medium text-slate-500 mb-0.5">
-                Address
+                {t.missions.address}
                 {isLookingUpAddress && (
                   <span className="ml-1.5 font-normal text-slate-400">finding…</span>
                 )}
@@ -329,7 +331,7 @@ export function CreateMissionPage({
                   setAddressSource('typed');
                   setSuggestions(searchTripoliLocations(e.target.value));
                 }}
-                placeholder="Neighbourhood or street"
+                placeholder={t.missions.addressPlaceholder}
                 className={inputClass}
               />
               {suggestions.length > 0 && (
@@ -350,7 +352,7 @@ export function CreateMissionPage({
 
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-0.5">
-                Deadline — optional
+                {t.missions.deadline}
               </label>
               <input
                 type="datetime-local"
@@ -371,14 +373,14 @@ export function CreateMissionPage({
                 ? 'Creating…'
                 : selectedOfficerIds.length > 0
                 ? `Create and assign (${selectedOfficerIds.length})`
-                : 'Create mission'}
+                : t.missions.create}
             </button>
             <button
               type="button"
               onClick={onCancel}
               className="bg-white border border-slate-200 text-slate-700 text-sm font-semibold px-4 py-1.5 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
             >
-              Cancel
+              {t.common.cancel}
             </button>
           </div>
         </form>
@@ -390,8 +392,7 @@ export function CreateMissionPage({
 
           <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 z-10 pointer-events-none">
             <div className="bg-white/95 backdrop-blur px-3 sm:px-4 py-2 sm:py-3 rounded-md shadow-md text-sm sm:text-base text-slate-700 border border-slate-200">
-              Click the map to place the mission and fill in the address. The dots
-              are officers on duty — click one to assign them.
+              {t.missions.placeHint}
             </div>
           </div>
 
@@ -401,7 +402,7 @@ export function CreateMissionPage({
                 {coords[0].toFixed(4)}, {coords[1].toFixed(4)}
               </span>
             ) : (
-              <span className="text-slate-500">No location set</span>
+              <span className="text-slate-500">{t.missions.noLocation}</span>
             )}
           </div>
         </div>

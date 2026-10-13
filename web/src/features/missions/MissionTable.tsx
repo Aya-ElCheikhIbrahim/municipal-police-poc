@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { StatusBadge } from './MissionBadges';
 import { formatTime, formatMissionDuration } from './types';
 import type { MissionListItem, MissionPriority } from './types';
+import { useLanguage } from '../../i18n/languagecontext';
 
 const ROW_PRIORITY_STYLES: Record<MissionPriority, string> = {
   urgent: 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500',
@@ -83,6 +84,7 @@ export function MissionTable({
   sortAsc,
   onHeaderSort,
 }: MissionTableProps) {
+  const { translations: t } = useLanguage();
 
   const sortedMissions = useMemo(() => {
     const priorityOrder: Record<MissionPriority, number> = {
@@ -124,23 +126,23 @@ export function MissionTable({
       <div className="flex-1 flex flex-col justify-center items-center py-16 px-4">
         <div className="text-center max-w-md mx-auto">
           <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">
-            No missions match these filters
+            {t.missions.noMatch}
           </h3>
           <p className="text-base sm:text-lg text-slate-500 mb-6 leading-relaxed">
-            Try clearing the filters, or create a new mission.
+            {t.missions.clearHint}
           </p>
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={onClearFilters}
               className="px-5 sm:px-6 py-2.5 sm:py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-base sm:text-lg font-semibold rounded-md transition-colors shadow-xs cursor-pointer"
             >
-              Clear filters
+              {t.missions.clearFilters}
             </button>
             <button
               onClick={onCreate}
               className="px-5 sm:px-6 py-2.5 sm:py-3 bg-[#1F3864] hover:bg-[#182c50] text-white text-base sm:text-lg font-semibold rounded-md transition-colors shadow-xs cursor-pointer"
             >
-              New mission
+              {t.missions.newMission}
             </button>
           </div>
         </div>
