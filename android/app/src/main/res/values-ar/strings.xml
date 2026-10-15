@@ -32,7 +32,9 @@
 
     <!-- الدوام -->
     <string name="shift_off_duty_subtitle">سيبدأ تتبع الموقع الآن</string>
+    <string name="shift_your_missions">مهماتك</string>
     <string name="shift_start_button">بدء الدوام</string>
+    <string name="shift_start_required_for_mission">يرجى بدء الدوام أولاً للوصول إلى تفاصيل المهمة.</string>
     <string name="shift_off_duty_note">لا يُسجَّل موقعك خارج أوقات الدوام.</string>
     <string name="shift_elapsed_label">مدة الدوام</string>
     <string name="shift_missions_button">المهام</string>

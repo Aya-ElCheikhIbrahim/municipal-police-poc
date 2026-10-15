@@ -7,7 +7,7 @@ import android.os.SystemClock;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -39,6 +39,7 @@ public class MissionAdapter
 
     private final List<Mission> missions = new ArrayList<>();
     private final OnMissionClickListener listener;
+    private boolean showActionButtons = true;
 
     private android.location.Location userLocation;
 
@@ -94,12 +95,24 @@ public class MissionAdapter
     public MissionAdapter(
             OnMissionClickListener listener
     ) {
+        this(listener, true);
+    }
 
+    public MissionAdapter(
+            OnMissionClickListener listener,
+            boolean showActionButtons
+    ) {
         this.listener = listener;
+        this.showActionButtons = showActionButtons;
 
         timerHandler.post(
                 timerRunnable
         );
+    }
+
+    public void setShowActionButtons(boolean showActionButtons) {
+        this.showActionButtons = showActionButtons;
+        notifyDataSetChanged();
     }
 
 
@@ -550,18 +563,10 @@ public class MissionAdapter
             holder.itemView.setAlpha(1f);
             holder.itemView.setEnabled(true);
 
-            holder.btnAction.setText("Stop");
             holder.btnAction.setVisibility(View.VISIBLE);
             holder.btnAction.setEnabled(true);
             holder.btnAction.setAlpha(1f);
-            holder.btnAction.setBackgroundTintList(
-                    ColorStateList.valueOf(
-                            ContextCompat.getColor(
-                                    holder.itemView.getContext(),
-                                    R.color.urgent_alert
-                            )
-                    )
-            );
+            holder.btnAction.setImageResource(R.drawable.ic_stop_button);
 
             holder.workTimerRow.setVisibility(View.VISIBLE);
             holder.lockRow.setVisibility(View.GONE);
@@ -594,18 +599,10 @@ public class MissionAdapter
             holder.itemView.setAlpha(0.70f);
             holder.itemView.setEnabled(true);
 
-            holder.btnAction.setText("Paused");
             holder.btnAction.setVisibility(View.VISIBLE);
             holder.btnAction.setEnabled(false);
             holder.btnAction.setAlpha(0.55f);
-            holder.btnAction.setBackgroundTintList(
-                    ColorStateList.valueOf(
-                            ContextCompat.getColor(
-                                    holder.itemView.getContext(),
-                                    R.color.input_border
-                            )
-                    )
-            );
+            holder.btnAction.setImageResource(R.drawable.ic_play_button);
 
             holder.workTimerRow.setVisibility(View.VISIBLE);
             holder.lockRow.setVisibility(View.GONE);
@@ -636,18 +633,9 @@ public class MissionAdapter
             holder.itemView.setAlpha(1f);
             holder.itemView.setEnabled(true);
 
-            holder.btnAction.setText("Completed");
             holder.btnAction.setVisibility(View.GONE);
             holder.btnAction.setEnabled(false);
             holder.btnAction.setAlpha(1f);
-            holder.btnAction.setBackgroundTintList(
-                    ColorStateList.valueOf(
-                            ContextCompat.getColor(
-                                    holder.itemView.getContext(),
-                                    R.color.input_border
-                            )
-                    )
-            );
 
             holder.workTimerRow.setVisibility(View.VISIBLE);
             holder.lockRow.setVisibility(View.GONE);
@@ -680,18 +668,10 @@ public class MissionAdapter
                 holder.itemView.setAlpha(0.50f);
                 holder.itemView.setEnabled(false);
 
-                holder.btnAction.setText("Start work");
                 holder.btnAction.setVisibility(View.VISIBLE);
                 holder.btnAction.setEnabled(false);
                 holder.btnAction.setAlpha(0.35f);
-                holder.btnAction.setBackgroundTintList(
-                        ColorStateList.valueOf(
-                                ContextCompat.getColor(
-                                        holder.itemView.getContext(),
-                                        R.color.input_border
-                                )
-                        )
-                );
+                holder.btnAction.setImageResource(R.drawable.ic_play_button);
 
                 holder.workTimerRow.setVisibility(View.GONE);
                 holder.lockRow.setVisibility(View.VISIBLE);
@@ -705,18 +685,10 @@ public class MissionAdapter
                 holder.itemView.setAlpha(1f);
                 holder.itemView.setEnabled(true);
 
-                holder.btnAction.setText("Start work");
                 holder.btnAction.setVisibility(View.VISIBLE);
                 holder.btnAction.setEnabled(true);
                 holder.btnAction.setAlpha(1f);
-                holder.btnAction.setBackgroundTintList(
-                        ColorStateList.valueOf(
-                                ContextCompat.getColor(
-                                        holder.itemView.getContext(),
-                                        R.color.active_ok
-                                )
-                        )
-                );
+                holder.btnAction.setImageResource(R.drawable.ic_play_button);
 
                 holder.workTimerRow.setVisibility(View.GONE);
                 holder.lockRow.setVisibility(View.GONE);
@@ -741,18 +713,9 @@ public class MissionAdapter
             holder.itemView.setAlpha(1f);
             holder.itemView.setEnabled(true);
 
-            holder.btnAction.setText("Start work");
             holder.btnAction.setVisibility(View.GONE);
             holder.btnAction.setEnabled(false);
             holder.btnAction.setAlpha(1f);
-            holder.btnAction.setBackgroundTintList(
-                    ColorStateList.valueOf(
-                            ContextCompat.getColor(
-                                    holder.itemView.getContext(),
-                                    R.color.input_border
-                            )
-                    )
-            );
 
             long fixedDuration =
                     getFixedDurationSeconds(
@@ -782,6 +745,10 @@ public class MissionAdapter
             holder.itemView.setOnClickListener(
                     v -> listener.onMissionClick(mission)
             );
+        }
+
+        if (!showActionButtons) {
+            holder.btnAction.setVisibility(View.GONE);
         }
     }
 
@@ -992,7 +959,7 @@ public class MissionAdapter
 
         final TextView tvSubtitle;
 
-        final Button btnAction;
+        final ImageButton btnAction;
 
 
         final View workTimerRow;

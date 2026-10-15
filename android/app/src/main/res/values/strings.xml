@@ -32,7 +32,9 @@
 
     <!-- Shift / on-duty -->
     <string name="shift_off_duty_subtitle">Tracking begins now</string>
+    <string name="shift_your_missions">Your missions</string>
     <string name="shift_start_button">Start shift</string>
+    <string name="shift_start_required_for_mission">Please start your shift to access mission details.</string>
     <string name="shift_off_duty_note">Your location is not recorded while you are off duty.</string>
     <string name="shift_elapsed_label">Shift elapsed</string>
     <string name="shift_missions_button">Missions</string>
