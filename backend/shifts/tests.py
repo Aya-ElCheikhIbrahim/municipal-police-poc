@@ -7,22 +7,23 @@ break a requirement, and they run in a few seconds.
 """
 
 import uuid
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from datetime import timezone as dt_timezone
 from decimal import Decimal
+from io import StringIO
 from unittest import mock
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.db import connection
 from django.db.models import QuerySet
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
-from rest_framework_simplejwt.tokens import RefreshToken
 
+from core.registry import get_setting, invalidate_cache, set_settings
 from missions import services as mission_services
 from missions.models import Mission, MissionWork
 
@@ -44,15 +45,24 @@ def make_user(username, role="officer", **extra):
 
 
 def go_on_duty(officer, **kwargs):
-    """
-    Start a shift the way a real login does — with a refresh token.
-
-    ActiveShiftsView sweeps sessions that have no live token
-    (services.end_expired_shifts), so an officer who never got one is not on
-    duty as far as the map is concerned.
-    """
-    RefreshToken.for_user(officer)
     return services.start_shift(officer, **kwargs)
+
+
+BEIRUT = ZoneInfo("Asia/Beirut")
+
+
+def beirut(day, hour, minute=0):
+    return datetime.combine(day, time(hour, minute), tzinfo=BEIRUT)
+
+
+def make_shift(officer, started_at, ended_at=None):
+    """A shift at exact instants, bypassing start_shift's use of now()."""
+    return Shift.objects.create(
+        officer=officer,
+        started_at=started_at,
+        ended_at=ended_at,
+        status=Shift.Status.ACTIVE if ended_at is None else Shift.Status.ENDED,
+    )
 
 
 def ping_row(lat, lng, recorded_at, **extra):
@@ -594,78 +604,252 @@ class ActiveShiftsPanicTests(TestCase):
         self.assertNotEqual(row["position_source"], "panic")
 
 
-class EndExpiredShiftsTests(TestCase):
+class SettingsCacheMixin:
     """
-    §4.2 — a phone that dies mid-patrol never sends End Shift, so the officer
-    stays on the map for days. The refresh token is the only server-side
-    evidence the session is still alive, so its death ends the shift.
+    get_setting() caches in a process-wide LocMemCache that outlives the
+    rolled-back rows, so a test that changes a setting must not leak it.
     """
 
     def setUp(self):
+        super().setUp()
+        invalidate_cache()
+        self.addCleanup(invalidate_cache)
+
+
+# Away from either DST change, so every day here is 24 hours long.
+DAY = date(2026, 9, 10)
+
+
+class DailyDutySecondsTests(TestCase):
+    """
+    Duty is a daily target worked in as many stints as the officer needs, so
+    the day's total has to add them up, clipped to the Beirut day.
+    """
+
+    def setUp(self):
+        self.officer = make_user("duty_officer")
+
+    def test_one_stint(self):
+        make_shift(self.officer, beirut(DAY, 8), beirut(DAY, 12))
+
+        self.assertEqual(services.daily_duty_seconds(self.officer, DAY), 4 * 3600)
+
+    def test_three_stints_are_summed(self):
+        make_shift(self.officer, beirut(DAY, 7), beirut(DAY, 9))
+        make_shift(self.officer, beirut(DAY, 11), beirut(DAY, 14, 30))
+        make_shift(self.officer, beirut(DAY, 18), beirut(DAY, 19, 15))
+        # Someone else's duty is not this officer's.
+        make_shift(make_user("other_officer"), beirut(DAY, 8), beirut(DAY, 16))
+
+        self.assertEqual(
+            services.daily_duty_seconds(self.officer, DAY), int(6.75 * 3600)
+        )
+
+    def test_an_active_stint_counts_up_to_now(self):
+        make_shift(self.officer, beirut(DAY, 8), beirut(DAY, 10))
+        make_shift(self.officer, beirut(DAY, 14))
+
+        seconds = services.daily_duty_seconds(self.officer, DAY, now=beirut(DAY, 16, 30))
+
+        self.assertEqual(seconds, int(4.5 * 3600))
+
+    def test_a_shift_crossing_midnight_is_split_between_the_days(self):
+        """Counted once in total, never in full on both days."""
+        make_shift(self.officer, beirut(DAY, 20), beirut(DAY + timedelta(days=1), 2))
+
+        self.assertEqual(services.daily_duty_seconds(self.officer, DAY), 4 * 3600)
+        self.assertEqual(
+            services.daily_duty_seconds(self.officer, DAY + timedelta(days=1)), 2 * 3600
+        )
+
+    def test_defaults_to_the_local_day_of_now(self):
+        """01:00 Beirut is still the previous UTC day; the total must not be."""
+        make_shift(self.officer, beirut(DAY, 0, 30), beirut(DAY, 1, 30))
+
+        seconds = services.daily_duty_seconds(self.officer, now=beirut(DAY, 2))
+
+        self.assertEqual(seconds, 3600)
+
+
+class TodayDutyEndpointTests(SettingsCacheMixin, TestCase):
+    """GET /shifts/today/ — what replaces the app's per-shift counter."""
+
+    NOW = beirut(DAY, 15)
+
+    def setUp(self):
+        super().setUp()
+        self.officer = make_user("today_officer")
+        self.client = APIClient()
+        self.client.force_authenticate(self.officer)
+        patcher = mock.patch("django.utils.timezone.now", return_value=self.NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _today(self, query=""):
+        response = self.client.get(f"/api/v1/shifts/today/{query}")
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def test_on_shift_counts_every_stint_and_the_active_one(self):
+        make_shift(self.officer, beirut(DAY, 8), beirut(DAY, 10))
+        make_shift(self.officer, beirut(DAY, 13))
+
+        body = self._today()
+
+        self.assertEqual(body["date"], DAY.isoformat())
+        self.assertEqual(body["duty_seconds_today"], 4 * 3600)
+        self.assertEqual(body["target_seconds"], 8 * 3600)
+        self.assertEqual(
+            datetime.fromisoformat(body["active_shift_started_at"]), beirut(DAY, 13)
+        )
+        self.assertEqual(body["active_shift_seconds"], 2 * 3600)
+
+    def test_off_shift_after_a_split(self):
+        make_shift(self.officer, beirut(DAY, 8), beirut(DAY, 10))
+        make_shift(self.officer, beirut(DAY, 11), beirut(DAY, 12, 30))
+
+        body = self._today()
+
+        self.assertEqual(body["duty_seconds_today"], int(3.5 * 3600))
+        self.assertIsNone(body["active_shift_started_at"])
+        self.assertEqual(body["active_shift_seconds"], 0)
+
+    def test_a_shift_from_last_night_counts_only_from_midnight(self):
+        """The total is today's; the active shift's own length is not clipped."""
+        # 23:00 to 15:00 is past the default max_shift_hours; raise it here.
+        set_settings({"max_shift_hours": 24})
+        make_shift(self.officer, beirut(DAY - timedelta(days=1), 23))
+
+        body = self._today()
+
+        self.assertEqual(body["duty_seconds_today"], 15 * 3600)
+        self.assertEqual(body["active_shift_seconds"], 16 * 3600)
+
+    def test_target_follows_the_setting(self):
+        set_settings({"daily_duty_target_hours": 6})
+
+        self.assertEqual(self._today()["target_seconds"], 6 * 3600)
+
+    def test_a_forgotten_shift_is_closed_before_reporting(self):
+        """Past max_shift_hours the officer is not told they are still on duty."""
+        make_shift(self.officer, beirut(DAY, 3))
+
+        body = self._today()
+
+        self.assertEqual(body["duty_seconds_today"], 10 * 3600)
+        self.assertIsNone(body["active_shift_started_at"])
+        self.assertEqual(body["active_shift_seconds"], 0)
+
+    def test_an_officer_cannot_read_another_officers_totals(self):
+        other = make_user("today_other")
+        make_shift(other, beirut(DAY, 9))
+
+        body = self._today(f"?officer_id={other.id}")
+
+        self.assertEqual(body["duty_seconds_today"], 0)
+        self.assertIsNone(body["active_shift_started_at"])
+
+    def test_dispatcher_is_refused(self):
+        self.client.force_authenticate(make_user("today_dispatcher", role="dispatcher"))
+
+        response = self.client.get("/api/v1/shifts/today/")
+
+        self.assertEqual(response.status_code, 403)
+
+
+class EndExpiredShiftsTests(SettingsCacheMixin, TestCase):
+    """
+    §4.2 — a phone that dies mid-patrol never sends End Shift, so the officer
+    would stay on the map for days. No single stint runs past
+    max_shift_hours; the daily target is never enforced here.
+    """
+
+    def setUp(self):
+        super().setUp()
         self.officer = make_user("expiry_officer")
+        self.now = timezone.now()
 
-    def test_a_live_token_keeps_the_shift_active(self):
-        """An officer an hour into a 12-hour session is still on duty."""
-        RefreshToken.for_user(self.officer)
-        services.start_shift(self.officer)
+    def test_a_shift_past_the_limit_ends_at_the_limit(self):
+        """Not when the sweep noticed — the report must show real hours."""
+        shift = make_shift(self.officer, self.now - timedelta(hours=11))
 
-        ended = services.end_expired_shifts(now=timezone.now() + timedelta(hours=1))
+        ended = services.end_expired_shifts(now=self.now)
+
+        self.assertEqual([s.pk for s in ended], [shift.pk])
+        shift.refresh_from_db()
+        self.assertEqual(shift.status, Shift.Status.ENDED)
+        self.assertTrue(shift.ended_automatically)
+        self.assertEqual(
+            shift.ended_at,
+            shift.started_at + timedelta(hours=get_setting("max_shift_hours")),
+        )
+
+    def test_the_limit_follows_the_setting(self):
+        set_settings({"max_shift_hours": 6})
+        shift = make_shift(self.officer, self.now - timedelta(hours=7))
+
+        services.end_expired_shifts(now=self.now)
+
+        shift.refresh_from_db()
+        self.assertEqual(shift.ended_at, shift.started_at + timedelta(hours=6))
+
+    def test_a_shift_under_the_limit_is_left_alone(self):
+        """Past the 8-hour target is fine; only the safety net ends a shift."""
+        shift = make_shift(self.officer, self.now - timedelta(hours=9))
+
+        ended = services.end_expired_shifts(now=self.now)
 
         self.assertEqual(ended, [])
-        shift = Shift.objects.get(officer=self.officer)
+        shift.refresh_from_db()
         self.assertEqual(shift.status, Shift.Status.ACTIVE)
+        self.assertIsNone(shift.ended_at)
         self.assertFalse(shift.ended_automatically)
 
-    def test_an_expired_token_ends_the_shift_when_the_token_died(self):
-        """Not when the sweep noticed — the report must show real hours."""
-        token = RefreshToken.for_user(self.officer)
-        services.start_shift(self.officer)
-        outstanding = OutstandingToken.objects.get(jti=token["jti"])
-
-        ended = services.end_expired_shifts(now=timezone.now() + timedelta(hours=13))
-
-        self.assertEqual(len(ended), 1)
-        shift = Shift.objects.get(officer=self.officer)
-        self.assertEqual(shift.status, Shift.Status.ENDED)
-        self.assertTrue(shift.ended_automatically)
-        self.assertEqual(shift.ended_at, outstanding.expires_at)
-
-    def test_logout_ends_the_shift_no_later_than_now(self):
-        """A blacklisted token still carries a future expiry; it must not win."""
-        token = RefreshToken.for_user(self.officer)
-        services.start_shift(self.officer)
-        token.blacklist()
-
-        now = timezone.now()
-        ended = services.end_expired_shifts(now=now)
-
-        self.assertEqual(len(ended), 1)
-        shift = Shift.objects.get(officer=self.officer)
-        self.assertEqual(shift.status, Shift.Status.ENDED)
-        self.assertTrue(shift.ended_automatically)
-        self.assertLessEqual(shift.ended_at, now)
-
-    def test_a_manually_ended_shift_is_left_alone(self):
+    def test_an_ended_shift_is_left_alone(self):
         """end_shift() is the officer's own record; the sweep must not rewrite it."""
-        RefreshToken.for_user(self.officer)
-        services.start_shift(self.officer)
-        manual = services.end_shift(self.officer)
+        shift = make_shift(
+            self.officer,
+            self.now - timedelta(hours=14),
+            self.now - timedelta(hours=12),
+        )
+        original_end = shift.ended_at
 
-        ended = services.end_expired_shifts(now=timezone.now() + timedelta(hours=13))
+        ended = services.end_expired_shifts(now=self.now)
 
         self.assertEqual(ended, [])
-        shift = Shift.objects.get(pk=manual.pk)
-        self.assertEqual(shift.ended_at, manual.ended_at)
+        shift.refresh_from_db()
+        self.assertEqual(shift.ended_at, original_end)
         self.assertFalse(shift.ended_automatically)
 
     def test_running_the_sweep_twice_ends_nothing_the_second_time(self):
         """ActiveShiftsView calls this on every poll — it has to be a no-op."""
-        RefreshToken.for_user(self.officer)
-        services.start_shift(self.officer)
-        later = timezone.now() + timedelta(hours=13)
+        make_shift(self.officer, self.now - timedelta(hours=11))
 
-        first = services.end_expired_shifts(now=later)
-        second = services.end_expired_shifts(now=later)
+        first = services.end_expired_shifts(now=self.now)
+        second = services.end_expired_shifts(now=self.now)
 
         self.assertEqual(len(first), 1)
         self.assertEqual(second, [])
+
+
+class SimulateOfficersTests(TestCase):
+    """The demo harness still issues tokens; the sweep no longer reads them."""
+
+    def test_simulated_officers_stay_on_duty_and_stop_cleanly(self):
+        out = StringIO()
+        call_command(
+            "simulate_officers", officers=2, minutes=0, backfill_minutes=30, stdout=out
+        )
+
+        active = Shift.objects.filter(
+            officer__username__startswith="sim_officer_", status=Shift.Status.ACTIVE
+        )
+        self.assertEqual(active.count(), 2)
+
+        self.assertEqual(services.end_expired_shifts(), [])
+        self.assertEqual(active.count(), 2)
+
+        call_command("simulate_officers", stop=True, stdout=out)
+        self.assertEqual(active.count(), 0)
+
+

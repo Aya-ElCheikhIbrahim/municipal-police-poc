@@ -1,9 +1,10 @@
 """
 §4.2 — close shifts the officer never ended.
 
-Refresh-token expiry is passive: nothing fires at hour 12, so a phone that
-died mid-patrol leaves its shift active forever. ActiveShiftsView sweeps on
-every poll, but that only runs while a dispatcher is watching. Run this from
+A phone that died mid-patrol never sends End Shift, so its shift would stay
+active forever. Any single shift older than max_shift_hours is ended at
+started_at + max_shift_hours. ActiveShiftsView and /shifts/today/ sweep on
+every request, but those only run while someone is watching. Run this from
 cron so the sweep still happens overnight.
 """
 
@@ -13,7 +14,7 @@ from shifts import services
 
 
 class Command(BaseCommand):
-    help = "End active shifts whose officer has no live refresh token (§4.2)."
+    help = "End active shifts that have run longer than max_shift_hours (§4.2)."
 
     def handle(self, *args, **options):
         ended = services.end_expired_shifts()

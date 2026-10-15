@@ -120,6 +120,30 @@ DEFINITIONS: dict[str, Definition] = {
         minimum=10,
         maximum=60,
     ),
+    # An officer's duty is a daily target, worked in as many stints as the
+    # day needs. A target, not a cap: nothing ends a shift when it is reached.
+    # The 1-16 bounds are a guard rail, not a spec value: the municipality
+    # gives the default of 8 only.
+    "daily_duty_target_hours": Definition(
+        default=8,
+        description="Hours of duty an officer is expected to work per day, across all shifts.",
+        coerce=int,
+        minimum=1,
+        maximum=16,
+    ),
+    # Safety net for a shift nobody ended: end_expired_shifts() closes any one
+    # continuous stint at this length. It applies retroactively, so lowering
+    # it ends every active shift already past the new value on the next sweep.
+    # The 4-24 bounds are a guard rail, not a spec value: below 4 an ordinary
+    # stint would be cut short; above 24 a forgotten shift runs into the next
+    # day's report.
+    "max_shift_hours": Definition(
+        default=10,
+        description="A single shift still active after this many hours is ended automatically.",
+        coerce=int,
+        minimum=4,
+        maximum=24,
+    ),
 }
 
 
