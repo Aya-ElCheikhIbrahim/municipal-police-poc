@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
-from django.db.models import Max
+from django.db.models import Q
 from django.utils import timezone
-from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+
+from core.registry import get_setting
 
 from .models import LocationPing, Shift
 
@@ -137,49 +139,80 @@ def end_shift(officer, latitude=None, longitude=None) -> Shift:
 
 
 
-def _live_tokens(now):
-    return OutstandingToken.objects.filter(expires_at__gt=now, blacklistedtoken__isnull=True)
-
-
 def end_expired_shifts(now=None) -> list[Shift]:
     """
-    Close active shifts whose officer no longer has a usable refresh token.
-    Token expiry is passive (nothing fires at hour 12), so this runs as a
-    sweep. Safe to call repeatedly.
+    Close active shifts that have run longer than max_shift_hours — the
+    safety net for a phone that died mid-patrol and never sent End Shift.
+    Nothing fires at the limit, so this runs as a sweep. Safe to call
+    repeatedly.
+
+    The daily duty target is not enforced here: an officer may work past it,
+    in one stint or several. Only a single stint this long is assumed to be
+    forgotten.
     """
     now = now or timezone.now()
-    live_officer_ids = _live_tokens(now).values("user_id")
-    candidate_ids = list(
-        Shift.objects.filter(status=Shift.Status.ACTIVE)
-        .exclude(officer_id__in=live_officer_ids)
-        .values_list("id", flat=True)
-    )
+    limit = timedelta(hours=get_setting("max_shift_hours"))
+    overdue = Q(status=Shift.Status.ACTIVE, started_at__lt=now - limit)
+    candidate_ids = list(Shift.objects.filter(overdue).values_list("id", flat=True))
 
     ended = []
     for shift_id in candidate_ids:
         with transaction.atomic():
-            shift = (
-                Shift.objects.select_for_update()
-                .filter(pk=shift_id, status=Shift.Status.ACTIVE)
-                .first()
-            )
-            if shift is None:  # officer ended it themselves meanwhile
+            shift = Shift.objects.select_for_update().filter(overdue, pk=shift_id).first()
+            if shift is None:  # ended by the officer or another sweep meanwhile
                 continue
-            if _live_tokens(now).filter(user_id=shift.officer_id).exists():
-                continue  # refreshed between the query and the lock
 
-            last_expiry = OutstandingToken.objects.filter(
-                user_id=shift.officer_id
-            ).aggregate(m=Max("expires_at"))["m"]
-            # End at the moment the session died, not when the sweep noticed.
-            # min() covers logout (blacklisted token still has a future expiry);
-            # max() keeps the shift_ends_after_it_starts constraint happy.
-            shift.ended_at = max(min(last_expiry or now, now), shift.started_at)
+            # End where the limit fell, not when the sweep noticed, so the
+            # report credits max_shift_hours whether the next sweep runs a
+            # minute later or the next morning.
+            shift.ended_at = shift.started_at + limit
             shift.status = Shift.Status.ENDED
             shift.ended_automatically = True
             shift.save(update_fields=["ended_at", "status", "ended_automatically"])
             ended.append(shift)
     return ended
+
+
+def local_day_bounds(day) -> tuple[datetime, datetime]:
+    """Local midnight to the next local midnight (Asia/Beirut, per TIME_ZONE)."""
+    start = timezone.make_aware(datetime.combine(day, time.min))
+    return start, start + timedelta(days=1)
+
+
+def shifts_touching(officer, start, end):
+    """Shifts that overlap [start, end), including one still active."""
+    return Shift.objects.filter(officer=officer, started_at__lt=end).filter(
+        Q(ended_at__isnull=True) | Q(ended_at__gt=start)
+    )
+
+
+def clipped_duty_seconds(shifts, start, end, now=None) -> int:
+    """
+    Seconds of duty inside [start, end). Each shift is clipped to the window,
+    so one that crosses midnight counts towards each day only the part that
+    fell on it. An active shift counts up to now.
+
+    Same clipping as reports.services.generate_daily_officer_report.
+    """
+    now = now or timezone.now()
+    total = timedelta()
+    for shift in shifts:
+        shift_start = max(shift.started_at, start)
+        shift_end = min(shift.ended_at or now, end)
+        if shift_end > shift_start:
+            total += shift_end - shift_start
+    return int(total.total_seconds())
+
+
+def daily_duty_seconds(officer, date=None, now=None) -> int:
+    """
+    The officer's duty for one local calendar day, summed across every stint.
+    Defaults to today.
+    """
+    now = now or timezone.now()
+    day = date or timezone.localdate(now)
+    start, end = local_day_bounds(day)
+    return clipped_duty_seconds(shifts_touching(officer, start, end), start, end, now=now)
 
 
 def ingest_pings(officer, rows):

@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import IsDispatcherOrSupervisor, IsOfficer
+from core.registry import get_setting
 from missions.models import MissionWork
 from panic.models import PanicEvent
 
@@ -38,6 +39,23 @@ class TrailSerializer(serializers.Serializer):
     point_count = serializers.IntegerField()
     distance_covered_m = serializers.IntegerField()
     points = LocationPingSerializer(many=True)
+
+
+class DailyDutySerializer(serializers.Serializer):
+    """What GET /shifts/today/ returns."""
+
+    date = serializers.DateField()
+    duty_seconds_today = serializers.IntegerField(
+        help_text="Duty on this local day across every shift, the active one included. "
+        "A shift that started yesterday counts only from midnight."
+    )
+    target_seconds = serializers.IntegerField(
+        help_text="The daily duty target. A target, not a cap."
+    )
+    active_shift_started_at = serializers.DateTimeField(allow_null=True)
+    active_shift_seconds = serializers.IntegerField(
+        help_text="Length of the current shift so far, not clipped to today. 0 when off shift."
+    )
 
 class StartShiftView(APIView):
     """
@@ -116,6 +134,67 @@ class EndShiftView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(ShiftSerializer(shift).data, status=status.HTTP_200_OK)
+
+
+class TodayDutyView(APIView):
+    """
+    GET /api/v1/shifts/today/ — the officer's own duty total for today.
+
+    Duty is a daily target worked in as many stints as needed, so the app's
+    counter has to come from here: counting from the active shift's start
+    resets to zero on every split. Always the caller's own totals; there is
+    no way to ask about another officer.
+    """
+
+    permission_classes = [IsAuthenticated, IsOfficer]
+
+    @extend_schema(
+        responses={200: DailyDutySerializer},
+        examples=[
+            OpenApiExample(
+                "On shift, second stint",
+                value={
+                    "date": "2026-09-10",
+                    "duty_seconds_today": 14400,
+                    "target_seconds": 28800,
+                    "active_shift_started_at": "2026-09-10T13:00:00+03:00",
+                    "active_shift_seconds": 7200,
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                "Off shift",
+                value={
+                    "date": "2026-09-10",
+                    "duty_seconds_today": 7200,
+                    "target_seconds": 28800,
+                    "active_shift_started_at": None,
+                    "active_shift_seconds": 0,
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    def get(self, request):
+        # Close a forgotten shift first, so an officer past max_shift_hours
+        # is not told they are still on duty.
+        services.end_expired_shifts()
+
+        now = timezone.now()
+        active = Shift.objects.filter(
+            officer=request.user, status=Shift.Status.ACTIVE
+        ).first()
+
+        payload = {
+            "date": timezone.localdate(now),
+            "duty_seconds_today": services.daily_duty_seconds(request.user, now=now),
+            "target_seconds": get_setting("daily_duty_target_hours") * 3600,
+            "active_shift_started_at": active.started_at if active else None,
+            "active_shift_seconds": (
+                int((now - active.started_at).total_seconds()) if active else 0
+            ),
+        }
+        return Response(DailyDutySerializer(payload).data)
 
 
 class BulkLocationPingView(APIView):

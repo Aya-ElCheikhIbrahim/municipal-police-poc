@@ -58,6 +58,19 @@ class SystemSettingTests(TestCase):
         self.assertEqual(get_setting("location_ping_interval_seconds"), 30)  # §4.3
         self.assertEqual(get_setting("mission_ack_timeout_minutes"), 5)  # §4.9
         self.assertEqual(get_setting("location_retention_days"), 90)  # §5
+        self.assertEqual(get_setting("daily_duty_target_hours"), 8)
+        self.assertEqual(get_setting("max_shift_hours"), 10)
+
+    def test_shift_hour_bounds_are_enforced(self):
+        """A zero-hour target or a 2-hour auto-close would be a typo, not policy."""
+        for key, too_low, too_high in [
+            ("daily_duty_target_hours", 0, 17),
+            ("max_shift_hours", 3, 25),
+        ]:
+            with self.assertRaises(SettingError):
+                set_settings({key: too_low})
+            with self.assertRaises(SettingError):
+                set_settings({key: too_high})
 
     def test_defaults_apply_with_no_rows_present(self):
         """A fresh database and a configured one behave identically."""
