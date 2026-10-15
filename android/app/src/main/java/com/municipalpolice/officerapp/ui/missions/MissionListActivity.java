@@ -43,6 +43,7 @@ import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class MissionListActivity extends BaseActivity
@@ -1024,6 +1025,37 @@ public class MissionListActivity extends BaseActivity
     }
 
 
+    private int getStatusWeight(MissionStatus status) {
+        if (status == null) return 0;
+        switch (status) {
+            case PAUSED:
+            case IN_PROGRESS:
+            case ACKNOWLEDGED:
+                return 2;
+            case NEW:
+            case ASSIGNED:
+                return 1;
+            default:
+                return 0;
+        }
+    }
+
+    private int getPriorityWeight(Priority priority) {
+        if (priority == null) return 0;
+        switch (priority) {
+            case URGENT:
+                return 4;
+            case HIGH:
+                return 3;
+            case MEDIUM:
+                return 2;
+            case LOW:
+                return 1;
+            default:
+                return 0;
+        }
+    }
+
     private void renderFilteredList() {
 
         List<Mission> filtered =
@@ -1056,6 +1088,20 @@ public class MissionListActivity extends BaseActivity
                 );
             }
         }
+
+        Collections.sort(filtered, (m1, m2) -> {
+            int s1 = getStatusWeight(m1.getStatus());
+            int s2 = getStatusWeight(m2.getStatus());
+            if (s1 != s2) {
+                return Integer.compare(s2, s1);
+            }
+            int p1 = getPriorityWeight(m1.getPriority());
+            int p2 = getPriorityWeight(m2.getPriority());
+            if (p1 != p2) {
+                return Integer.compare(p2, p1);
+            }
+            return Integer.compare(m2.getId(), m1.getId());
+        });
 
         adapter.submitList(
                 filtered

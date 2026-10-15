@@ -73,15 +73,14 @@
 
 
             <!-- START / STOP BUTTON -->
-            <Button
+            <ImageButton
                 android:id="@+id/btnAction"
-                style="@style/Button.Success"
-                android:layout_width="wrap_content"
+                android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginStart="@dimen/space_s"
-                android:minWidth="80dp"
-                android:text="Start work"
-                android:textSize="14sp" />
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_play_button"
+                android:contentDescription="Action button" />
 
         </LinearLayout>
 
