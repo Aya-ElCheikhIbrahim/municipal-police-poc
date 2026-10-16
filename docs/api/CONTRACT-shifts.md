@@ -1,6 +1,6 @@
 # API contract - shifts
 
-shifts/tests.py::HaversineTests, ShiftLifecycleTests, LocationIngestTests, PermissionTests, ActiveShiftsContractTests, ActiveShiftsMissionTests, DistanceCachingTests, ActiveShiftsQueryCountTests, TrailDayBoundaryTests, StartShiftRaceRecoveryTests
+shifts/tests.py::HaversineTests, ShiftLifecycleTests, LocationIngestTests, PermissionTests, ActiveShiftsContractTests, ActiveShiftsMissionTests, DistanceCachingTests, ActiveShiftsQueryCountTests, TrailDayBoundaryTests, StartShiftRaceRecoveryTests, ActiveShiftsPanicTests, DailyDutySecondsTests, TodayDutyEndpointTests, EndExpiredShiftsTests, SimulateOfficersTests, DutyTargetReminderTests, StartShiftAfterForgottenShiftTests, ActiveShiftsDutyTotalsTests
 
 `POST /api/v1/shifts/start/`
 
@@ -38,7 +38,7 @@ Officer only. Stops tracking and marks the officer offline. Position is optional
 { "latitude": 34.446700, "longitude": 35.849700 }
 ```
 
-Returns 200 with the ended shift. No active shift returns 400. Ending a shift does not revoke the JWT — the client must also call `POST /api/v1/logout/` with the refresh token. The two are separate because a failed blacklist would otherwise leave a phone believing its session was revoked when it was not.
+Returns 200 with the ended shift. No active shift returns 400. An officer who is actively on a mission (an open mission work period) also returns 400 — `Finish mission #{id} before ending your shift.` — and must complete the mission, or have it cancelled, first. A mission that is only assigned or acknowledged (not started), or one that is paused, does not block ending the shift. Ending a shift does not revoke the JWT — the client must also call `POST /api/v1/logout/` with the refresh token. The two are separate because a failed blacklist would otherwise leave a phone believing its session was revoked when it was not.
 
 ```json
 {
@@ -127,6 +127,7 @@ Dispatcher and Supervisor only. Returns every officer currently on duty, with th
       "received_at": "2026-09-07T08:30:05Z",
       "is_offline_sync": false
     },
+    "position_source": "ping",
     "current_mission": {
       "id": 31,
       "title": "Traffic obstruction on Al-Mina road",
@@ -144,6 +145,8 @@ Dispatcher and Supervisor only. Returns every officer currently on duty, with th
 `current_mission` carries exactly four fields: `id`, `title`, `priority`, and `status`. The dispatcher drawer calls `GET /api/v1/missions/{id}/` for the full record; sending more here would duplicate data that is already one request away.
 
 `latest_ping` is null when the officer has just started a shift and no ping has arrived yet. An officer with no pings still appears in the list.
+
+`position_source` says where `latest_ping` was taken from, since it is not always a real ping. It is one of: `ping` (the latest location ping); `panic` (the position of an open panic alert — used while the officer is panicking and no newer ping has arrived since the alert was triggered); `shift_start` (no ping yet, so the shift's start coordinates are shown, with `accuracy_m` and `battery_level` null and `network_type` `unknown`); or `null` when there is no position at all, in which case `latest_ping` is also null. This is independent of `status`: an officer can be `status: "panic"` while `position_source` is `ping` when a fresh ping arrived after the alert — the marker stays red, but it sits on the newer position.
 
 `distance_covered_m` is read directly from `shift.distance_m`, which ingest keeps current. The query is fixed-cost regardless of how many officers are on duty — it does not scale with officer count.
 
@@ -183,3 +186,35 @@ Points are ordered by `recorded_at`, never `received_at`. After an offline sync 
 ```
 
 `distance_covered_m` in this response is recomputed from the filtered ping sequence rather than read from `shift.distance_m`, because the trail endpoint can be asked for a past date whose shift is no longer active. The same filtering rules apply — fixes with `accuracy_m` above 100m are excluded, and segments shorter than 10m are not counted.
+
+
+`GET /api/v1/shifts/today/`
+
+Officer only. Returns the caller's own duty total for today. There is no way to ask about another officer; a dispatcher or supervisor gets 403.
+
+This is the source for the app's on-screen duty counter. It cannot be derived on the phone by counting from the active shift's start, because duty is a daily target worked across as many stints as the officer needs, and that count would reset to zero every time they split and start a new shift.
+
+Reading this endpoint first closes a forgotten shift (the same `max_shift_hours` safety-net sweep the reports use), so an officer who ran past the limit is not told they are still on duty.
+
+```json
+{
+  "date": "2026-09-10",
+  "duty_seconds_today": 14400,
+  "target_seconds": 28800,
+  "active_shift_started_at": "2026-09-10T13:00:00+03:00",
+  "active_shift_seconds": 7200
+}
+```
+
+`date` is the Beirut local date (Asia/Beirut). `duty_seconds_today` is every stint worked today, the active one included, each clipped to Beirut local midnight — the same figure as `duty_seconds_today` on `/shifts/active/`. `target_seconds` is the `daily_duty_target_hours` setting (default 8h, so 28800); it is a target, not a cap. `active_shift_started_at` and `active_shift_seconds` describe the current stint only; off shift they are `null` and `0` respectively.
+
+```json
+{
+  "date": "2026-09-10",
+  "duty_seconds_today": 7200,
+  "target_seconds": 28800,
+  "active_shift_started_at": null,
+  "active_shift_seconds": 0
+}
+```
+

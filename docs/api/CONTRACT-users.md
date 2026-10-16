@@ -53,13 +53,15 @@ Supervisor only. Returns one user by id.
 
 `PATCH /api/v1/users/{id}/`
 
-Supervisor only. Partial update — send only the fields to change. Editable fields: `full_name`, `phone`, `role`, `preferred_language`, `is_active`. PUT is not supported; the router is configured for PATCH only.
+Supervisor only. Partial update — send only the fields to change. Editable fields: `full_name`, `badge_number`, `phone`, `role`, `preferred_language`, `is_active`. PUT is not supported; the router is configured for PATCH only.
 
 ```json
 { "role": "dispatcher", "phone": "70000001" }
 ```
 
 Returns the updated user object. Password is not in this serializer — use `POST /api/v1/password-reset/` to change a password.
+
+Editing `badge_number` does **not** change `username`, the login credential. As noted under `GET /api/v1/users/`, the two are stored separately and `username` is only set from the badge at account creation, so after a badge change the officer still signs in with the old value.
 
 `GET /api/v1/users/me/`
 
