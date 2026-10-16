@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from core.registry import get_setting
 from notifications.services import notify_duty_target_approaching
-
+from missions.models import MissionWork
 from .models import DutyTargetReminder, LocationPing, Shift
 
 logger = logging.getLogger(__name__)
@@ -139,7 +139,15 @@ def end_shift(officer, latitude=None, longitude=None) -> Shift:
     )
     if shift is None:
         raise ShiftError("You do not have an active shift.")
-
+    current_mission_id = (
+        MissionWork.objects.filter(officer=officer, ended_at__isnull=True)
+        .values_list("mission_id", flat=True)
+        .first()
+    )
+    if current_mission_id is not None:
+        raise ShiftError(
+            f"Finish mission #{current_mission_id} before ending your shift."
+        )
     shift.ended_at = timezone.now()
     shift.status = Shift.Status.ENDED
     shift.end_latitude = _as_decimal(latitude)

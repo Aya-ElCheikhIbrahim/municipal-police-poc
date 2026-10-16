@@ -137,6 +137,64 @@ class ShiftLifecycleTests(TestCase):
         _, created = services.start_shift(self.officer)
         self.assertTrue(created)
 
+    def test_end_shift_blocked_while_mission_in_progress(self):
+        """An officer actively on a mission cannot go offline mid-task."""
+        dispatcher = make_user("disp", role="dispatcher")
+        services.start_shift(self.officer)
+        mission = mission_services.create_mission(
+            created_by=dispatcher,
+            title="Pothole on Al-Mina road",
+            latitude=34.4367,
+            longitude=35.8497,
+            priority=Mission.Priority.HIGH,
+            officers=[self.officer],
+        )
+        mission_services.start_mission(mission, officer=self.officer)
+
+        with self.assertRaises(services.ShiftError):
+            services.end_shift(self.officer)
+
+        # The shift must still be active — the end was rejected, not half-applied.
+        self.assertTrue(
+            Shift.objects.filter(
+                officer=self.officer, status=Shift.Status.ACTIVE
+            ).exists()
+        )
+
+    def test_end_shift_allowed_with_assigned_but_unstarted_mission(self):
+        """A mission that was sent but never started does not pin the officer on duty."""
+        dispatcher = make_user("disp", role="dispatcher")
+        services.start_shift(self.officer)
+        mission_services.create_mission(
+            created_by=dispatcher,
+            title="Not started yet",
+            latitude=34.4367,
+            longitude=35.8497,
+            officers=[self.officer],
+        )
+
+        ended = services.end_shift(self.officer)
+        self.assertEqual(ended.status, Shift.Status.ENDED)
+
+    def test_end_shift_allowed_once_mission_no_longer_in_progress(self):
+        """Closing the mission's work period frees the officer to end the shift."""
+        dispatcher = make_user("disp", role="dispatcher")
+        services.start_shift(self.officer)
+        mission = mission_services.create_mission(
+            created_by=dispatcher,
+            title="Cleared elsewhere",
+            latitude=34.4367,
+            longitude=35.8497,
+            officers=[self.officer],
+        )
+        mission_services.start_mission(mission, officer=self.officer)
+        mission_services.cancel_mission(
+            mission, actor=dispatcher, reason="Resolved on site."
+        )
+
+        ended = services.end_shift(self.officer)
+        self.assertEqual(ended.status, Shift.Status.ENDED)
+
     def test_distance_is_computed_from_pings(self):
         """`shifts_shift` has no distance column — it must come from the trail."""
         services.start_shift(self.officer)
