@@ -26,6 +26,7 @@ class NotificationType(models.TextChoices):
     MISSION_UNACKNOWLEDGED = "mission_unacknowledged", "Mission Not Acknowledged"
     DISPATCHER_MESSAGE = "dispatcher_message", "Dispatcher Message"
     PANIC_ALERT = "panic_alert", "Panic Alert"
+    DUTY_TARGET_REMINDER = "duty_target_reminder", "Duty Target Reminder"
  
  
 class Notification(models.Model):

@@ -51,6 +51,10 @@
     <string name="status_online">Online</string>
     <string name="status_no_signal">No signal</string>
 
+    <!-- Daily duty total: worked / target, as hours:minutes -->
+    <string name="duty_total">Duty %1$s / %2$s</string>
+    <string name="duty_total_over">Duty %1$s / %2$s (%3$s over)</string>
+
     <!-- Notification -->
     <string name="notification_location_title">Municipal Police</string>
     <string name="notification_location_text">Location Tracking Active</string>

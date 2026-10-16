@@ -51,6 +51,10 @@
     <string name="status_online">متصل</string>
     <string name="status_no_signal">لا إشارة</string>
 
+    <!-- مجموع الدوام اليومي: المنجز / المطلوب، بالساعات:الدقائق -->
+    <string name="duty_total">الدوام %1$s / %2$s</string>
+    <string name="duty_total_over">الدوام %1$s / %2$s (زيادة %3$s)</string>
+
     <!-- الإشعارات -->
     <string name="notification_location_title">شرطة البلدية</string>
     <string name="notification_location_text">تتبع الموقع نشط</string>

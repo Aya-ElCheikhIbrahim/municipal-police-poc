@@ -15,6 +15,9 @@ section 4.7:
   - panic alert                 → all active dispatchers and supervisors
   and supervisors
 
+daily duty target:
+  - target approaching          → the officer, once per day
+
   Officer notifications (Assigned, cancelled, dispatcher message) are also pushed to the officer's phone through FCM, see push.py. The sorted row stays the source of truth, the push is best effort
 """
 from users.models import Role
@@ -151,6 +154,33 @@ def notify_dispatcher_message(officer, sender, message, mission=None):
         title=f"Message from {sender.full_name}",
         body=message,
         related_mission=mission,
+    )
+    _push_after_commit(notification)
+    return notification
+
+
+def _hours_minutes(seconds):
+    hours, minutes = divmod(int(seconds) // 60, 60)
+    return f"{hours}h {minutes:02d}m" if minutes else f"{hours}h"
+
+
+def notify_duty_target_approaching(officer, duty_seconds, target_seconds):
+    """
+    Call from shifts.services on ping ingest. The DutyTargetReminder marker
+    there is what makes this once per officer per day, so this does not
+    re-check it.
+
+    A reminder, not a limit: nothing ends the shift at the target, and the
+    message says so rather than telling the officer to stop.
+    """
+    notification = Notification.objects.create(
+        recipient=officer,
+        notification_type=NotificationType.DUTY_TARGET_REMINDER,
+        title="Daily duty target approaching",
+        body=(
+            f"You have worked {_hours_minutes(duty_seconds)} today "
+            f"of your {_hours_minutes(target_seconds)} target."
+        ),
     )
     _push_after_commit(notification)
     return notification

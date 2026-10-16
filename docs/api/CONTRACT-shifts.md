@@ -114,6 +114,8 @@ Dispatcher and Supervisor only. Returns every officer currently on duty, with th
     "status": "in_mission",
     "shift_started_at": "2026-09-07T07:00:00Z",
     "shift_duration_seconds": 5400,
+    "duty_seconds_today": 12600,
+    "target_seconds": 28800,
     "distance_covered_m": 3200,
     "latest_ping": {
       "latitude": "34.436700",
@@ -144,6 +146,12 @@ Dispatcher and Supervisor only. Returns every officer currently on duty, with th
 `latest_ping` is null when the officer has just started a shift and no ping has arrived yet. An officer with no pings still appears in the list.
 
 `distance_covered_m` is read directly from `shift.distance_m`, which ingest keeps current. The query is fixed-cost regardless of how many officers are on duty — it does not scale with officer count.
+
+`shift_duration_seconds` is the length of the current shift (stint) only, measured from `shift_started_at` to now. An officer works their day in as many stints as they need, so this resets to zero each time they start a new shift. It is not clipped to the day: a shift that began before midnight counts in full.
+
+`duty_seconds_today` is every stint the officer has worked today, the current one included, with each stint clipped to Beirut local midnight (Asia/Beirut). A shift that crossed midnight counts only its part after midnight, so it is never counted on both days. For an officer on their first stint of the day, both fields are equal. In the sample above, the officer worked a 2-hour stint earlier and is 1.5 hours into the current one. This is the field to read when judging how close an officer is to their daily target. All listed officers' totals come from one query, so this field does not add a query per officer either.
+
+`target_seconds` is the daily duty target, from the `daily_duty_target_hours` setting (default 8 hours, so 28800). It is the same for every row. It is a target, not a cap: nothing ends a shift when it is reached, and an officer may exceed it.
 
 `GET /api/v1/officers/{id}/trail/`
 

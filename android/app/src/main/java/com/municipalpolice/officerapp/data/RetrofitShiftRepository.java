@@ -3,6 +3,7 @@ package com.municipalpolice.officerapp.data;
 import android.content.Context;
 import android.util.Log;
 
+import com.municipalpolice.officerapp.model.DutyToday;
 import com.municipalpolice.officerapp.model.Shift;
 import com.municipalpolice.officerapp.util.PrefsManager;
 
@@ -94,6 +95,35 @@ public class RetrofitShiftRepository implements ShiftRepository {
             @Override
             public void onFailure(Call<Shift> call, Throwable t) {
                 Log.e(TAG, "End shift network failure", t);
+                callback.onError(t);
+            }
+        });
+    }
+
+    @Override
+    public void fetchToday(Callback<DutyToday> callback) {
+        apiService.fetchToday().enqueue(new retrofit2.Callback<DutyToday>() {
+            @Override
+            public void onResponse(Call<DutyToday> call, Response<DutyToday> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    String errorBodyStr = "";
+                    try {
+                        if (response.errorBody() != null) {
+                            errorBodyStr = response.errorBody().string();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to read error body", e);
+                    }
+                    Log.e("API_ERROR", "GET /api/v1/shifts/today/ HTTP " + response.code() + " Error: " + errorBodyStr);
+                    callback.onError(new Exception(formatErrorMessage(response.code(), errorBodyStr)));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<DutyToday> call, Throwable t) {
+                Log.e(TAG, "Fetch duty today network failure", t);
                 callback.onError(t);
             }
         });
