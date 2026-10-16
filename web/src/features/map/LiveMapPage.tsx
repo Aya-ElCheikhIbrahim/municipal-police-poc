@@ -7,7 +7,6 @@ import type { ActiveOfficer, OfficerStatus, OfficerTrail } from '../officers/typ
 import {
   formatDuration,
   formatDistance,
-  statusLabel,
   pingToCoords,
   displayOfficerStatus,
 } from '../officers/types';

@@ -16,6 +16,7 @@ export interface CreateUserRequest {
 /** Body for PATCH /users/{id}/. Matches UserUpdateSerializer. */
 export interface UpdateUserRequest {
   full_name?: string;
+  badge_number?: string;
   phone?: string;
   role?: UserRole;
   preferred_language?: LanguageCode;
