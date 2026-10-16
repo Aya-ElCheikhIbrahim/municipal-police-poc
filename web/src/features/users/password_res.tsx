@@ -1,6 +1,6 @@
 // src/features/users/ResetPasswordModal.tsx
 import React, { useState } from 'react';
-
+import { useLanguage } from '../../i18n/languagecontext';
 export interface User {
   id: string | number;
   name: string;
@@ -25,7 +25,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
   const [code, setCode] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
-
+  const { translations: t } = useLanguage();
   if (!isOpen || !user) return null;
 
   const handleGenerate = async () => {
@@ -61,15 +61,15 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
         {/* STEP 1: CONFIRM BEFORE GENERATING */}
         {step === 1 && (
           <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4 text-slate-900">Reset password</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-900">{t.resetCode.title}</h2>
             
             <div className="mb-1 font-semibold text-slate-900">{user.name}</div>
             <div className="text-sm text-slate-500 mb-4">
-              Badge {user.badge} · {user.role}
+              {t.resetCode.badge} {user.badge} · {user.role}
             </div>
 
             <p className="text-sm text-slate-500 mb-6">
-              This code is valid for 15 minutes only.
+              {t.resetCode.validFor}
             </p>
 
             <div className="flex justify-end gap-3">
@@ -79,7 +79,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 disabled={loading}
                 className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition"
               >
-                Cancel
+                {t.resetCode.cancel}
               </button>
               <button
                 type="button"
@@ -87,7 +87,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 disabled={loading}
                 className="px-4 py-2 text-sm font-medium text-white bg-[#1e293b] hover:bg-[#0f172a] rounded-md transition"
               >
-                {loading ? 'Generating...' : 'Generate code'}
+                {loading ? t.resetCode.generating : t.resetCode.generate}
               </button>
             </div>
           </div>
@@ -97,7 +97,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
         {step === 2 && (
           <div className="p-6">
             <h2 className="text-xl font-semibold mb-6 text-slate-900">
-              Reset code for {user.name}
+              {t.resetCode.codeFor} {user.name}
             </h2>
 
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center mb-4">
@@ -105,12 +105,12 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 {code}
               </div>
               <div className="text-xs font-semibold text-amber-600">
-                Expires in 15 minutes
+                {t.resetCode.expires}
               </div>
             </div>
 
             <p className="text-xs text-slate-400 text-center mb-6">
-              This code is shown only now. It cannot be looked up again.
+              {t.resetCode.shownOnce}
             </p>
 
             <div className="flex justify-end gap-3">
@@ -119,14 +119,14 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 onClick={handleCopy}
                 className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 transition"
               >
-                {copied ? 'Copied!' : 'Copy code'}
+                {copied ? t.resetCode.copied : t.resetCode.copy}
               </button>
               <button
                 type="button"
                 onClick={handleClose}
                 className="px-4 py-2 text-sm font-medium text-white bg-[#1e293b] hover:bg-[#0f172a] rounded-md transition"
               >
-                Done
+                	{t.resetCode.done}
               </button>
             </div>
           </div>

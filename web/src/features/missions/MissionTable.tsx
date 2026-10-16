@@ -5,10 +5,10 @@ import type { MissionListItem, MissionPriority } from './types';
 import { useLanguage } from '../../i18n/languagecontext';
 
 const ROW_PRIORITY_STYLES: Record<MissionPriority, string> = {
-  urgent: 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500',
-  high: 'bg-orange-50 hover:bg-orange-100 border-l-4 border-orange-500',
-  medium: 'bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-500',
-  low: 'bg-slate-50 hover:bg-slate-100 border-l-4 border-slate-500',
+  urgent: 'bg-red-50 hover:bg-red-100 border-s-4 border-red-500',
+  high: 'bg-orange-50 hover:bg-orange-100 border-s-4 border-orange-500',
+  medium: 'bg-blue-50 hover:bg-blue-100 border-s-4 border-blue-500',
+  low: 'bg-slate-50 hover:bg-slate-100 border-s-4 border-slate-500',
 };
 
 export type MissionSortField =
@@ -165,7 +165,7 @@ export function MissionTable({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-block bg-slate-200/80 text-slate-700 text-xs font-bold px-2.5 py-1 rounded uppercase tracking-wider">
-                  {category}
+                  {t.missionCategory[category.toLowerCase() as keyof typeof t.missionCategory] ?? category}
                 </span>
               </div>
               <div className="font-semibold text-slate-900 text-lg">{mission.title}</div>
@@ -179,7 +179,7 @@ export function MissionTable({
               )}
               <div className="flex items-center justify-between gap-2 pt-1">
                 <StatusBadge status={mission.status} />
-                <span className="text-sm text-slate-500">{formatTime(mission.created_at)}</span>
+                <span className="text-sm text-slate-500">{formatTime(mission.created_at, { am: t.common.am, pm: t.common.pm })}</span>
               </div>
               {mission.duration_seconds !== null && (
                 <div className="text-sm text-slate-500">
@@ -212,13 +212,13 @@ export function MissionTable({
                 <table className="w-full text-left text-sm lg:text-base border-collapse">
           <thead>
             <tr className="text-slate-500 font-bold uppercase tracking-wider text-xs lg:text-sm *:sticky *:top-0 *:z-10 *:bg-slate-50 *:shadow-[inset_0_-1px_0_var(--color-slate-200)]">
-              <SortHeader label="Title" field="title" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
-              <SortHeader label="Category" field="category" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
-              <SortHeader label="Status" field="status" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
-              <SortHeader label="Mission Duration" field="duration" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
-              <SortHeader label="Assigned To" field="assignedTo" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
-              <SortHeader label="Created" field="created" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
-            </tr>
+              <SortHeader label={t.missions.title} field="title" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+<SortHeader label={t.missions.category} field="category" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+<SortHeader label={t.missions.status} field="status" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+<SortHeader label={t.missions.duration} field="duration" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+<SortHeader label={t.missions.assignedTo} field="assignedTo" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+<SortHeader label={t.missions.created} field="created" currentField={activeSort === 'priority' ? null : activeSort} asc={sortAsc} onSort={onHeaderSort} />
+</tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {sortedMissions.map((mission) => {
@@ -256,9 +256,9 @@ export function MissionTable({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-block bg-slate-200/80 text-slate-700 text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                      {category}
-                    </span>
+                    <span className="inline-block bg-slate-200/80 text-slate-700 text-xs font-bold px-2.5 py-1 rounded uppercase tracking-wider">
+  {t.missionCategory[category.toLowerCase() as keyof typeof t.missionCategory] ?? category}
+</span>
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={mission.status} />
@@ -280,7 +280,7 @@ export function MissionTable({
                       <span className="text-slate-400">Unassigned</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{formatTime(mission.created_at)}</td>
+                  <td className="px-4 py-3 text-slate-500">{formatTime(mission.created_at, { am: t.common.am, pm: t.common.pm })}</td>
                 </tr>
               );
             })}
@@ -294,10 +294,9 @@ export function MissionTable({
 function LoadingTable() {
   return (
     <div className="hidden md:block shrink-0 border border-slate-200 rounded-md overflow-hidden">
-            <table className="w-full text-left text-sm lg:text-base border-collapse">
+          <table className="w-full text-start text-sm lg:text-base border-collapse">
         <thead>
-          <tr className="bg-slate-50/80 text-slate-400 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-200">
-            <th className="px-4 py-3">Title</th>
+          <tr className="bg-slate-50/80 text-slate-400 font-semibold uppercase tracking-wider text-xs lg:text-sm border-b border-slate-200">            <th className="px-4 py-3">Title</th>
             <th className="px-4 py-3">Category</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Mission Duration</th>

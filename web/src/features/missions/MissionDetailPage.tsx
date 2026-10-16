@@ -6,7 +6,7 @@ import { canCancel, canReassign, formatMissionDuration } from './types';
 import { ApiError } from '../../shared/api/client';
 import type { ActiveOfficer } from '../officers/types';
 import { missionsApi } from './api';
-
+import { useLanguage } from '../../i18n/languagecontext';
 interface MissionDetailPageProps {
   missionId: number;
   officers: ActiveOfficer[];
@@ -22,7 +22,7 @@ export function MissionDetailPage({
   onChanged,
 }: MissionDetailPageProps) {
   const { mission, isLoading, error, refresh } = useMissionDetail(missionId);
-
+  const { translations: t } = useLanguage();
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [isReassigning, setIsReassigning] = useState(false);
@@ -41,7 +41,7 @@ export function MissionDetailPage({
       setIsReassigning(false);
       setCancelReason('');
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'That did not work.');
+      setActionError(err instanceof ApiError ? err.message : t.missionDetail.actionFailed);
     } finally {
       setIsBusy(false);
     }
@@ -66,10 +66,10 @@ export function MissionDetailPage({
           onClick={onBack}
           className="text-xs text-indigo-600 font-semibold hover:underline cursor-pointer"
         >
-          ← Back to all missions
+          {t.missionDetail.onBack}
         </button>
         <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 mt-4">
-          {error ?? 'Mission not found.'}
+          {error ?? t.missionDetail.notFound}
         </p>
       </div>
     );
@@ -82,21 +82,21 @@ export function MissionDetailPage({
           onClick={onBack}
           className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
         >
-          ← Back to all missions
+           {t.missionDetail.onBack}
         </button>
 
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900">{mission.title}</h2>
             <p className="text-xs text-slate-500 mt-1">
-              {mission.address || 'No address given'}
+              {mission.address || t.missionDetail.noAddress}
               {mission.assigned_to.length > 0
                 ? ` · ${mission.assigned_to
-                    .map((officer) => `${officer.full_name}, badge ${officer.badge_number}`)
+                    .map((officer) => `${officer.full_name}, ${t.missionDetail.badge} ${officer.badge_number}`)
                     .join('; ')}`
-                : ' · Unassigned'}
+                : ` · ${t.missionDetail.unassigned}`}
               {mission.duration_seconds !== null &&
-                ` · ${formatMissionDuration(mission.duration_seconds)} on mission`}
+                ` · ${formatMissionDuration(mission.duration_seconds)} ${t.missionDetail.onMission}`}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -107,7 +107,7 @@ export function MissionDetailPage({
 
         {mission.description && (
           <div className="space-y-1.5">
-            <div className="text-xs font-semibold text-slate-600">Description</div>
+            <div className="text-xs font-semibold text-slate-600">{t.missionDetail.description}</div>
             <p className="text-xs text-slate-600 leading-relaxed">
               {mission.description}
             </p>
@@ -116,11 +116,11 @@ export function MissionDetailPage({
 
         <div>
           <div className="text-xs font-semibold text-slate-600 mb-3">
-            Photo evidence · {mission.photos.length}
+            {t.missionDetail.photoEvidence} · {mission.photos.length}
           </div>
           {mission.photos.length === 0 ? (
             <p className="text-xs text-slate-400">
-              No photos yet. Officers attach these from the mobile app.
+              {t.missionDetail.noPhotos}
             </p>
           ) : (
             <div className="grid grid-cols-4 gap-4">
@@ -134,7 +134,7 @@ export function MissionDetailPage({
                 >
                   <img
                     src={photo.image}
-                    alt="Mission evidence"
+                    alt={t.missionDetail.evidenceAlt}
                     className="w-full h-full object-cover"
                   />
                 </a>
@@ -145,14 +145,14 @@ export function MissionDetailPage({
 
         {mission.notes && (
           <div className="space-y-1.5 pt-2">
-            <div className="text-xs font-semibold text-slate-600">Officer notes</div>
+            <div className="text-xs font-semibold text-slate-600">{t.missionDetail.officerNotes}</div>
             <p className="text-xs text-slate-600 leading-relaxed">{mission.notes}</p>
           </div>
         )}
 
         {mission.cancellation_reason && (
           <div className="space-y-1.5 pt-2">
-            <div className="text-xs font-semibold text-rose-700">Cancellation reason</div>
+            <div className="text-xs font-semibold text-rose-700">{t.missionDetail.cancellationReason}</div>
             <p className="text-xs text-slate-600 leading-relaxed">
               {mission.cancellation_reason}
             </p>
@@ -174,7 +174,7 @@ export function MissionDetailPage({
               }}
               className="bg-white border border-slate-200 text-slate-800 text-xs font-semibold px-4 py-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
             >
-              Reassign
+              {t.missionDetail.reassign}
             </button>
           )}
 
@@ -183,7 +183,7 @@ export function MissionDetailPage({
               onClick={() => setIsCancelling(!isCancelling)}
               className="bg-[#C62828] hover:bg-rose-800 text-white text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer"
             >
-              Cancel mission
+              {t.missionDetail.cancelMission}
             </button>
           )}
         </div>
@@ -191,10 +191,10 @@ export function MissionDetailPage({
                 {isReassigning && (
           <div className="border border-slate-200 rounded-md p-4 space-y-3 max-w-md flex flex-col min-h-0">
             <label className="block text-xs font-semibold text-slate-600">
-              Assign to
+              {t.missionDetail.assignTo}
             </label>
             {officers.length === 0 ? (
-              <p className="text-xs text-slate-500">No officers are on duty.</p>
+              <p className="text-xs text-slate-500">{t.missionDetail.noOfficersOnDuty}</p>
             ) : (
               <div className="flex flex-col gap-3 min-h-0">
                 {/* Only the names scroll; the page and the Save button stay put. */}
@@ -218,7 +218,7 @@ export function MissionDetailPage({
                         }
                       />
                       {entry.officer.full_name}
-                      <span className="text-slate-400">· Badge {entry.officer.badge_number}</span>
+                      <span className="text-slate-400">· {t.missionDetail.badge} {entry.officer.badge_number}</span>
                     </label>
                   );
                 })}
@@ -228,7 +228,7 @@ export function MissionDetailPage({
                   onClick={() => run(() => missionsApi.assign(mission.id, reassignIds))}
                   className="shrink-0 self-start bg-[#1F3864] hover:bg-[#2E5496] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer"
                 >
-                  Save officers
+                  {t.missionDetail.saveOfficers}
                 </button>
               </div>
             )}
@@ -238,13 +238,13 @@ export function MissionDetailPage({
         {isCancelling && (
           <div className="border border-rose-200 rounded-md p-4 space-y-3 max-w-md">
             <label className="block text-xs font-semibold text-slate-600">
-              Reason for cancelling
+              {t.missionDetail.reasonForCancelling}
             </label>
             <textarea
               rows={2}
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="e.g. Duplicate of mission #12"
+              	placeholder={t.missionDetail.cancelPlaceholder}
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1F3864] resize-none"
             />
             <div className="flex items-center gap-2">
@@ -253,13 +253,13 @@ export function MissionDetailPage({
             onClick={() => run(() => missionsApi.cancel(mission.id, cancelReason.trim()))}
                 className="bg-[#C62828] hover:bg-rose-800 disabled:bg-slate-300 text-white text-xs font-semibold px-4 py-2 rounded-md cursor-pointer"
               >
-                {isBusy ? 'Cancelling…' : 'Confirm cancellation'}
+                {isBusy ? t.missionDetail.cancelling : t.missionDetail.confirmCancellation}
               </button>
               <button
                 onClick={() => setIsCancelling(false)}
                 className="text-xs text-slate-600 px-3 py-2 cursor-pointer"
               >
-                Keep mission
+                {t.missionDetail.keepMission}
               </button>
             </div>
           </div>
@@ -268,7 +268,7 @@ export function MissionDetailPage({
 
       <aside className="w-72 bg-slate-50/60 border-l border-slate-200 p-6 flex flex-col overflow-y-auto">
               <h3 className="text-xs font-semibold text-slate-500 mb-6 uppercase tracking-wider">
-          Lifecycle
+          {t.missionDetail.lifecycle}
         </h3>
         <div className="flex-1">
           <MissionLifecycle events={mission.events} />

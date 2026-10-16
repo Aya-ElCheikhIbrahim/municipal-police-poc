@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLanguage } from './i18n/languagecontext';
 import municipalPoliceLogo from './assets/policelogo.png';
-import { roleLabel } from './features/auth/types';
 import { useAuth } from './features/auth/AuthContext';
 import { UsersPage } from './features/users/UsersPage';
 import { LiveMapPage, type MapFocus } from './features/map/LiveMapPage';
@@ -224,7 +223,7 @@ export default function MainDashboard() {
 
             <span className="text-slate-200 font-medium text-xs lg:text-sm truncate max-w-[140px] lg:max-w-[240px]">
               {user
-                ? `${user.full_name} · ${roleLabel(user.role)}`
+                ? `${user.full_name} · ${t.roles[user.role]}`
                 : ''}
             </span>
 

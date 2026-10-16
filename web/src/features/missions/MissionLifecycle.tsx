@@ -1,10 +1,12 @@
-import { eventLabel, formatTime } from './types';
+import { formatTime } from './types';
+import { useLanguage } from '../../i18n/languagecontext';
 import type { MissionEvent } from './types';
-
 export function MissionLifecycle({ events }: { events: MissionEvent[] }) {
+  const { translations: t } = useLanguage();
+
   if (events.length === 0) {
     return (
-      <p className="text-xs text-slate-400">No activity recorded yet.</p>
+      <p className="text-xs text-slate-400">{t.missionDetail.noActivity}</p>
     );
   }
 
@@ -33,11 +35,11 @@ export function MissionLifecycle({ events }: { events: MissionEvent[] }) {
 
             <div className="text-xs">
               <div className="font-bold text-slate-900 leading-tight">
-                {eventLabel(event.event_type)}
+                {t.missionEvents[event.event_type]}
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5">
                 <span className="font-medium text-slate-600">
-                  {formatTime(event.created_at)}
+                  {formatTime(event.created_at, { am: t.common.am, pm: t.common.pm })}
                 </span>
                 {event.actor && <span> · {event.actor.full_name}</span>}
               </div>

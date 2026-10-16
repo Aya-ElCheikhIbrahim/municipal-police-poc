@@ -5,6 +5,7 @@ import { displayOfficerStatus } from '../officers/types';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
 import { exportDailyExcel, exportDailyPDF, fetchOfficerReport } from './api';
 import { useLanguage } from '../../i18n/languagecontext';
+import { localizeNumbers } from '../../i18n/numbers';
 import type {
   FilterState,
   OfficerMission,
@@ -87,6 +88,7 @@ function SortHeader({
 
 export function OfficerReport({ officerId, sourceTab, filters, onBack, onMissionSelect }: OfficerReportProps) {
   const { language, translations: t } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const today = localDateString(new Date());
 
   const initialMode: PeriodMode = sourceTab === 'Daily activity' ? 'DAY' : sourceTab === 'Weekly summary' ? 'WEEK' : 'CUSTOM';
@@ -231,10 +233,10 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
 
         <div className="flex gap-2">
           <button onClick={() => handleExport('Excel')} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer">
-            Export Excel
+                {t.reports.exportExcel}
           </button>
           <button onClick={() => handleExport('PDF')} className="inline-flex h-10 items-center justify-center rounded-md bg-[#203E72] px-4 text-sm font-semibold text-white shadow-xs hover:bg-[#19345f] cursor-pointer">
-            Export PDF
+                 {t.reports.exportPdf}
           </button>
         </div>
       </div>
@@ -284,20 +286,20 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
                 </>
               )}
             </div>
-            <div className="text-base font-semibold text-slate-500 text-left sm:text-right">{selectedRangeText}</div>
+            <div className="text-base font-semibold text-slate-500 text-left sm:text-right">{n(selectedRangeText)}</div>
           </div>
         </div>
       </div>
 
       <section>
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-          <MetricCard value={formatMinutes((summary?.hours_on_duty ?? 0) * 60)} label="Hours on duty" />
-          <MetricCard value={`${((summary?.distance_covered_m ?? 0) / 1000).toFixed(1)} km`} label="Distance covered" />
-          <MetricCard value={summary?.missions_assigned ?? 0} label="Missions" />
-          <MetricCard value={completedCount} label="Completed" />
-          <MetricCard value={cancelledCount} label="Cancelled" />
-          <MetricCard value={inProgressCount} label="In progress" />
-          <MetricCard value={summary?.panic_events ?? 0} label="Panic events" />
+          <MetricCard value={n(formatMinutes((summary?.hours_on_duty ?? 0) * 60))} label="Hours on duty" />
+          <MetricCard value={`${n(((summary?.distance_covered_m ?? 0) / 1000).toFixed(1))} km`} label="Distance covered" />
+          <MetricCard value={n(summary?.missions_assigned ?? 0)} label="Missions" />
+          <MetricCard value={n(completedCount)} label="Completed" />
+          <MetricCard value={n(cancelledCount)} label="Cancelled" />
+          <MetricCard value={n(inProgressCount)} label="In progress" />
+          <MetricCard value={n(summary?.panic_events ?? 0)} label="Panic events" />
         </div>
       </section>
 
@@ -305,7 +307,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-bold text-slate-900">{t.reports.activity}</h3>
-            <span className="text-base font-semibold text-slate-500">{timeline.length} event{timeline.length === 1 ? '' : 's'}</span>
+            <span className="text-base font-semibold text-slate-500">{n(timeline.length)} event{timeline.length === 1 ? '' : 's'}</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -321,7 +323,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
               <tbody className="divide-y divide-slate-100">
                 {timeline.map((event, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/70">
-                    <td className="px-4 py-3 font-bold text-slate-800">{formatTime(event.at)}</td>
+                    <td className="px-4 py-3 font-bold text-slate-800">{n(formatTime(event.at))}</td>
                     <td className="px-4 py-3 text-slate-600">{event.area || '—'}</td>
                     <td className="px-4 py-3">
                       <span className="inline-flex px-2 py-1 rounded-md text-sm font-bold bg-slate-100 text-slate-700">
@@ -344,9 +346,9 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-5">
           <h3 className="text-base font-bold text-slate-900 mb-4">{t.reports.missions}</h3>
           <div className="grid grid-cols-3 gap-3">
-            <OutcomeCard value={completedCount} label="Completed" />
-            <OutcomeCard value={inProgressCount} label="In progress" />
-            <OutcomeCard value={cancelledCount} label="Cancelled" />
+            <OutcomeCard value={n(completedCount)} label="Completed" />
+            <OutcomeCard value={n(inProgressCount)} label="In progress" />
+            <OutcomeCard value={n(cancelledCount)} label="Cancelled" />
           </div>
         </div>
 
@@ -354,11 +356,11 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
           <h3 className="text-base font-bold text-slate-900 mb-4">{t.reports.officerActivity}</h3>
           <div className="grid grid-cols-2 gap-3">
             <ResponseCard
-              value={performance?.average_acknowledgement_seconds ? `${Math.round(performance.average_acknowledgement_seconds / 60)}m` : '—'}
+              value={performance?.average_acknowledgement_seconds ? n(`${Math.round(performance.average_acknowledgement_seconds / 60)}m`) : '—'}
               label="Avg acknowledgement"
             />
             <ResponseCard
-              value={performance?.average_completion_seconds ? `${Math.round(performance.average_completion_seconds / 60)}m` : '—'}
+              value={performance?.average_completion_seconds ? n(`${Math.round(performance.average_completion_seconds / 60)}m`) : '—'}
               label="Avg completion"
             />
           </div>
@@ -391,7 +393,7 @@ export function OfficerReport({ officerId, sourceTab, filters, onBack, onMission
             >
               Priority {missionSortField === 'priority' ? (missionSortAsc ? '▲' : '▼') : '↕'}
             </button>
-            <span className="text-base font-semibold text-slate-500">{sortedMissions.length} mission{sortedMissions.length === 1 ? '' : 's'}</span>
+            <span className="text-base font-semibold text-slate-500">{n(sortedMissions.length)} mission{sortedMissions.length === 1 ? '' : 's'}</span>
           </div>
         </div>
 
@@ -486,7 +488,7 @@ function MetricCard({ value, label }: { value: string | number; label: string })
   );
 }
 
-function OutcomeCard({ value, label }: { value: number; label: string }) {
+function OutcomeCard({ value, label }: { value: string | number; label: string }) {
   return (
     <div className="border border-slate-100 bg-slate-50 rounded-lg p-3">
       <div className="text-base font-bold text-slate-900">{value}</div>
@@ -505,6 +507,8 @@ function ResponseCard({ value, label }: { value: string; label: string }) {
 }
 
 function MissionRow({ mission, onSelect }: { mission: OfficerMission; onSelect: () => void }) {
+  const { language } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const priorityRowStyle =
     mission.priority === 'URGENT'
       ? 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500'
@@ -521,7 +525,7 @@ function MissionRow({ mission, onSelect }: { mission: OfficerMission; onSelect: 
 
   return (
     <tr className={`transition-colors ${priorityRowStyle}`}>
-      <td className="px-4 py-3 text-slate-600">{formatDate(mission.assigned_at ? mission.assigned_at.slice(0, 10) : '')}</td>
+      <td className="px-4 py-3 text-slate-600">{n(formatDate(mission.assigned_at ? mission.assigned_at.slice(0, 10) : ''))}</td>
       <td className="px-4 py-3 font-semibold text-slate-900">
         <button
           type="button"
@@ -533,9 +537,9 @@ function MissionRow({ mission, onSelect }: { mission: OfficerMission; onSelect: 
       </td>
       <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded text-sm font-bold ${statusStyle}`}>{mission.status.replace('_', ' ')}</span></td>
       <td className="px-4 py-3 text-slate-600">{mission.area || '—'}</td>
-      <td className="px-4 py-3 text-slate-600">{formatTime(mission.assigned_at)}</td>
-      <td className="px-4 py-3 text-slate-600">{formatTime(mission.acknowledged_at)}</td>
-      <td className="px-4 py-3 text-slate-600">{formatTime(mission.completed_at)}</td>
+      <td className="px-4 py-3 text-slate-600">{n(formatTime(mission.assigned_at))}</td>
+      <td className="px-4 py-3 text-slate-600">{n(formatTime(mission.acknowledged_at))}</td>
+      <td className="px-4 py-3 text-slate-600">{n(formatTime(mission.completed_at))}</td>
     </tr>
   );
 }

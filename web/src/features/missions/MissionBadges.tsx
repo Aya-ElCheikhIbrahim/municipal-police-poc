@@ -1,6 +1,5 @@
-import { statusLabel } from './types';
+import { useLanguage } from '../../i18n/languagecontext';
 import type { MissionPriority, MissionStatus } from './types';
-
 const PRIORITY_STYLES: Record<MissionPriority, string> = {
   urgent: 'bg-rose-100 text-rose-700',
   high: 'bg-amber-100 text-amber-700',
@@ -9,9 +8,10 @@ const PRIORITY_STYLES: Record<MissionPriority, string> = {
 };
 
 export function PriorityBadge({ priority }: { priority: MissionPriority }) {
+  const { translations: t } = useLanguage();
   return (
     <span className={`px-3 py-1.5 rounded text-base font-bold uppercase ${PRIORITY_STYLES[priority]}`}>
-      {priority}
+      {t.missions[priority]}
     </span>
   );
 }
@@ -28,9 +28,10 @@ const STATUS_STYLES: Record<MissionStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: MissionStatus }) {
+  const { translations: t } = useLanguage();
   return (
     <span className={`px-3 py-1.5 rounded-full text-base font-semibold ${STATUS_STYLES[status]}`}>
-      {statusLabel(status)}
+      {t.missionStatus[status]}
     </span>
   );
 }

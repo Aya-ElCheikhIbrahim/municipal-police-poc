@@ -152,8 +152,8 @@ export function AddUserForm({ onSubmit, onCancel }: AddUserFormProps) {
               onChange={(e) => setLanguage(e.target.value as LanguageCode)}
               className={`${inputClass} bg-white text-slate-600`}
             >
-              <option value="ar">Arabic</option>
-              <option value="en">English</option>
+              <option value="ar">{t.common.arabic}</option>
+              <option value="en">{t.common.english}</option>
             </select>
           </Field>
         </div>
