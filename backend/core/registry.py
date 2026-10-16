@@ -144,6 +144,17 @@ DEFINITIONS: dict[str, Definition] = {
         minimum=4,
         maximum=24,
     ),
+    # The officer is reminded this long before reaching the daily target.
+    # Stored as a lead rather than a time of day, so changing the target moves
+    # the reminder with it. 0 reminds at the target itself; 120 is a guard
+    # rail, not a spec value — two hours' notice is no longer "approaching".
+    "duty_reminder_lead_minutes": Definition(
+        default=15,
+        description="Minutes before the daily duty target that the officer is reminded.",
+        coerce=int,
+        minimum=0,
+        maximum=120,
+    ),
 }
 
 

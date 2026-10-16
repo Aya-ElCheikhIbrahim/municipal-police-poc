@@ -51,6 +51,39 @@ class Shift(models.Model):
         return int(((self.ended_at or timezone.now()) - self.started_at).total_seconds())
 
 
+class DutyTargetReminder(models.Model):
+    """
+    Marks that an officer was reminded about their daily duty target on a
+    given local date. The unique (officer, date) pair is the dedup: ping
+    batches arrive every ~30s, and get_or_create against it means two
+    concurrent batches cannot both send the reminder.
+
+    Kept here rather than in notifications for the same reason
+    Mission.ack_alert_sent_at lives on Mission: the domain owns the "already
+    told them" guard, and notifications stays unaware of shifts.
+    """
+
+    officer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="duty_target_reminders",
+    )
+    date = models.DateField(help_text="Local (Asia/Beirut) date the reminder covers.")
+    sent_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "shifts_dutytargetreminder"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["officer", "date"],
+                name="one_duty_reminder_per_officer_per_day",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.officer.badge_number} — {self.date}"
+
+
 class LocationPing(models.Model):
     
 

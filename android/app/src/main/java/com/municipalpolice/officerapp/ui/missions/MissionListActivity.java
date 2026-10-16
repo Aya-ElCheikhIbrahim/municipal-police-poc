@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
@@ -14,6 +15,7 @@ import android.widget.ViewFlipper;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.Lifecycle;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -29,6 +31,7 @@ import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.data.RetrofitShiftRepository;
 import com.municipalpolice.officerapp.data.ShiftRepository;
+import com.municipalpolice.officerapp.model.DutyToday;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
 import com.municipalpolice.officerapp.model.Priority;
@@ -45,6 +48,7 @@ import com.municipalpolice.officerapp.util.PrefsManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class MissionListActivity extends BaseActivity
         implements EndShiftDialogFragment.EndShiftListener,
@@ -80,6 +84,37 @@ public class MissionListActivity extends BaseActivity
         public void run() {
             loadMissionsQuietly();
             handler.postDelayed(this, POLL_INTERVAL_MS);
+        }
+    };
+
+    /*
+     * Daily duty total. Fetched on onStart, then at most once a minute —
+     * not with the 5s mission poll, because /shifts/today/ also runs the
+     * shift sweep on the server. Between fetches the display ticks locally
+     * from the last response, so the endpoint is not the clock. A failed
+     * fetch keeps the last known value: a bad poll must not look like lost
+     * duty time.
+     */
+    private static final long DUTY_FETCH_INTERVAL_MS = 60_000L;
+    private static final long DUTY_TICK_MS = 1000L;
+    private final Runnable dutyFetchRunnable = new Runnable() {
+        @Override
+        public void run() {
+            fetchDutyToday();
+            handler.postDelayed(this, DUTY_FETCH_INTERVAL_MS);
+        }
+    };
+    private TextView tvDutyPill;
+    private DutyToday lastDuty;
+    private long dutyFetchedAtElapsedMs;
+    private boolean dutyFetchInFlight = false;
+    private final Runnable dutyTickRunnable = new Runnable() {
+        @Override
+        public void run() {
+            renderDuty();
+            if (lastDuty != null && lastDuty.isOnShift()) {
+                handler.postDelayed(this, DUTY_TICK_MS);
+            }
         }
     };
 
@@ -151,6 +186,11 @@ public class MissionListActivity extends BaseActivity
         tvTopBarTitle =
                 findViewById(
                         R.id.tvTopBarTitle
+                );
+
+        tvDutyPill =
+                findViewById(
+                        R.id.tvDutyPill
                 );
 
         Officer officer =
@@ -662,6 +702,11 @@ public class MissionListActivity extends BaseActivity
                             );
                         }
 
+                        // The officer stays on this screen, and the shift
+                        // may have ended server-side; correct the pill now
+                        // rather than at the next minute.
+                        fetchDutyToday();
+
                         Toast.makeText(
                                 MissionListActivity.this,
                                 "Failed: " +
@@ -692,6 +737,9 @@ public class MissionListActivity extends BaseActivity
         if (tv != null) {
             tv.setText(getString(R.string.panic_title));
         }
+
+        // The panic flow starts a shift first if none was active.
+        fetchDutyToday();
     }
 
 
@@ -719,6 +767,10 @@ public class MissionListActivity extends BaseActivity
 
         updateUserLocation();
 
+        startDutyTicker();
+        handler.removeCallbacks(dutyFetchRunnable);
+        dutyFetchRunnable.run();
+
         handler.removeCallbacks(pollingRunnable);
         handler.postDelayed(pollingRunnable, POLL_INTERVAL_MS);
     }
@@ -728,6 +780,8 @@ public class MissionListActivity extends BaseActivity
     protected void onStop() {
 
         handler.removeCallbacks(pollingRunnable);
+        handler.removeCallbacks(dutyFetchRunnable);
+        handler.removeCallbacks(dutyTickRunnable);
 
         if (networkMonitor != null) {
             networkMonitor.stop();
@@ -996,6 +1050,103 @@ public class MissionListActivity extends BaseActivity
                         });
                     }
                 }
+        );
+    }
+
+
+    // =========================================================
+    // DAILY DUTY TOTAL
+    // =========================================================
+
+    private void fetchDutyToday() {
+
+        // The minute timer and a shift start/end can coincide; one in flight
+        // is enough.
+        if (dutyFetchInFlight) {
+            return;
+        }
+        dutyFetchInFlight = true;
+
+        shiftRepository.fetchToday(
+                new Callback<DutyToday>() {
+
+                    @Override
+                    public void onSuccess(
+                            DutyToday result
+                    ) {
+
+                        handler.post(() -> {
+                            dutyFetchInFlight = false;
+                            lastDuty = result;
+                            dutyFetchedAtElapsedMs = SystemClock.elapsedRealtime();
+                            // A response landing after onStop must not
+                            // restart the ticker in the background.
+                            if (getLifecycle().getCurrentState()
+                                    .isAtLeast(Lifecycle.State.STARTED)) {
+                                startDutyTicker();
+                            }
+                        });
+                    }
+
+
+                    @Override
+                    public void onError(
+                            Throwable error
+                    ) {
+
+                        // Keep showing the last known total.
+                        handler.post(() -> dutyFetchInFlight = false);
+                    }
+                }
+        );
+    }
+
+
+    private void startDutyTicker() {
+        handler.removeCallbacks(dutyTickRunnable);
+        dutyTickRunnable.run();
+    }
+
+
+    private void renderDuty() {
+
+        if (tvDutyPill == null || lastDuty == null) {
+            return;
+        }
+
+        long worked = lastDuty.getDutySecondsToday();
+        if (lastDuty.isOnShift()) {
+            worked += (SystemClock.elapsedRealtime() - dutyFetchedAtElapsedMs) / 1000L;
+        }
+        long target = lastDuty.getTargetSeconds();
+
+        // Past the target is allowed, so it keeps counting and says by how
+        // much — same pill, not an error.
+        String text = worked > target
+                ? getString(
+                        R.string.duty_total_over,
+                        formatHoursMinutes(worked),
+                        formatHoursMinutes(target),
+                        formatHoursMinutes(worked - target)
+                )
+                : getString(
+                        R.string.duty_total,
+                        formatHoursMinutes(worked),
+                        formatHoursMinutes(target)
+                );
+
+        tvDutyPill.setText(text);
+        tvDutyPill.setVisibility(View.VISIBLE);
+    }
+
+
+    private String formatHoursMinutes(long seconds) {
+        long minutes = Math.max(0L, seconds) / 60L;
+        return String.format(
+                Locale.US,
+                "%d:%02d",
+                minutes / 60L,
+                minutes % 60L
         );
     }
 

@@ -260,6 +260,7 @@ class ActiveShiftsView(APIView):
 
     permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
 
+    @extend_schema(responses={200: ActiveOfficerSerializer(many=True)})
     def get(self, request):
         services.end_expired_shifts()
 
@@ -268,6 +269,12 @@ class ActiveShiftsView(APIView):
             .select_related("officer")
             .order_by("started_at")
         )
+
+        # One query for every listed officer's stints today, not one each.
+        duty_today = services.daily_duty_seconds_by_officer(
+            [s.officer_id for s in shifts]
+        )
+        target_seconds = get_setting("daily_duty_target_hours") * 3600
 
         # DISTINCT ON is Postgres-specific, but both the project and its test
         # database run Postgres, so one query for every shift's latest ping
@@ -352,6 +359,8 @@ class ActiveShiftsView(APIView):
                     ),
                     "shift_started_at": shift.started_at,
                     "shift_duration_seconds": shift.duration_seconds,
+                    "duty_seconds_today": duty_today[shift.officer_id],
+                    "target_seconds": target_seconds,
                     "distance_covered_m": shift.distance_m,
                     "latest_ping": position,
                     "position_source": source,

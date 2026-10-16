@@ -26,9 +26,10 @@ from rest_framework.test import APIClient
 from core.registry import get_setting, invalidate_cache, set_settings
 from missions import services as mission_services
 from missions.models import Mission, MissionWork
+from notifications.models import Notification, NotificationType
 
 from . import services
-from .models import LocationPing, Shift
+from .models import DutyTargetReminder, LocationPing, Shift
 from panic import services as panic_services
 User = get_user_model()
 
@@ -275,6 +276,8 @@ class ActiveShiftsContractTests(TestCase):
                 "status",
                 "shift_started_at",
                 "shift_duration_seconds",
+                "duty_seconds_today",
+                "target_seconds",
                 "distance_covered_m",
                 "latest_ping",
                 "position_source",
@@ -851,5 +854,230 @@ class SimulateOfficersTests(TestCase):
 
         call_command("simulate_officers", stop=True, stdout=out)
         self.assertEqual(active.count(), 0)
+
+
+class DutyTargetReminderTests(SettingsCacheMixin, TestCase):
+    """
+    The officer is warned once a day as they approach the daily target
+    (default 8h, reminded 15 minutes before). It rides on ping ingest, since
+    there is no scheduler.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.officer = make_user("reminder_officer")
+        patcher = mock.patch("django.utils.timezone.now", return_value=beirut(DAY, 8))
+        self.clock = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _ingest_at(self, when):
+        self.clock.return_value = when
+        return services.ingest_pings(self.officer, [ping_row(34.4367, 35.8497, when)])
+
+    def _reminders(self):
+        return Notification.objects.filter(
+            notification_type=NotificationType.DUTY_TARGET_REMINDER
+        )
+
+    def test_below_the_threshold_nothing_is_sent(self):
+        make_shift(self.officer, beirut(DAY, 8))
+
+        self._ingest_at(beirut(DAY, 15, 44))
+
+        self.assertFalse(self._reminders().exists())
+        self.assertFalse(DutyTargetReminder.objects.exists())
+
+    @mock.patch("notifications.push.send_push")
+    def test_crossing_the_threshold_sends_exactly_one(self, send_push):
+        make_shift(self.officer, beirut(DAY, 8))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self._ingest_at(beirut(DAY, 15, 45))
+
+        reminder = self._reminders().get()
+        self.assertEqual(reminder.recipient, self.officer)
+        self.assertIn("7h 45m", reminder.body)
+        send_push.assert_called_once()
+        self.assertEqual(send_push.call_args.args[0], self.officer)
+
+    def test_further_ingests_that_day_send_nothing_more(self):
+        make_shift(self.officer, beirut(DAY, 8))
+
+        self._ingest_at(beirut(DAY, 15, 45))
+        self._ingest_at(beirut(DAY, 16, 30))
+        self._ingest_at(beirut(DAY, 19))  # past the target, still only one
+
+        self.assertEqual(self._reminders().count(), 1)
+
+    def test_the_next_day_sends_again(self):
+        make_shift(self.officer, beirut(DAY, 8), beirut(DAY, 17))
+        self.clock.return_value = beirut(DAY, 17)
+        services.remind_if_near_duty_target(self.officer)
+
+        tomorrow = DAY + timedelta(days=1)
+        make_shift(self.officer, beirut(tomorrow, 8))
+        self._ingest_at(beirut(tomorrow, 15, 45))
+
+        self.assertEqual(self._reminders().count(), 2)
+        self.assertEqual(
+            set(DutyTargetReminder.objects.values_list("date", flat=True)),
+            {DAY, tomorrow},
+        )
+
+    def test_the_daily_total_counts_not_the_current_stint(self):
+        """7h, a break, then 45 minutes more: reminded, though this stint is short."""
+        make_shift(self.officer, beirut(DAY, 7), beirut(DAY, 14))
+        make_shift(self.officer, beirut(DAY, 15))
+
+        self._ingest_at(beirut(DAY, 15, 45))
+
+        self.assertEqual(self._reminders().count(), 1)
+
+    def test_a_notification_failure_does_not_cost_location_data(self):
+        make_shift(self.officer, beirut(DAY, 8))
+
+        with mock.patch(
+            "shifts.services.notify_duty_target_approaching",
+            side_effect=RuntimeError("notification store down"),
+        ), self.assertLogs("shifts.services", level="ERROR"):
+            result = self._ingest_at(beirut(DAY, 15, 45))
+
+        self.assertEqual(result.accepted, 1)
+        self.assertEqual(LocationPing.objects.filter(officer=self.officer).count(), 1)
+        # The marker rolled back with the failure, so the next batch retries.
+        self.assertFalse(DutyTargetReminder.objects.exists())
+        self._ingest_at(beirut(DAY, 15, 46))
+        self.assertEqual(self._reminders().count(), 1)
+
+    def test_a_lower_target_moves_the_threshold(self):
+        set_settings({"daily_duty_target_hours": 6})
+        make_shift(self.officer, beirut(DAY, 8))
+
+        self._ingest_at(beirut(DAY, 13, 44))
+        self.assertFalse(self._reminders().exists())
+
+        self._ingest_at(beirut(DAY, 13, 45))
+        self.assertEqual(self._reminders().count(), 1)
+
+    def test_a_longer_lead_moves_the_threshold(self):
+        set_settings({"duty_reminder_lead_minutes": 60})
+        make_shift(self.officer, beirut(DAY, 8))
+
+        self._ingest_at(beirut(DAY, 14, 59))
+        self.assertFalse(self._reminders().exists())
+
+        self._ingest_at(beirut(DAY, 15))
+        self.assertEqual(self._reminders().count(), 1)
+
+
+class StartShiftAfterForgottenShiftTests(SettingsCacheMixin, TestCase):
+    """
+    start_shift returns an existing active shift, so it must not return one
+    already past max_shift_hours: the next sweep would end it under the
+    officer, and their pings would 409 while the app thinks they are on duty.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.officer = make_user("forgotten_officer")
+        self.client = APIClient()
+        self.client.force_authenticate(self.officer)
+
+    def test_a_shift_past_the_limit_is_ended_and_a_new_one_started(self):
+        forgotten = make_shift(self.officer, timezone.now() - timedelta(hours=11))
+
+        shift, created = services.start_shift(self.officer)
+
+        self.assertTrue(created)
+        self.assertNotEqual(shift.pk, forgotten.pk)
+        self.assertEqual(shift.status, Shift.Status.ACTIVE)
+        forgotten.refresh_from_db()
+        self.assertEqual(forgotten.status, Shift.Status.ENDED)
+        self.assertTrue(forgotten.ended_automatically)
+        self.assertEqual(
+            forgotten.ended_at,
+            forgotten.started_at + timedelta(hours=get_setting("max_shift_hours")),
+        )
+
+    def test_the_api_answers_201_for_the_new_shift(self):
+        make_shift(self.officer, timezone.now() - timedelta(hours=11))
+
+        response = self.client.post("/api/v1/shifts/start/", {}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        live = Shift.objects.get(officer=self.officer, status=Shift.Status.ACTIVE)
+        self.assertEqual(response.json()["id"], live.id)
+
+    def test_a_shift_within_the_limit_is_returned_as_is(self):
+        current = make_shift(self.officer, timezone.now() - timedelta(hours=9))
+
+        shift, created = services.start_shift(self.officer)
+
+        self.assertFalse(created)
+        self.assertEqual(shift.pk, current.pk)
+        current.refresh_from_db()
+        self.assertEqual(current.status, Shift.Status.ACTIVE)
+        self.assertFalse(current.ended_automatically)
+
+    def test_a_retry_after_a_lost_response_gets_the_same_shift(self):
+        first = self.client.post("/api/v1/shifts/start/", {}, format="json")
+        retry = self.client.post("/api/v1/shifts/start/", {}, format="json")
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(retry.json()["id"], first.json()["id"])
+
+    def test_only_the_starting_officers_shifts_are_swept(self):
+        other = make_shift(make_user("other_forgotten"), timezone.now() - timedelta(hours=11))
+
+        services.start_shift(self.officer)
+
+        other.refresh_from_db()
+        self.assertEqual(other.status, Shift.Status.ACTIVE)
+
+
+class ActiveShiftsDutyTotalsTests(SettingsCacheMixin, TestCase):
+    """
+    The live map has to show the day's duty, not just the current stint:
+    under split shifts an officer back from a break would read "0h 00m".
+    """
+
+    NOW = beirut(DAY, 15)
+
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient()
+        self.client.force_authenticate(make_user("duty_dispatcher", role="dispatcher"))
+        # Both fields are measured to now; pin it so they cannot straddle a
+        # second boundary between the two calculations.
+        patcher = mock.patch("django.utils.timezone.now", return_value=self.NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _rows(self):
+        response = self.client.get("/api/v1/shifts/active/")
+        self.assertEqual(response.status_code, 200)
+        return {row["officer"]["id"]: row for row in response.json()}
+
+    def test_several_stints_sum_while_the_shift_duration_stays_current(self):
+        officer = make_user("split_officer")
+        make_shift(officer, beirut(DAY, 7), beirut(DAY, 9))
+        make_shift(officer, beirut(DAY, 10), beirut(DAY, 11, 30))
+        make_shift(officer, beirut(DAY, 13))
+
+        row = self._rows()[officer.id]
+
+        self.assertEqual(row["shift_duration_seconds"], 2 * 3600)
+        self.assertEqual(row["duty_seconds_today"], int(5.5 * 3600))
+        self.assertEqual(row["target_seconds"], 8 * 3600)
+
+    def test_a_first_stint_reports_the_same_value_in_both(self):
+        officer = make_user("first_stint_officer")
+        make_shift(officer, beirut(DAY, 12))
+
+        row = self._rows()[officer.id]
+
+        self.assertEqual(row["shift_duration_seconds"], 3 * 3600)
+        self.assertEqual(row["duty_seconds_today"], row["shift_duration_seconds"])
 
 

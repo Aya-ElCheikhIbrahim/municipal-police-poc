@@ -107,7 +107,15 @@ class ActiveOfficerSerializer(serializers.Serializer):
     officer = OfficerBriefSerializer()
     status = serializers.CharField()
     shift_started_at = serializers.DateTimeField()
-    shift_duration_seconds = serializers.IntegerField()
+    shift_duration_seconds = serializers.IntegerField(
+        help_text="Length of the current shift (stint) so far, not clipped to today."
+    )
+    duty_seconds_today = serializers.IntegerField(
+        help_text="Every stint today, the current one included, clipped to local midnight."
+    )
+    target_seconds = serializers.IntegerField(
+        help_text="The daily duty target (daily_duty_target_hours). A target, not a cap."
+    )
     distance_covered_m = serializers.IntegerField()
     latest_ping = LocationPingSerializer(allow_null=True)
     position_source = serializers.CharField(allow_null=True)

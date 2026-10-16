@@ -5,6 +5,7 @@ rules that Android and web both depend on actually live.
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
@@ -15,8 +16,11 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.registry import get_setting
+from notifications.services import notify_duty_target_approaching
 
-from .models import LocationPing, Shift
+from .models import DutyTargetReminder, LocationPing, Shift
+
+logger = logging.getLogger(__name__)
 
 EARTH_RADIUS_M = 6_371_000
 
@@ -93,7 +97,13 @@ def start_shift(officer, latitude=None, longitude=None) -> tuple[Shift, bool]:
     Idempotent on purpose: a phone that loses the response and retries must not
     get an error, so an existing active shift is returned rather than refused.
     Returns (shift, created).
+
+    A forgotten shift already past max_shift_hours is ended first. Handing it
+    back would leave the officer on a shift the next sweep ends under them —
+    pings 409, panic 400 — while the app believes the start succeeded.
     """
+    end_expired_shifts(officer=officer)
+
     existing = Shift.objects.filter(officer=officer, status=Shift.Status.ACTIVE).first()
     if existing is not None:
         return existing, False
@@ -139,12 +149,12 @@ def end_shift(officer, latitude=None, longitude=None) -> Shift:
 
 
 
-def end_expired_shifts(now=None) -> list[Shift]:
+def end_expired_shifts(now=None, officer=None) -> list[Shift]:
     """
     Close active shifts that have run longer than max_shift_hours — the
     safety net for a phone that died mid-patrol and never sent End Shift.
     Nothing fires at the limit, so this runs as a sweep. Safe to call
-    repeatedly.
+    repeatedly. Pass officer to sweep only that officer's shifts.
 
     The daily duty target is not enforced here: an officer may work past it,
     in one stint or several. Only a single stint this long is assumed to be
@@ -153,6 +163,8 @@ def end_expired_shifts(now=None) -> list[Shift]:
     now = now or timezone.now()
     limit = timedelta(hours=get_setting("max_shift_hours"))
     overdue = Q(status=Shift.Status.ACTIVE, started_at__lt=now - limit)
+    if officer is not None:
+        overdue &= Q(officer=officer)
     candidate_ids = list(Shift.objects.filter(overdue).values_list("id", flat=True))
 
     ended = []
@@ -179,11 +191,14 @@ def local_day_bounds(day) -> tuple[datetime, datetime]:
     return start, start + timedelta(days=1)
 
 
+def _overlapping(start, end) -> Q:
+    """Shifts that overlap [start, end), including one still active."""
+    return Q(started_at__lt=end) & (Q(ended_at__isnull=True) | Q(ended_at__gt=start))
+
+
 def shifts_touching(officer, start, end):
     """Shifts that overlap [start, end), including one still active."""
-    return Shift.objects.filter(officer=officer, started_at__lt=end).filter(
-        Q(ended_at__isnull=True) | Q(ended_at__gt=start)
-    )
+    return Shift.objects.filter(_overlapping(start, end), officer=officer)
 
 
 def clipped_duty_seconds(shifts, start, end, now=None) -> int:
@@ -213,6 +228,58 @@ def daily_duty_seconds(officer, date=None, now=None) -> int:
     day = date or timezone.localdate(now)
     start, end = local_day_bounds(day)
     return clipped_duty_seconds(shifts_touching(officer, start, end), start, end, now=now)
+
+
+def daily_duty_seconds_by_officer(officer_ids, date=None, now=None) -> dict[int, int]:
+    """
+    daily_duty_seconds for many officers in one query, keyed by officer id.
+    The live map lists every officer on duty and is polled continuously, so
+    calling daily_duty_seconds per row would cost a query per officer.
+    """
+    now = now or timezone.now()
+    day = date or timezone.localdate(now)
+    start, end = local_day_bounds(day)
+
+    by_officer = {officer_id: [] for officer_id in officer_ids}
+    for shift in Shift.objects.filter(_overlapping(start, end), officer_id__in=list(by_officer)):
+        by_officer[shift.officer_id].append(shift)
+
+    return {
+        officer_id: clipped_duty_seconds(shifts, start, end, now=now)
+        for officer_id, shifts in by_officer.items()
+    }
+
+
+def remind_if_near_duty_target(officer, now=None) -> bool:
+    """
+    Remind the officer once per local day when today's duty — every stint,
+    not just the current one — reaches daily_duty_target_hours minus
+    duty_reminder_lead_minutes. Returns whether a reminder was sent.
+
+    There is no scheduler, so this rides on ping ingest (~every 30s per
+    officer on shift). The marker lookup comes first: once today's reminder
+    is sent, this costs one query on the (officer, date) unique index.
+    """
+    now = now or timezone.now()
+    today = timezone.localdate(now)
+    if DutyTargetReminder.objects.filter(officer=officer, date=today).exists():
+        return False
+
+    target = get_setting("daily_duty_target_hours") * 3600
+    threshold = target - get_setting("duty_reminder_lead_minutes") * 60
+    duty = daily_duty_seconds(officer, date=today, now=now)
+    if duty < threshold:
+        return False
+
+    # Marker and notification commit together: if the notification cannot be
+    # written, the marker rolls back too and the next batch tries again.
+    with transaction.atomic():
+        _, created = DutyTargetReminder.objects.get_or_create(
+            officer=officer, date=today, defaults={"sent_at": now}
+        )
+        if created:  # else a concurrent batch won and sent it
+            notify_duty_target_approaching(officer, duty, target)
+    return created
 
 
 def ingest_pings(officer, rows):
@@ -266,6 +333,12 @@ def ingest_pings(officer, rows):
     # /shifts/active/ (every 5s per officer, times every dispatcher watching).
     shift.distance_m = shift_distance_m(shift)
     shift.save(update_fields=["distance_m"])
+
+    # The pings are already stored; a reminder is never worth losing them.
+    try:
+        remind_if_near_duty_target(officer)
+    except Exception:
+        logger.exception("Duty target reminder failed for officer %s", officer.pk)
 
     return IngestResult(
         accepted=len(objects),
