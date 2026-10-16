@@ -108,36 +108,6 @@ class CreationTests(NotificationTestCase):
         self.assertIsNone(result)
         self.assertEqual(Notification.objects.count(), 0)
 
-    def test_unacknowledged_sweep_fans_out_to_dispatchers_and_supervisors(self):
-        mission = self.make_mission(assigned_to=self.officer)
-        services.notify_mission_unacknowledged(mission)
-
-        recipients = set(
-            Notification.objects.values_list("recipient_id", flat=True)
-        )
-        self.assertEqual(recipients, {self.dispatcher.id, self.supervisor.id})
-
-    def test_unacknowledged_sweep_does_not_notify_officers(self):
-        """4.9 puts this alert on the dashboard, not the officer's phone."""
-        mission = self.make_mission(assigned_to=self.officer)
-        services.notify_mission_unacknowledged(mission)
-
-        self.assertFalse(
-            Notification.objects.filter(recipient=self.officer).exists()
-        )
-
-    def test_unacknowledged_sweep_skips_inactive_users(self):
-        self.dispatcher.is_active = False
-        self.dispatcher.save(update_fields=["is_active"])
-        mission = self.make_mission(assigned_to=self.officer)
-
-        services.notify_mission_unacknowledged(mission)
-
-        self.assertEqual(Notification.objects.count(), 1)
-        self.assertEqual(
-            Notification.objects.first().recipient, self.supervisor
-        )
-
 
 class ReadStateTests(NotificationTestCase):
     def test_marking_read_sets_the_timestamp(self):
@@ -336,15 +306,6 @@ class PushOnNotifyTests(NotificationTestCase):
                     raise RuntimeError("roll back")
             except RuntimeError:
                 pass
-
-        send_push.assert_not_called()
-
-    @mock.patch("notifications.push.send_push")
-    def test_dashboard_alerts_are_not_pushed(self, send_push):
-        """Unacknowledged-mission alerts go to the dashboard, not phones."""
-        mission = self.make_mission(assigned_to=self.officer)
-        with self.captureOnCommitCallbacks(execute=True):
-            services.notify_mission_unacknowledged(mission)
 
         send_push.assert_not_called()
 

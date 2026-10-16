@@ -403,15 +403,7 @@ class ActiveShiftsMissionTests(TestCase):
         row = self._row()
         self.assertEqual(row["status"], "available")
         self.assertIsNone(row["current_mission"])
-
-    def test_acknowledged_but_not_started_officer_is_still_available(self):
-        mission = self._assign("Seen but not yet started")
-        mission_services.acknowledge_mission(mission, officer=self.officer)
-
-        row = self._row()
-        self.assertEqual(row["status"], "available")
-        self.assertIsNone(row["current_mission"])
-
+        
     def test_cancelled_mission_makes_the_officer_available_again(self):
         mission = self._assign("Finished job")
         mission_services.start_mission(mission, officer=self.officer)

@@ -8,7 +8,6 @@ written from inside the mission status machine.
 section 4.9 triggers covered here:
   - mission assigned            → the assigned officer
   - mission cancelled           → the assigned officer, if there was one
-  - mission not acknowledged    → all active dispatchers and supervisors
   - dispatcher message          → a named officer (section 4.9 marks this optional)
 
 section 4.7:
@@ -185,36 +184,6 @@ def notify_duty_target_approaching(officer, duty_seconds, target_seconds):
     _push_after_commit(notification)
     return notification
 
-
-@transaction.atomic
-def notify_mission_unacknowledged(mission):
-    """
-    Call from the existing ack-sweep, which already guards on
-    ack_alert_sent_at, so this does not re-check it. Setting that field
-    remains the sweep's job; doing it here would split one decision across
-    two modules.
-
-    bulk_create over a loop: the recipient set is every active dispatcher and
-    supervisor, and this fires from a scheduled sweep that may process many
-    overdue missions at once. The (role, is_active) index on accounts_user
-    covers the filter.
-    """
-    recipients = User.objects.filter(
-        role__in=[Role.DISPATCHER, Role.SUPERVISOR],
-        is_active=True,
-    )
-    return Notification.objects.bulk_create([
-        Notification(
-            recipient=user,
-            notification_type=NotificationType.MISSION_UNACKNOWLEDGED,
-            title="Mission not acknowledged",
-            body=f"{mission.title} has not been acknowledged.",
-            related_mission=mission,
-        )
-        for user in recipients
-    ])
-
-
 @transaction.atomic
 def notify_panic_triggered(event):
     """
@@ -224,9 +193,6 @@ def notify_panic_triggered(event):
     repeated tap or a phone retry returns the existing event, and re-alerting
     every dispatcher for one emergency is exactly what the idempotent trigger
     exists to prevent.
-
-    Same fan-out shape as notify_mission_unacknowledged: one row per
-    recipient, so each person's read state is their own.
 
     The officer and the position are written into the body because
     Notification has no FK to PanicEvent yet, the related_panic_event field

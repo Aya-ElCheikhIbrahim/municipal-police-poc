@@ -161,26 +161,6 @@ def generate_weekly_summary(*, start_date, end_date, officer_id=None, area_id=No
         for category, _ in Mission.Category.choices
     }
 
-    # Average acknowledgement time
-    acknowledged_missions = missions.filter(
-        assigned_at__isnull=False,
-        acknowledged_at__isnull=False,
-    )
-
-    acknowledgement_times = [
-        (mission.acknowledged_at - mission.assigned_at).total_seconds()
-        for mission in acknowledged_missions
-    ]
-
-    average_acknowledgement_seconds = (
-        round(
-            sum(acknowledgement_times) / len(acknowledgement_times),
-            2,
-        )
-        if acknowledgement_times
-        else 0
-    )
-
     average_worked = missions.filter(
         status=Mission.Status.COMPLETED,
     ).aggregate(average=Avg("worked_seconds"))["average"]
@@ -225,7 +205,6 @@ def generate_weekly_summary(*, start_date, end_date, officer_id=None, area_id=No
         "start_date": start_date,
         "end_date": end_date,
         "missions_by_priority": missions_by_priority,
-        "average_acknowledgement_seconds": average_acknowledgement_seconds,
         "average_completion_seconds": average_completion_seconds,
         "top_officers": top_officers[:5],
         "missions_by_category": missions_by_category,
@@ -436,7 +415,6 @@ def officer_rows_for_range(*, start_date, end_date, officer_id=None, area_id=Non
             "missions_assigned": 0,
             "missions_completed": 0,
             "missions_cancelled": 0,
-            "average_acknowledgement_seconds": 0,
             "average_completion_seconds": 0,
             "panic_events": 0,
         }
@@ -492,20 +470,9 @@ def officer_rows_for_range(*, start_date, end_date, officer_id=None, area_id=Non
             else 0
         )
 
-    # Acknowledgement time is a gap between two columns, so it is averaged in
-    # Python rather than by the database.
-    acknowledged = missions.filter(
-        assigned_at__isnull=False, acknowledged_at__isnull=False
-    ).prefetch_related("assigned_to")
     gaps = {}
-    for mission in acknowledged:
-        seconds = (mission.acknowledged_at - mission.assigned_at).total_seconds()
-        for officer in mission.assigned_to.all():
-            gaps.setdefault(officer.id, []).append(seconds)
     for officer_pk, values in gaps.items():
         row = rows.get(officer_pk)
-        if row is not None:
-            row["average_acknowledgement_seconds"] = round(sum(values) / len(values), 2)
 
     panics = PanicEvent.objects.filter(
         triggered_at__date__gte=start_date,
@@ -559,7 +526,6 @@ def generate_officer_report(*, officer_id, start_date, end_date, status_filter=N
         "missions_assigned": 0,
         "missions_completed": 0,
         "missions_cancelled": 0,
-        "average_acknowledgement_seconds": 0,
         "average_completion_seconds": 0,
         "panic_events": 0,
     }
@@ -587,7 +553,6 @@ def generate_officer_report(*, officer_id, start_date, end_date, status_filter=N
             "area": mission.area.name if mission.area_id else None,
             "area_id": mission.area_id,
             "assigned_at": mission.assigned_at,
-            "acknowledged_at": mission.acknowledged_at,
             "completed_at": mission.completed_at,
             "cancelled_at": mission.cancelled_at,
         }
@@ -622,8 +587,6 @@ def generate_officer_report(*, officer_id, start_date, end_date, status_filter=N
             "panic_events": row["panic_events"],
         },
         "performance": {
-            "average_acknowledgement_seconds": row["average_acknowledgement_seconds"],
-            "average_completion_seconds": row["average_completion_seconds"],
         },
         "timeline": timeline,
         "missions": history,

@@ -45,7 +45,6 @@ class MissionListSerializer(serializers.ModelSerializer):
     area_id = serializers.IntegerField(read_only=True, allow_null=True)
 
     is_overdue = serializers.SerializerMethodField()
-    awaiting_acknowledgement = serializers.SerializerMethodField()
     duration_seconds = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
@@ -67,18 +66,12 @@ class MissionListSerializer(serializers.ModelSerializer):
             "assigned_at",
             "duration_seconds",
             "is_overdue",
-            "awaiting_acknowledgement",
         ]
 
     def get_is_overdue(self, obj) -> bool:
         from django.utils import timezone
 
         return bool(obj.deadline and obj.is_open and obj.deadline < timezone.now())
-
-    def get_awaiting_acknowledgement(self, obj) -> bool:
-        """The dashboard highlights these. Set by the sweep, not here."""
-        return obj.status == Mission.Status.ASSIGNED and obj.ack_alert_sent_at is not None
-
 
 class MissionDetailSerializer(MissionListSerializer):
     """The drawer. Carries the full lifecycle timeline."""
@@ -91,7 +84,6 @@ class MissionDetailSerializer(MissionListSerializer):
         fields = MissionListSerializer.Meta.fields + [
             "description",
             "created_by",
-            "acknowledged_at",
             "started_at",
             "completed_at",
             "cancelled_at",
@@ -101,7 +93,6 @@ class MissionDetailSerializer(MissionListSerializer):
             "completed_longitude",
             "notes",
             "cancellation_reason",
-            "ack_alert_sent_at",
             "events",
             "photos",
         ]

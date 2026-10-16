@@ -91,26 +91,8 @@ class CreationTests(MissionTestCase):
  
  
 class TransitionTests(MissionTestCase):
-    def test_full_lifecycle_writes_every_event(self):
-        """section 4.6's drawer shows a timeline; it can only show what was recorded."""
-        mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
-        services.start_mission(mission, officer=self.officer, latitude=34.44, longitude=35.85)
-        self.attach_photo(mission)
-        services.complete_mission(
-            mission, officer=self.officer, latitude=34.45, longitude=35.85, notes="Vehicle removed."
-        )
- 
-        mission.refresh_from_db()
-        self.assertEqual(mission.status, Mission.Status.COMPLETED)
-        self.assertEqual(
-            self.event_types(mission),
-            ["created", "assigned", "acknowledged", "started", "photo_added", "completed"],
-        )
-        for field in ["assigned_at", "acknowledged_at", "started_at", "completed_at"]:
-            self.assertIsNotNone(getattr(mission, field), f"{field} was not set")
- 
-    def test_can_start_without_acknowledging(self):
+   
+    def test_start_goes_straight_from_assigned(self):
         """Acknowledging is optional; an officer may start straight away."""
         mission = self.make_mission(assigned_to=self.officer)
         services.start_mission(mission, officer=self.officer)
@@ -118,25 +100,9 @@ class TransitionTests(MissionTestCase):
         mission.refresh_from_db()
         self.assertEqual(mission.status, Mission.Status.IN_PROGRESS)
         self.assertIsNotNone(mission.started_at)
-        self.assertIsNone(mission.acknowledged_at)
         self.assertEqual(self.event_types(mission), ["created", "assigned", "started"])
 
-    def test_acknowledging_then_starting_still_works(self):
-        """Existing app builds acknowledge first; that path must keep working."""
-        mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
-        services.start_mission(mission, officer=self.officer)
-
-        mission.refresh_from_db()
-        self.assertEqual(mission.status, Mission.Status.IN_PROGRESS)
-        self.assertIsNotNone(mission.acknowledged_at)
-
-    def test_cannot_acknowledge_after_starting(self):
-        mission = self.make_mission(assigned_to=self.officer)
-        services.start_mission(mission, officer=self.officer)
-        with self.assertRaises(services.MissionError):
-            services.acknowledge_mission(mission, officer=self.officer)
-
+  
     def test_another_officer_cannot_start_it(self):
         mission = self.make_mission(assigned_to=self.officer)
         with self.assertRaises(services.MissionPermissionError):
@@ -144,30 +110,19 @@ class TransitionTests(MissionTestCase):
  
     def test_cannot_complete_before_starting(self):
         mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
         with self.assertRaises(services.MissionError):
             services.complete_mission(mission, officer=self.officer)
  
-    def test_cannot_acknowledge_twice(self):
-        mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
-        with self.assertRaises(services.MissionError):
-            services.acknowledge_mission(mission, officer=self.officer)
- 
-    def test_another_officer_cannot_act_on_it(self):
-        mission = self.make_mission(assigned_to=self.officer)
-        with self.assertRaises(services.MissionPermissionError):
-            services.acknowledge_mission(mission, officer=self.other_officer)
+    
+     
     def test_completed_mission_cannot_be_cancelled(self):
         mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer)
         self.attach_photo(mission)
         services.complete_mission(mission, officer=self.officer)
     def test_start_and_complete_positions_are_recorded(self):
         """Where the officer actually was, not where the mission is."""
         mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
         services.start_mission(mission, officer=self.officer, latitude=34.44, longitude=35.85)
         self.attach_photo(mission)
         services.complete_mission(mission, officer=self.officer, latitude=34.45, longitude=35.86)
@@ -179,7 +134,7 @@ class TransitionTests(MissionTestCase):
  
  
 class ReassignmentTests(MissionTestCase):
-    def test_reassign_before_acknowledgement_is_allowed(self):
+    def test_reassign_while_assigned_is_allowed(self):
         mission = self.make_mission(assigned_to=self.officer)
         services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
  
@@ -196,23 +151,13 @@ class ReassignmentTests(MissionTestCase):
         self.assertEqual(event.metadata["previous_officer_ids"], [self.officer.id])
         self.assertEqual(event.metadata["officer_ids"], [self.other_officer.id])
  
-    def test_reassign_after_acknowledgement_is_refused(self):
-        """The officer may already be driving to it. Cancel with a reason instead."""
+    def test_reassign_after_start_is_refused(self):
+        """Once an officer has started, reassigning silently is not allowed."""
         mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
+        services.start_mission(mission, officer=self.officer)
         with self.assertRaises(services.MissionError):
             services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
- 
-    def test_reassignment_resets_the_acknowledgement_clock(self):
-        mission = self.make_mission(assigned_to=self.officer)
-        mission.ack_alert_sent_at = timezone.now()
-        mission.save(update_fields=["ack_alert_sent_at"])
- 
-        services.reassign_mission(mission, officers=[self.other_officer], actor=self.dispatcher)
-        mission.refresh_from_db()
-        self.assertIsNone(mission.ack_alert_sent_at)
- 
- 
+   
 class CancellationTests(MissionTestCase):
     def test_cancel_requires_a_reason(self):
         mission = self.make_mission(assigned_to=self.officer)
@@ -270,48 +215,6 @@ class PhotoTests(MissionTestCase):
                 client_uuid=uuid.uuid4(),
                 image=self._image(),
             )
- 
- 
-class UnacknowledgedSweepTests(MissionTestCase):
-    def test_flags_only_missions_past_the_timeout(self):
-        """§4.9 — the dashboard warns when nobody has picked it up."""
-        set_settings({"mission_ack_timeout_minutes": 5})
- 
-        stale = self.make_mission(assigned_to=self.officer)
-        Mission.objects.filter(pk=stale.pk).update(
-            assigned_at=timezone.now() - timezone.timedelta(minutes=10)
-        )
-        fresh = self.make_mission(assigned_to=self.other_officer)
- 
-        flagged = services.flag_unacknowledged()
- 
-        self.assertEqual([m.pk for m in flagged], [stale.pk])
-        fresh.refresh_from_db()
-        self.assertIsNone(fresh.ack_alert_sent_at)
- 
-    def test_sweep_flags_each_mission_only_once(self):
-        """Otherwise every dashboard poll raises the same alert again."""
-        set_settings({"mission_ack_timeout_minutes": 5})
-        mission = self.make_mission(assigned_to=self.officer)
-        Mission.objects.filter(pk=mission.pk).update(
-            assigned_at=timezone.now() - timezone.timedelta(minutes=10)
-        )
- 
-        self.assertEqual(len(services.flag_unacknowledged()), 1)
-        self.assertEqual(len(services.flag_unacknowledged()), 0)
-        self.assertEqual(
-            MissionEvent.objects.filter(event_type="ack_alert_sent").count(), 1
-        )
- 
-    def test_acknowledged_missions_are_never_flagged(self):
-        set_settings({"mission_ack_timeout_minutes": 5})
-        mission = self.make_mission(assigned_to=self.officer)
-        Mission.objects.filter(pk=mission.pk).update(
-            assigned_at=timezone.now() - timezone.timedelta(minutes=10)
-        )
-        services.acknowledge_mission(mission, officer=self.officer)
- 
-        self.assertEqual(services.flag_unacknowledged(), [])
  
  
 class ApiPermissionTests(MissionTestCase):
@@ -393,7 +296,7 @@ class ApiPermissionTests(MissionTestCase):
         mission = self.make_mission(assigned_to=self.other_officer)
         self.client.force_authenticate(self.officer)
         response = self.client.post(
-            f"/api/v1/missions/{mission.pk}/acknowledge/", {}, format="json"
+            f"/api/v1/missions/{mission.pk}/start/", {}, format="json"
         )
         self.assertEqual(response.status_code, 403)
  
@@ -403,7 +306,6 @@ class DetailContractTests(MissionTestCase):
  
     def test_detail_carries_the_timeline_and_photos(self):
         mission = self.make_mission(assigned_to=self.officer)
-        services.acknowledge_mission(mission, officer=self.officer)
  
         client = APIClient()
         client.force_authenticate(self.dispatcher)
@@ -411,7 +313,7 @@ class DetailContractTests(MissionTestCase):
  
         for key in ["events", "photos", "created_by", "assigned_to", "cancellation_reason"]:
             self.assertIn(key, body)
-        self.assertEqual([e["event_type"] for e in body["events"]], ["created", "assigned", "acknowledged"])
+        self.assertEqual([e["event_type"] for e in body["events"]], ["created", "assigned",])
         self.assertEqual(set(body["assigned_to"][0]), {"id", "full_name", "badge_number"})
  
     def test_list_row_flags_overdue_missions(self):
@@ -446,14 +348,14 @@ class MultiOfficerTests(MissionTestCase):
 
     def test_any_assigned_officer_can_act_on_a_shared_mission(self):
         mission = self.make_shared_mission()
-        services.acknowledge_mission(mission, officer=self.other_officer)
+        services.start_mission(mission, officer=self.other_officer)
         mission.refresh_from_db()
-        self.assertEqual(mission.status, Mission.Status.ACKNOWLEDGED)
+        self.assertEqual(mission.status, Mission.Status.IN_PROGRESS)
 
     def test_an_unassigned_officer_still_cannot_act(self):
         mission = self.make_mission(assigned_to=self.officer)
         with self.assertRaises(services.MissionPermissionError):
-            services.acknowledge_mission(mission, officer=self.other_officer)
+            services.start_mission(mission, officer=self.other_officer)
 
     def test_every_assigned_officer_is_notified(self):
         from notifications.models import Notification, NotificationType

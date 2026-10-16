@@ -44,7 +44,6 @@ class RangeOfficerSerializer(serializers.Serializer):
     missions_assigned = serializers.IntegerField()
     missions_completed = serializers.IntegerField()
     missions_cancelled = serializers.IntegerField()
-    average_acknowledgement_seconds = serializers.FloatField()
     average_completion_seconds = serializers.FloatField()
     panic_events = serializers.IntegerField()
 
@@ -55,7 +54,6 @@ class WeeklySummarySerializer(serializers.Serializer):
     missions_by_priority = serializers.DictField()
     missions_by_category = serializers.DictField()
     missions_by_status = serializers.DictField()
-    average_acknowledgement_seconds = serializers.FloatField()
     average_completion_seconds = serializers.FloatField()
     top_officers = TopOfficerSerializer(many=True)
     totals = RangeTotalsSerializer()
@@ -123,7 +121,7 @@ class ActivityRowSerializer(serializers.Serializer):
     One line of the activity feed: who did what, when and where.
 
     `officer` is who acted, and is null for the things the system did by
-    itself, such as the unacknowledged-mission alert. `area` is null when the
+    itself. `area` is null when the
     position falls outside every district.
     """
 
@@ -153,7 +151,6 @@ class OfficerReportSummarySerializer(serializers.Serializer):
 class OfficerPerformanceSerializer(serializers.Serializer):
     """This officer's own averages, not the period's."""
 
-    average_acknowledgement_seconds = serializers.FloatField()
     average_completion_seconds = serializers.FloatField()
 
 
@@ -168,7 +165,6 @@ class OfficerMissionSerializer(serializers.Serializer):
     area = serializers.CharField(allow_null=True)
     area_id = serializers.IntegerField(allow_null=True)
     assigned_at = serializers.DateTimeField(allow_null=True)
-    acknowledged_at = serializers.DateTimeField(allow_null=True)
     completed_at = serializers.DateTimeField(allow_null=True)
     cancelled_at = serializers.DateTimeField(allow_null=True)
 
