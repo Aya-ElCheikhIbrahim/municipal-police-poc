@@ -59,6 +59,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "full_name",
+            "badge_number",
             "phone",
             "role",
             "preferred_language",

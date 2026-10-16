@@ -1,24 +1,25 @@
 import { useState } from 'react';
 import { useUsers } from './useUsers';
 import { AddUserForm } from './AddUserForm';
+import { EditUserModal } from './EditUserModal';
 import { ResetPasswordModal } from './password_res';
-import type { CreateUserRequest, UserFilters } from './types';
+import type { CreateUserRequest, User, UserFilters } from './types';
 import { usersApi } from './api';
 import { useLanguage } from '../../i18n/languagecontext';
-import { localizeNumbers, formatPhone } from '../../i18n/numbers';
+import { formatPhone } from '../../i18n/numbers';
 export function UsersPage() {
   const { translations: t, language } = useLanguage();
-  const n = (v: string | number) => localizeNumbers(v, language);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [resetUser, setResetUser] = useState<any | null>(null);
+  const [editUser, setEditUser] = useState<User | null>(null);
 
   const handleGenerateResetCode = async (userId: string | number) => {
     const badgeNumber = resetUser?.badge_number || String(userId);
     return await usersApi.generateResetCode(badgeNumber);
   };
   const filters: UserFilters = showActiveOnly ? { is_active: true } : {};
-  const { users, isLoading, error, createUser, setActive } = useUsers(filters);
+  const { users, isLoading, error, createUser, updateUser, setActive } = useUsers(filters);
 
   async function handleCreate(payload: CreateUserRequest) {
     await createUser(payload);
@@ -76,7 +77,13 @@ export function UsersPage() {
                 className="bg-white rounded-lg border border-slate-200/80 p-4 space-y-2"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-slate-900 text-lg">{user.full_name}</div>
+                  <button
+                    type="button"
+                    onClick={() => setEditUser(user)}
+                    className="font-semibold text-[#1F3864] text-lg text-left hover:underline cursor-pointer"
+                  >
+                    {user.full_name}
+                  </button>
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-semibold shrink-0 ${
                       user.is_active
@@ -142,7 +149,15 @@ export function UsersPage() {
               ) : (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-slate-900">{user.full_name}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditUser(user)}
+                        className="font-semibold text-[#1F3864] hover:underline cursor-pointer text-left"
+                      >
+                        {user.full_name}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{user.badge_number}</td>
                     <td className="px-4 py-3 text-slate-600">{t.roles[user.role]}</td>
                     <td className="px-4 py-3 text-slate-600 font-mono text-left"><span dir="ltr" style={{ unicodeBidi: 'bidi-override' }} className="inline-block">{user.phone ? formatPhone(user.phone, language) : '—'}</span></td>
@@ -203,6 +218,12 @@ export function UsersPage() {
         isOpen={Boolean(resetUser)}
         onClose={() => setResetUser(null)}
         onGenerateCode={handleGenerateResetCode}
+      />
+      <EditUserModal
+        user={editUser}
+        isOpen={Boolean(editUser)}
+        onClose={() => setEditUser(null)}
+        onSave={updateUser}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../shared/api/client';
 import { usersApi } from './api';
-import type { User, CreateUserRequest, UserFilters } from './types';
+import type { User, CreateUserRequest, UpdateUserRequest, UserFilters } from './types';
 
 interface UseUsersResult {
   users: User[];
@@ -9,6 +9,7 @@ interface UseUsersResult {
   error: string | null;
   refresh: () => Promise<void>;
   createUser: (payload: CreateUserRequest) => Promise<User>;
+  updateUser: (id: number, payload: UpdateUserRequest) => Promise<User>;
   setActive: (id: number, active: boolean) => Promise<void>;
 }
 
@@ -42,6 +43,12 @@ export function useUsers(filters: UserFilters = {}): UseUsersResult {
     return created;
   }
 
+  async function updateUser(id: number, payload: UpdateUserRequest): Promise<User> {
+    const updated = await usersApi.update(id, payload);
+    await refresh();
+    return updated;
+  }
+
   async function setActive(id: number, active: boolean): Promise<void> {
     if (active) {
       await usersApi.activate(id);
@@ -51,5 +58,5 @@ export function useUsers(filters: UserFilters = {}): UseUsersResult {
     await refresh();
   }
 
-  return { users, isLoading, error, refresh, createUser, setActive };
+  return { users, isLoading, error, refresh, createUser, updateUser, setActive };
 }
