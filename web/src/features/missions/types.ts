@@ -155,16 +155,16 @@ export function canCancel(mission: MissionListItem): boolean {
   return mission.status !== 'completed' && mission.status !== 'cancelled';
 }
 
-export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+export function formatTime(iso: string, labels?: { am: string; pm: string }): string {
+  const s = new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  if (!labels) return s;
+  return s.replace('AM', labels.am).replace('PM', labels.pm);
 }
 
 export function formatMissionDuration(seconds: number | null): string {
-  if (seconds === null) return ';';
+  if (seconds === null) return '—';
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
-  if (minutes > 0) return `${minutes}m ${String(secs).padStart(2, '0')}s`;
-  return `${secs}s`;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }

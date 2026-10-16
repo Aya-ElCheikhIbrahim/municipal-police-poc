@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchWeeklySummary } from './api';
 import type { Area, FilterState, WeeklySummaryResponse } from './types';
 import { useLanguage } from '../../i18n/languagecontext';
+import { localizeNumbers } from '../../i18n/numbers';
 
 interface CustomRangeReportProps {
   filters: FilterState;
@@ -62,6 +63,7 @@ function SortHeader({
 
 export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRangeReportProps) {
   const { language, translations: t } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const [sortField, setSortField] = useState<CustomSortField>('dutyMinutes');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -148,13 +150,13 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-        <SummaryCard value={totals.officers} label={t.reports.officer} />
-        <SummaryCard value={formatMinutes(totals.hours_on_duty * 60)} label={t.reports.hours} />
-        <SummaryCard value={`${(totals.distance_covered_m / 1000).toFixed(1)} km`} label={t.reports.distance} />
-        <SummaryCard value={totals.missions_assigned} label={t.reports.assigned} />
-        <SummaryCard value={totals.missions_completed} label={t.reports.completed} />
-        <SummaryCard value={totals.missions_cancelled} label={t.reports.cancelled} />
-        <SummaryCard value={totals.panic_events} label={t.reports.panic} />
+        <SummaryCard value={n(totals.officers)} label={t.reports.officer} />
+        <SummaryCard value={n(formatMinutes(totals.hours_on_duty * 60))} label={t.reports.hours} />
+        <SummaryCard value={`${n((totals.distance_covered_m / 1000).toFixed(1))} km`} label={t.reports.distance} />
+        <SummaryCard value={n(totals.missions_assigned)} label={t.reports.assigned} />
+        <SummaryCard value={n(totals.missions_completed)} label={t.reports.completed} />
+        <SummaryCard value={n(totals.missions_cancelled)} label={t.reports.cancelled} />
+        <SummaryCard value={n(totals.panic_events)} label={t.reports.panic} />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
@@ -193,20 +195,20 @@ export function CustomRangeReport({ filters, areas, onOfficerSelect }: CustomRan
                     </button>
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{row.dutyPeriod}</td>
-                  <td className="px-4 py-3 font-bold text-slate-800">{formatMinutes(row.dutyMinutes)}</td>
-                  <td className="px-4 py-3">{row.distanceKm.toFixed(1)} km</td>
+                  <td className="px-4 py-3 font-bold text-slate-800">{n(formatMinutes(row.dutyMinutes))}</td>
+                  <td className="px-4 py-3">{n(row.distanceKm.toFixed(1))} km</td>
                   {filters.location !== 'ALL' && (
                     <td className="px-4 py-3">
-                      <div className="font-bold text-slate-800">{row.assigned}</div>
+                      <div className="font-bold text-slate-800">{n(row.assigned)}</div>
                       <div className="mt-0.5 text-xs font-medium text-slate-500">{areaName}</div>
                     </td>
                   )}
-                  <td className="px-4 py-3 font-semibold">{row.assigned}</td>
-                  <td className="px-4 py-3"><span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{row.completed}</span></td>
-                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{row.cancelled}</span></td>
-                  <td className="px-4 py-3">{row.panic}</td>
-                  <td className="px-4 py-3">{row.avgAcknowledgement}</td>
-                  <td className="px-4 py-3">{row.avgCompletion}</td>
+                  <td className="px-4 py-3 font-semibold">{n(row.assigned)}</td>
+                  <td className="px-4 py-3"><span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{n(row.completed)}</span></td>
+                  <td className="px-4 py-3"><span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>{n(row.cancelled)}</span></td>
+                  <td className="px-4 py-3">{n(row.panic)}</td>
+                  <td className="px-4 py-3">{n(row.avgAcknowledgement)}</td>
+                  <td className="px-4 py-3">{n(row.avgCompletion)}</td>
                 </tr>
               ))}
 

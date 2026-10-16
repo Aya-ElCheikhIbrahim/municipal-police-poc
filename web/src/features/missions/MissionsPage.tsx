@@ -7,7 +7,6 @@ import { MissionFilters } from './MissionFilters';
 import { MissionDetailPage } from './MissionDetailPage';
 import { CreateMissionPage } from './CreateMissionPage';
 import type { MissionFilters as Filters, CreateMissionRequest } from './types';
-
 type View =
   | { kind: 'list' }
   | { kind: 'detail'; missionId: number }

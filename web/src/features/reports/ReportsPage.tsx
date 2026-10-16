@@ -182,19 +182,21 @@ export function ReportsPage({ onMissionSelect }: ReportsPageProps) {
 
         <div className="flex items-center gap-2">
           <button
-            type="button"
-            onClick={() => handleExportFiltered('Excel')}
-            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
-          >
-            {t.reports.exportExcel}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleExportFiltered('PDF')}
-            className="bg-white hover:bg-slate-50 border border-slate-200 px-3 lg:px-4 py-1.5 rounded-md text-sm lg:text-base font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
-          >
-            {t.reports.exportPdf}
-          </button>
+  type="button"
+  onClick={() => handleExportFiltered('Excel')}
+  className="inline-flex items-center gap-2 bg-[#1F3864] hover:bg-[#1B5E20] text-white px-4 py-2 rounded-md text-sm lg:text-base font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
+>
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+  {t.reports.exportExcel}
+</button>
+<button
+  type="button"
+  onClick={() => handleExportFiltered('PDF')}
+  className="inline-flex items-center gap-2 bg-[#1F3864] hover:bg-[#B71C1C] text-white px-4 py-2 rounded-md text-sm lg:text-base font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
+>
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+  {t.reports.exportPdf}
+</button>
         </div>
       </div>
 

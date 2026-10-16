@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { usePanicAlerts } from '../panic/usePanicAlerts';
 import { useMissions } from '../missions/useMissions';
 import { useLanguage } from '../../i18n/languagecontext';
+import { localizeNumbers } from '../../i18n/numbers';
 import { statusLabel, priorityLabel, formatTime, type MissionListItem } from '../missions/types';
 import { fetchDailySummary } from './api';
 
@@ -30,6 +31,7 @@ interface MissionsReportProps {
 
 export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
   const { language, translations: t } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const today = todayLocal();
 
   // Real missions from the backend (GET /missions/?date=today), polled live.
@@ -134,7 +136,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
           <p className="mt-1 text-sm text-slate-500">{language === 'ar' ? `المهام المباشرة لهذا اليوم من النظام الخلفي بتاريخ ${today}` : `Today's live missions from the backend for ${today}.`}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-slate-400">{language === 'ar' ? 'آخر تحديث' : 'Last updated'}: {lastUpdated}</span>
+          <span className="text-xs font-medium text-slate-400">{language === 'ar' ? 'آخر تحديث' : 'Last updated'}: {n(lastUpdated)}</span>
           <button
             type="button"
             onClick={handleRefresh}
@@ -156,11 +158,11 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <SummaryCard label={language === 'ar' ? 'مهام اليوم' : "Today's missions"} value={missions.length} />
-        <SummaryCard label={t.reports.inProgress} value={inProgress} />
-        <SummaryCard label={t.reports.completed} value={completed} />
-        <SummaryCard label={t.reports.cancelled} value={cancelled} />
-        <SummaryCard label={language === 'ar' ? 'عاجلة' : 'Urgent'} value={urgent} />
+        <SummaryCard label={language === 'ar' ? 'مهام اليوم' : "Today's missions"} value={n(missions.length)} />
+        <SummaryCard label={t.reports.inProgress} value={n(inProgress)} />
+        <SummaryCard label={t.reports.completed} value={n(completed)} />
+        <SummaryCard label={t.reports.cancelled} value={n(cancelled)} />
+        <SummaryCard label={language === 'ar' ? 'عاجلة' : 'Urgent'} value={n(urgent)} />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
@@ -252,7 +254,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <h3 className="text-base font-bold text-slate-800">{t.reports.activity}</h3>
           <span className="text-sm font-semibold text-slate-500">
-            {rows.length} {language === 'ar' ? 'مهام' : `mission${rows.length === 1 ? '' : 's'}`}
+            {n(rows.length)} {language === 'ar' ? 'مهام' : `mission${rows.length === 1 ? '' : 's'}`}
           </span>
         </div>
 
@@ -286,8 +288,8 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
                   <td className="px-4 py-3"><StatusBadge status={mission.status} /></td>
                   <td className="px-4 py-3 font-semibold">{priorityLabel(mission.priority)}</td>
                   <td className="px-4 py-3">{locationOf(mission)}</td>
-                  <td className="px-4 py-3 font-medium">{mission.assigned_at ? formatTime(mission.assigned_at) : '—'}</td>
-                  <td className="px-4 py-3">{formatTime(mission.created_at)}</td>
+                  <td className="px-4 py-3 font-medium">{mission.assigned_at ? n(formatTime(mission.assigned_at)) : '—'}</td>
+                  <td className="px-4 py-3">{n(formatTime(mission.created_at))}</td>
                 </tr>
               ))}
 
@@ -356,7 +358,7 @@ function Filter({
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="bg-white/80 p-4 rounded-lg border border-slate-200/80 shadow-xs">
       <div className="text-2xl font-bold text-slate-900">{value}</div>

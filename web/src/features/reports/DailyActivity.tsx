@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchDailySummary, fetchActivityFeed } from './api';
 import type { ActivityRow, Area, DailySummaryResponse, FilterState } from './types.ts';
 import { useLanguage } from '../../i18n/languagecontext';
+import { localizeNumbers } from '../../i18n/numbers';
 
 export type DailyViewMode = 'SUMMARY' | 'SNAPSHOT';
 
@@ -52,7 +53,8 @@ function SortHeader({
 }
 
 export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelect }: DailyActivityProps) {
-  const { translations: t } = useLanguage();
+  const { translations: t, language } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const selectedDate = filters?.startDate || new Date().toISOString().slice(0, 10);
   const officerFilter = filters?.officer ?? 'ALL';
   const locationFilter = filters?.location ?? 'ALL';
@@ -213,7 +215,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
                       )}
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-800">
-                      {item?.at ? new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                      {item?.at ? n(new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{item?.area || '—'}</td>
                     <td className="px-4 py-3">
@@ -247,14 +249,14 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-        <SummaryCard value={totals?.officers_on_duty ?? 0} label={t.reports.officer} />
-        <SummaryCard value={formatMinutes(Math.round((totals?.hours_on_duty ?? 0) * 60))} label={t.reports.hours} />
-        <SummaryCard value={`${((totals?.distance_covered_m ?? 0) / 1000).toFixed(1)} km`} label={t.reports.distance} />
-        <SummaryCard value={totals?.missions_assigned ?? 0} label={t.reports.assigned} />
-        <SummaryCard value={totals?.missions_in_progress ?? 0} label={t.reports.inProgress} />
-        <SummaryCard value={totals?.missions_completed ?? 0} label={t.reports.completed} />
-        <SummaryCard value={totals?.missions_cancelled ?? 0} label={t.reports.cancelled} />
-        <SummaryCard value={totals?.panic_events ?? 0} label={t.reports.panic} />
+        <SummaryCard value={n(totals?.officers_on_duty ?? 0)} label={t.reports.officer} />
+        <SummaryCard value={n(formatMinutes(Math.round((totals?.hours_on_duty ?? 0) * 60)))} label={t.reports.hours} />
+        <SummaryCard value={`${n(((totals?.distance_covered_m ?? 0) / 1000).toFixed(1))} km`} label={t.reports.distance} />
+        <SummaryCard value={n(totals?.missions_assigned ?? 0)} label={t.reports.assigned} />
+        <SummaryCard value={n(totals?.missions_in_progress ?? 0)} label={t.reports.inProgress} />
+        <SummaryCard value={n(totals?.missions_completed ?? 0)} label={t.reports.completed} />
+        <SummaryCard value={n(totals?.missions_cancelled ?? 0)} label={t.reports.cancelled} />
+        <SummaryCard value={n(totals?.panic_events ?? 0)} label={t.reports.panic} />
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
@@ -293,7 +295,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
                     </button>
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">
-                    {row.shiftStart} → {row.shiftEnd}
+                    {n(row.shiftStart)} → {n(row.shiftEnd)}
                   </td>
                   <td className="px-4 py-3 text-slate-700">
                     {row.locations.length === 0 ? (
@@ -320,7 +322,7 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
                                 onClick={() => setExpandedLocations(row.name)}
                                 className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-[#203E72] hover:bg-slate-200 cursor-pointer"
                               >
-                                +{row.locations.length - 1}
+                                +{n(row.locations.length - 1)}
                               </button>
                             )}
                           </>
@@ -333,27 +335,27 @@ export function DailyActivity({ filters, mode = 'SUMMARY', areas, onOfficerSelec
                       {row.locationActivityPeriod}
                     </td>
                   )}
-                  <td className="px-4 py-3 font-bold text-slate-800">{row.dutyHours}</td>
-                  <td className="px-4 py-3 text-slate-700">{row.distance}</td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">{row.assigned}</td>
+                  <td className="px-4 py-3 font-bold text-slate-800">{n(row.dutyHours)}</td>
+                  <td className="px-4 py-3 text-slate-700">{n(row.distance)}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">{n(row.assigned)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.inProgress > 0 ? 'bg-sky-50 text-sky-700' : 'bg-slate-50 text-slate-500'}`}>
-                      {row.inProgress}
+                      {n(row.inProgress)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex min-w-7 justify-center rounded-md bg-emerald-50 px-2 py-1 font-bold text-emerald-700">
-                      {row.completed}
+                      {n(row.completed)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.cancelled > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
-                      {row.cancelled}
+                      {n(row.cancelled)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
-                      {row.panic}
+                      {n(row.panic)}
                     </span>
                   </td>
                 </tr>

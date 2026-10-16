@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-
+import { useLanguage } from '../../i18n/languagecontext';
+import { localizeNumbers } from '../../i18n/numbers';
 export interface PanicAlert {
   id: number;
   officer: {
@@ -81,6 +82,8 @@ export function PanicOverlay({
   onClose,
   onLocate,
 }: PanicOverlayProps) {
+  const { translations: t, language } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   if (panics.length === 0) return null;
 
   return (
@@ -98,12 +101,11 @@ export function PanicOverlay({
 
             <div className="flex flex-col">
               <span className="font-extrabold text-xs uppercase tracking-wider">
-                {panic.officer.full_name} — PANIC ALERT
+                {panic.officer.full_name} — {t.panic.alertTitle}
               </span>
 
               <span className="text-xs text-rose-100">
-                Badge {panic.officer.badge_number} ·{' '}
-                {new Date(panic.triggered_at).toLocaleTimeString()}
+                {t.panic.badge} {n(panic.officer.badge_number)} ·{' '}{n(new Date(panic.triggered_at).toLocaleTimeString())}
               </span>
             </div>
           </div>
@@ -113,14 +115,14 @@ export function PanicOverlay({
               onClick={() => onLocate(panic)}
               className="bg-white text-rose-700 hover:bg-rose-50 text-xs font-bold px-3 py-1 rounded transition shadow-xs cursor-pointer"
             >
-              Locate on Map
+              {t.panic.locate}
             </button>
 
             <button
               onClick={() => onClose(panic.id)}
               className="bg-rose-800 hover:bg-rose-900 text-white text-xs font-semibold px-3 py-1 rounded border border-rose-500 transition cursor-pointer"
             >
-              Resolve
+              {t.panic.resolve}
             </button>
           </div>
         </div>

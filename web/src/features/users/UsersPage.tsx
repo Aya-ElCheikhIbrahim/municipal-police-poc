@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useUsers } from './useUsers';
 import { AddUserForm } from './AddUserForm';
-import { roleLabel } from '../auth/types';
 import { ResetPasswordModal } from './password_res';
 import type { CreateUserRequest, UserFilters } from './types';
 import { usersApi } from './api';
 import { useLanguage } from '../../i18n/languagecontext';
-
+import { localizeNumbers, formatPhone } from '../../i18n/numbers';
 export function UsersPage() {
-  const { translations: t } = useLanguage();
+  const { translations: t, language } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [resetUser, setResetUser] = useState<any | null>(null);
@@ -88,9 +88,9 @@ export function UsersPage() {
                   </span>
                 </div>
                 <div className="text-sm text-slate-600">
-                  Badge {user.badge_number} · {roleLabel(user.role)}
+                  Badge {user.badge_number} · {t.roles[user.role]}
                 </div>
-                <div className="text-sm text-slate-600 font-mono">{user.phone || '—'}</div>
+                <div className="text-sm text-slate-600 font-mono text-left"><span dir="ltr" style={{ unicodeBidi: 'bidi-override' }} className="inline-block">{user.phone ? formatPhone(user.phone, language) : '—'}</span></div>
                 <div className="flex items-center justify-between ml-auto pt-2">
                   <div className="flex-1 flex justify-center">
                     <button
@@ -144,8 +144,8 @@ export function UsersPage() {
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-slate-900">{user.full_name}</td>
                     <td className="px-4 py-3 text-slate-600">{user.badge_number}</td>
-                    <td className="px-4 py-3 text-slate-600">{roleLabel(user.role)}</td>
-                    <td className="px-4 py-3 text-slate-600 font-mono">{user.phone || '—'}</td>
+                    <td className="px-4 py-3 text-slate-600">{t.roles[user.role]}</td>
+                    <td className="px-4 py-3 text-slate-600 font-mono text-left"><span dir="ltr" style={{ unicodeBidi: 'bidi-override' }} className="inline-block">{user.phone ? formatPhone(user.phone, language) : '—'}</span></td>
                     <td className="px-4 py-3">
                       <span
                         className={`px-3 py-1 rounded-full text-xs lg:text-sm font-semibold ${
@@ -196,7 +196,7 @@ export function UsersPage() {
                 id: resetUser.id,
                 name: resetUser.full_name || resetUser.username,
                 badge: resetUser.badge_number || '—',
-                role: typeof roleLabel === 'function' ? roleLabel(resetUser.role) : (roleLabel as Record<string, any>)[resetUser.role] || resetUser.role,
+                role: t.roles[resetUser.role as keyof typeof t.roles],
               }
             : null
         }

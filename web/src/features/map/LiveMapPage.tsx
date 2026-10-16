@@ -13,6 +13,7 @@ import {
 } from '../officers/types';
 import { usePanicRadius } from './usePanicRadius';
 import { useLanguage } from '../../i18n/languagecontext';
+import { localizeNumbers } from '../../i18n/numbers';
 /** A request to zoom in on an officer, e.g. from "Locate on Map" on a panic banner. */
 export interface MapFocus {
   officerId: number;
@@ -164,8 +165,9 @@ function OfficerRow({
   isSelected: boolean;
   onSelect: () => void;
 }) {
+  const { translations: t, language } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const hasPosition = pingToCoords(entry.latest_ping) !== null;
-
   return (
     <div
       onClick={onSelect}
@@ -180,33 +182,30 @@ function OfficerRow({
         <StatusBadge status={displayOfficerStatus(entry)} />
       </div>
       <div className="text-sm text-slate-400 mt-1">
-        Badge {entry.officer.badge_number} ·{' '}
-        {formatDuration(entry.shift_duration_seconds)}
+        {t.common.badge} {n(entry.officer.badge_number)} · {n(formatDuration(entry.shift_duration_seconds))}
       </div>
       {!hasPosition && (
-        <div className="text-xs text-amber-600 mt-1">No location yet</div>
+        <div className="text-xs text-amber-600 mt-1">{t.map.noLocation}</div>
       )}
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: OfficerStatus }) {
+  const { translations: t } = useLanguage();
   const styles: Record<OfficerStatus, string> = {
     panic: 'bg-rose-600 text-white animate-pulse',
     on_mission: 'bg-blue-50 text-[#2E5496]',
     available: 'bg-[#2E7D32]/10 text-[#2E7D32]',
   };
-
   return (
-    <span
-      className={`text-xs lg:text-sm font-semibold px-2.5 lg:px-3 py-1 rounded-full shrink-0 ${styles[status]}`}
-    >
-      {statusLabel(status)}
+    <span className={`text-xs lg:text-sm font-semibold px-2.5 lg:px-3 py-1 rounded-full shrink-0 ${styles[status]}`}>
+      {t.officerStatus[status]}
     </span>
   );
 }
 
-function OfficerDetail({
+  function OfficerDetail({
   entry,
   trail,
   isTrailLoading,
@@ -219,6 +218,8 @@ function OfficerDetail({
   onZoomToTrail: () => void;
   onClose: () => void;
 }) {
+  const { translations: t, language } = useLanguage();
+  const n = (v: string | number) => localizeNumbers(v, language);
   const ping = entry.latest_ping;
 
   return (
@@ -226,61 +227,58 @@ function OfficerDetail({
       <div className="flex items-start justify-between pb-3 lg:pb-4 border-b border-slate-100 gap-2">
         <h3 className="font-bold text-slate-900 text-xl lg:text-2xl">{entry.officer.full_name}</h3>
         <button onClick={onClose} className="lg:hidden text-slate-400 text-sm cursor-pointer">
-          Close
+          {t.map.close}
         </button>
         <span className="hidden lg:inline text-base text-slate-400 font-medium shrink-0">
-          Badge {entry.officer.badge_number}
+          {t.common.badge} {n(entry.officer.badge_number)}
         </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Stat
-          value={formatDuration(entry.shift_duration_seconds)}
-          label="On duty"
+          value={n(formatDuration(entry.shift_duration_seconds))} 
+          label={t.map.onDuty}
         />
         <Stat
-          value={formatDistance(entry.distance_covered_m)}
-          label="Covered today"
+          value={n(formatDistance(entry.distance_covered_m))} 
+          label={t.map.coveredToday}
         />
       </div>
 
       {ping && (
         <div className="text-sm lg:text-base text-slate-500 space-y-2 pt-3 lg:pt-4 border-t border-slate-100">
           <div>
-            Last fix{' '}
+            {t.map.lastFix}{' '}
             <span className="font-mono text-slate-700">
-              {new Date(ping.recorded_at).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {n(new Date(ping.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
             </span>
           </div>
-          {ping.battery_level !== null && <div>Battery {ping.battery_level}%</div>}
-          {ping.accuracy_m !== null && <div>Accuracy ±{Math.round(ping.accuracy_m)}m</div>}
+          {ping.battery_level !== null && <div>{t.map.battery} {n(ping.battery_level)}%</div>}
+          {ping.accuracy_m !== null && <div>{t.map.accuracy} ±{n(Math.round(ping.accuracy_m))}m</div>}
         </div>
       )}
 
       <div className="pt-3 lg:pt-4 border-t border-slate-100">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-sm lg:text-base font-semibold text-slate-700">
-            Today&apos;s path
+            {t.map.todaysPath}
           </span>
           {trail && trail.point_count > 1 && (
             <button
               onClick={onZoomToTrail}
               className="text-xs lg:text-sm font-semibold text-[#2E5496] hover:underline cursor-pointer"
             >
-              Zoom to path
+              {t.map.zoomPath}
             </button>
           )}
         </div>
         {isTrailLoading ? (
-          <p className="text-sm text-slate-400">Loading path…</p>
+          <p className="text-sm text-slate-400">{t.map.loadingPath}</p>
         ) : !trail || trail.point_count === 0 ? (
-          <p className="text-sm text-slate-400">No location history for today.</p>
+          <p className="text-sm text-slate-400">{t.map.noHistory}</p>
         ) : (
           <p className="text-sm lg:text-base text-slate-500">
-            {trail.point_count} points · {formatDistance(trail.distance_covered_m)}
+            {n(trail.point_count)} {t.map.points} · {n(formatDistance(trail.distance_covered_m))}
           </p>
         )}
       </div>
