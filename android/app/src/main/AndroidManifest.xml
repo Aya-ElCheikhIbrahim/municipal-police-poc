@@ -60,6 +60,11 @@
             android:exported="false"
             android:theme="@style/Theme.OfficerApp.NoActionBar" />
 
+        <activity
+            android:name=".ui.panic.PanicDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OfficerApp.NoActionBar" />
+
         <service
             android:name="com.municipalpolice.officerapp.service.LocationService"
             android:exported="false"
