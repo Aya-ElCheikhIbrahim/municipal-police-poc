@@ -248,11 +248,6 @@ export function MissionTable({
                           Overdue
                         </span>
                       )}
-                      {mission.awaiting_acknowledgement && (
-                        <span className="text-xs font-bold text-amber-600 uppercase bg-amber-100 px-2 py-0.5 rounded">
-                          No response
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">

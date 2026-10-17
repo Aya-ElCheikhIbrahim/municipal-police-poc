@@ -33,7 +33,7 @@ export const missionsApi = {
 
   /**
    * POST /missions/{id}/assign/ : the server decides assign vs reassign from
-   * the mission's current status. Only valid before acknowledgement.
+   * the mission's current status. Only valid while the mission is still assigned.
    */
   assign: (id: number, officerIds: number[]) =>
     apiClient.post<MissionDetail>(`/missions/${id}/assign/`, { officer_ids: officerIds }),

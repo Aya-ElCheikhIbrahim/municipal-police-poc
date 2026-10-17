@@ -20,7 +20,6 @@ export function PriorityBadge({ priority }: { priority: MissionPriority }) {
 const STATUS_STYLES: Record<MissionStatus, string> = {
   new: 'bg-slate-100 text-slate-700',
   assigned: 'bg-amber-100 text-amber-800',
-  acknowledged: 'bg-amber-100 text-amber-800',
   in_progress: 'bg-blue-100 text-blue-800',
   paused: 'bg-violet-100 text-violet-800',
   completed: 'bg-emerald-100 text-emerald-800',

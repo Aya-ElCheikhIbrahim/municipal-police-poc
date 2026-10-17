@@ -8,7 +8,7 @@ interface WeeklySummaryProps {
   onOfficerSelect?: (officerId: number) => void;
 }
 
-type WeeklySort = 'name' | 'dutyHours' | 'distance' | 'assigned' | 'completed' | 'cancelled' | 'avgAcknowledgement' | 'avgTime' | 'panic';
+type WeeklySort = 'name' | 'dutyHours' | 'distance' | 'assigned' | 'completed' | 'cancelled' | 'avgTime' | 'panic';
 
 function formatDuration(totalMinutes: number) {
   if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return '—';
@@ -16,14 +16,6 @@ function formatDuration(totalMinutes: number) {
   const hours = Math.floor(rounded / 60);
   const minutes = rounded % 60;
   return hours > 0 ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`;
-}
-
-function formatAcknowledgement(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '—';
-  const rounded = Math.round(seconds);
-  const minutes = Math.floor(rounded / 60);
-  const secs = rounded % 60;
-  return `${minutes}m ${String(secs).padStart(2, '0')}s`;
 }
 
 function SortHeader({
@@ -92,8 +84,6 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
       assigned: officer.missions_assigned,
       completed: officer.missions_completed,
       cancelled: officer.missions_cancelled,
-      avgAcknowledgement: formatAcknowledgement(officer.average_acknowledgement_seconds),
-      avgAckSecs: officer.average_acknowledgement_seconds,
       avgTime: formatDuration(officer.average_completion_seconds / 60),
       avgCompSecs: officer.average_completion_seconds,
       panic: officer.panic_events,
@@ -110,7 +100,6 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
         case 'assigned': diff = a.assigned - b.assigned; break;
         case 'completed': diff = a.completed - b.completed; break;
         case 'cancelled': diff = a.cancelled - b.cancelled; break;
-        case 'avgAcknowledgement': diff = a.avgAckSecs - b.avgAckSecs; break;
         case 'avgTime': diff = a.avgCompSecs - b.avgCompSecs; break;
         case 'panic': diff = a.panic - b.panic; break;
       }
@@ -144,7 +133,6 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
   const statusItems = [
     { label: language === 'ar' ? 'جديدة' : 'New', value: statusValue('new') },
     { label: language === 'ar' ? 'مُسندة' : 'Assigned', value: statusValue('assigned') },
-    { label: language === 'ar' ? 'تم الاستلام' : 'Acknowledged', value: statusValue('acknowledged') },
     { label: language === 'ar' ? 'قيد التنفيذ' : 'In Progress', value: statusValue('in_progress') },
     { label: language === 'ar' ? 'متوقفة مؤقتًا' : 'Paused', value: statusValue('paused') },
     { label: language === 'ar' ? 'مكتملة' : 'Completed', value: statusValue('completed') },
@@ -160,7 +148,6 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard value={totals?.missions_completed ?? 0} label={t.reports.totalCompleted} />
-        <SummaryCard value={formatAcknowledgement(summaryData?.average_acknowledgement_seconds ?? 0)} label={t.reports.avgAcknowledgement} />
         <SummaryCard value={formatDuration((summaryData?.average_completion_seconds ?? 0) / 60)} label={t.reports.avgCompletion} />
         <SummaryCard value={totals?.panic_events ?? 0} label={t.reports.panic} />
       </div>
@@ -197,7 +184,6 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
                 <SortHeader label={t.reports.assigned} field="assigned" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label={t.reports.completed} field="completed" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label={t.reports.cancelled} field="cancelled" currentField={sortField} asc={sortAsc} onSort={handleSort} />
-                <SortHeader label={t.reports.avgAcknowledgement} field="avgAcknowledgement" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label={t.reports.avgCompletion} field="avgTime" currentField={sortField} asc={sortAsc} onSort={handleSort} />
                 <SortHeader label={t.reports.panic} field="panic" currentField={sortField} asc={sortAsc} onSort={handleSort} />
               </tr>
@@ -228,7 +214,6 @@ export function WeeklySummary({ filters, onOfficerSelect }: WeeklySummaryProps) 
                       {row.cancelled}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{row.avgAcknowledgement}</td>
                   <td className="px-4 py-3">{row.avgTime}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex min-w-7 justify-center rounded-md px-2 py-1 font-bold ${row.panic > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
