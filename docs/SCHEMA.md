@@ -75,7 +75,7 @@ This table is the on/off switch for location tracking. No active shift, no pings
 
 ## shifts_locationping
 
-The high-volume table — roughly 960 rows per officer per 8-hour shift.
+The high-volume table; roughly 960 rows per officer per 8-hour shift.
 
 Field - Type - Notes
 id - bigint PK
@@ -99,14 +99,12 @@ Deleted after 90 days.
 
 ## missions_mission
 
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. The `acknowledged` status value, `acknowledged_at` and `ack_alert_sent_at` columns below remain until removal.
-
 Field - Type - Notes
 id - bigint PK
 title - varchar(200)
 description - text
 priority - varchar(10) - low, medium, high, urgent
-status - varchar(16) - new, assigned, acknowledged, in_progress, paused, completed, cancelled
+status - varchar(16) - new, assigned, in_progress, paused, completed, cancelled
 latitude - decimal(9,6) - where the officer must go
 longitude - decimal(9,6)
 address - varchar(300) - free text, may be blank
@@ -115,7 +113,6 @@ assigned_to - M2M user - the assigned officers; a mission can be assigned to sev
 deadline - timestamptz - optional
 created_at - timestamptz
 assigned_at - timestamptz
-acknowledged_at - timestamptz
 started_at - timestamptz
 completed_at - timestamptz
 cancelled_at - timestamptz
@@ -125,9 +122,8 @@ completed_latitude - decimal(9,6) - where the officer was at Complete
 completed_longitude - decimal(9,6)
 notes - text - officer's notes, Arabic and English
 cancellation_reason - text
-ack_alert_sent_at - timestamptz - stops the 5-min alarm repeating
 
-Status flow (live): new → assigned → in_progress → completed. Cancel is reachable from new, assigned, acknowledged, in_progress or paused. The `acknowledged` status still exists but is cancelled - `start` is allowed straight from `assigned` (**[ACK-REMOVAL PENDING]**).
+Status flow: new → assigned → in_progress → completed. Cancel is reachable from new, assigned, in_progress or paused.
 
 Reassignment allowed only while status is `assigned` (before work starts), §4.4.
 Complete requires at least `mission_photo_min` photo(s) already uploaded, otherwise 400 (enforced server-side in `complete_mission`).
@@ -146,7 +142,7 @@ captured_at - timestamptz - phone clock at capture
 uploaded_at - timestamptz - server clock
 uploaded_by_id - FK user
 
-1 to 5 per mission — the 6th returns 400. Camera only, never the gallery.
+1 to 5 per mission; the 6th returns 400. Camera only, never the gallery.
 
 ## missions_missionevent
 
@@ -155,7 +151,7 @@ Append-only audit log. Never updated, never deleted.
 Field - Type - Notes
 id - bigint PK
 mission_id - FK mission
-event_type - varchar(20) - created, assigned, reassigned, acknowledged, started, completed, cancelled, photo_added, note_updated
+event_type - varchar(20) - created, assigned, reassigned, started, completed, cancelled, photo_added, note_updated
 actor_id - FK user - null for system-generated events
 created_at - timestamptz
 metadata - jsonb - e.g. {"from_officer": 4, "to_officer": 7}
@@ -194,7 +190,6 @@ updated_by_id - FK user
 
 Keys and defaults:
 location_ping_interval_seconds - 30, clamp 10 to 120
-mission_ack_timeout_minutes - 5  (ACK-REMOVAL PENDING - cancelled, see docs/PROGRESS.md)
 location_retention_days - 90
 panic_cancel_grace_seconds - 10
 mission_photo_min - 1

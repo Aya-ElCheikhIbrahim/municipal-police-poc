@@ -6,7 +6,7 @@ missions/tests.py::ApiPermissionTests, DetailContractTests, TransitionTests
 
 All roles. Officers receive only their own missions — the server filters by assigned_to, not the client. Dispatchers and supervisors receive everything.
 
-Query parameters: `status` (new, assigned, acknowledged, in_progress, completed, cancelled), `priority` (low, medium, high, urgent), `officer_id` (dispatcher/supervisor only), `date` (YYYY-MM-DD, missions created on that day, Beirut local time), `open` (pass `true` to exclude completed and cancelled missions).
+Query parameters: `status` (new, assigned, in_progress, completed, cancelled), `priority` (low, medium, high, urgent), `officer_id` (dispatcher/supervisor only), `date` (YYYY-MM-DD, missions created on that day, Beirut local time), `open` (pass `true` to exclude completed and cancelled missions).
 
 Events and photos are not included in the list response. Call `GET /api/v1/missions/{id}/` for the full record.
 
@@ -28,13 +28,12 @@ Events and photos are not included in the list response. Call `GET /api/v1/missi
     "deadline": "2026-09-07T14:00:00Z",
     "created_at": "2026-09-07T09:00:00Z",
     "assigned_at": "2026-09-07T09:01:00Z",
-    "is_overdue": false,
-    "awaiting_acknowledgement": false
+    "is_overdue": false
   }
 ]
 ```
 
-Coordinates sent in (create, start, complete, photo upload) may carry more than 6 decimal places; the extra precision is rounded half-up to 6 rather than rejected. `assigned_to` is null when the mission is still new and has no officer. `is_overdue` is true when a deadline exists, the mission is still open, and the deadline is in the past — computed on every read, not stored. `awaiting_acknowledgement` is true when the mission is assigned and the unacknowledged sweep has already flagged it. Coordinates are strings — call `parseFloat` before passing them to Leaflet. Timestamps are UTC, convert at render.
+Coordinates sent in (create, start, complete, photo upload) may carry more than 6 decimal places; the extra precision is rounded half-up to 6 rather than rejected. `assigned_to` is null when the mission is still new and has no officer. `is_overdue` is true when a deadline exists, the mission is still open, and the deadline is in the past, computed on every read, not stored. Coordinates are strings; call `parseFloat` before passing them to Leaflet. Timestamps are UTC, convert at render.
 
 `POST /api/v1/missions/`
 
@@ -75,7 +74,6 @@ Returns the full detail object: all list-row fields plus description, all lifecy
   "deadline": null,
   "created_at": "2026-09-07T09:00:00Z",
   "assigned_at": "2026-09-07T09:01:00Z",
-  "acknowledged_at": "2026-09-07T09:04:00Z",
   "started_at": "2026-09-07T09:20:00Z",
   "completed_at": "2026-09-07T10:05:00Z",
   "cancelled_at": null,
@@ -84,15 +82,12 @@ Returns the full detail object: all list-row fields plus description, all lifecy
   "completed_latitude": "34.437400",
   "completed_longitude": "35.850500",
   "is_overdue": false,
-  "awaiting_acknowledgement": false,
-  "ack_alert_sent_at": null,
   "notes": "Vehicle towed, lane reopened.",
   "cancellation_reason": "",
   "description": "Abandoned vehicle blocking the right lane.",
   "events": [
     { "id": 1, "event_type": "created",      "actor": { "id": 2, "full_name": "نور حداد", "badge_number": "DP-0012" }, "created_at": "2026-09-07T09:00:00Z", "metadata": { "title": "Traffic obstruction on Al-Mina road" } },
     { "id": 2, "event_type": "assigned",     "actor": { "id": 2, "full_name": "نور حداد", "badge_number": "DP-0012" }, "created_at": "2026-09-07T09:01:00Z", "metadata": { "officer_id": 4, "badge_number": "TP-1001" } },
-    { "id": 3, "event_type": "acknowledged", "actor": { "id": 4, "full_name": "سامر عبد الله", "badge_number": "TP-1001" }, "created_at": "2026-09-07T09:04:00Z", "metadata": {} },
     { "id": 4, "event_type": "started",      "actor": { "id": 4, "full_name": "سامر عبد الله", "badge_number": "TP-1001" }, "created_at": "2026-09-07T09:20:00Z", "metadata": {} },
     { "id": 5, "event_type": "photo_added",  "actor": { "id": 4, "full_name": "سامر عبد الله", "badge_number": "TP-1001" }, "created_at": "2026-09-07T10:03:00Z", "metadata": { "photo_id": 17 } },
     { "id": 6, "event_type": "completed",    "actor": { "id": 4, "full_name": "سامر عبد الله", "badge_number": "TP-1001" }, "created_at": "2026-09-07T10:05:00Z", "metadata": {} }
@@ -115,21 +110,13 @@ The `events` array is ordered oldest-first and is the source of truth for the di
 
 `POST /api/v1/missions/{id}/assign/`
 
-Dispatcher and Supervisor only. Assigns a new mission to an officer, or reassigns it before the officer has acknowledged. The same endpoint handles both — the correct path is chosen based on the current status.
+Dispatcher and Supervisor only. Assigns a new mission to an officer, or reassigns it while the mission is still assigned. The same endpoint handles both; the correct path is chosen based on the current status.
 
 ```json
 { "officer_id": 4 }
 ```
 
-Reassignment after acknowledgement is refused with 400. At that point the officer may already be driving to the mission, so the only options are to let them finish or cancel with a reason. Reassignment resets the unacknowledged alert clock so the new officer gets the full timeout.
-
-`POST /api/v1/missions/{id}/acknowledge/`
-
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete.
-
-Officer only. No request body.
-
-The officer confirms they have seen the mission. This is what changes the map marker from green to blue - not assignment. An officer being assigned a mission does not mean they have seen it yet. (Cancelled: `start` is allowed straight from `assigned`, and the Android app no longer shows this step.)
+Reassignment is allowed only while the mission is still `assigned` (before an officer starts it); once work has started, cancel with a reason instead.
 
 `POST /api/v1/missions/{id}/start/`
 
@@ -157,7 +144,7 @@ Officer only. Closes the mission. The server does not enforce a photo requiremen
 
 `POST /api/v1/missions/{id}/cancel/`
 
-Dispatcher and Supervisor only. Allowed from: new, assigned, acknowledged, in_progress. A completed mission cannot be cancelled.
+Dispatcher and Supervisor only. Allowed from: new, assigned, in_progress, paused. A completed mission cannot be cancelled.
 
 `reason` is mandatory. A database constraint enforces it — a blank reason is refused even from a shell or the admin.
 
@@ -197,14 +184,6 @@ Fields: `client_uuid` (UUID generated on the phone), `image` (the photo file), `
 
 `captured_at` is when the camera fired. `uploaded_at` is when the server received it. After an offline sync they differ by hours. Use `captured_at` for display. Photos can be uploaded at any point while the mission is open. The maximum of 5 photos is a UI rule enforced by the Android app, not the server.
 
-`POST /api/v1/missions/sweep-unacknowledged/`
+The status machine is: new → assigned → in_progress → completed. Any open status can transition to cancelled. An illegal transition returns 400 with a message naming the allowed statuses, never 500. `reassign` is a sideways move within assigned, moving the mission to a different officer without changing the status.
 
-Dispatcher and Supervisor only. No request body.
-
-Finds missions that have been assigned but not acknowledged within `mission_ack_timeout_minutes` (from `GET /api/v1/settings/`), flags each one, and returns the newly flagged missions. Safe to call on every dashboard poll — each mission is flagged only once. An empty list means nothing new was flagged this sweep.
-
-The status machine is: new → assigned → acknowledged → in_progress → completed. Any open status can transition to cancelled. An illegal transition returns 400 with a message naming the allowed statuses, never 500. `reassign` is a sideways move within assigned — it moves the mission to a different officer without changing the status.
-
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. `start` is allowed straight from `assigned`, so the live path is new → assigned → in_progress → completed; the `acknowledged` status and the `acknowledge`/`sweep-unacknowledged` endpoints above remain until removal.
-
-Event types written by the machine: `created`, `assigned`, `reassigned`, `acknowledged`, `started`, `completed`, `cancelled`, `photo_added`, `note_added`, `ack_alert_sent` (actor is null — raised by the system, not a person).
+Event types written by the machine: `created`, `assigned`, `reassigned`, `started`, `completed`, `cancelled`, `photo_added`, `note_added`.

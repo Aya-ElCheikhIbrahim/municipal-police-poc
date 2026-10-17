@@ -57,10 +57,6 @@ class DutyTargetReminder(models.Model):
     given local date. The unique (officer, date) pair is the dedup: ping
     batches arrive every ~30s, and get_or_create against it means two
     concurrent batches cannot both send the reminder.
-
-    Kept here rather than in notifications for the same reason
-    Mission.ack_alert_sent_at lives on Mission: the domain owns the "already
-    told them" guard, and notifications stays unaware of shifts.
     """
 
     officer = models.ForeignKey(

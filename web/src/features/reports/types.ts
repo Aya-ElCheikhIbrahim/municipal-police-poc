@@ -125,7 +125,6 @@ export interface RangeOfficer {
   missions_assigned: number;
   missions_completed: number;
   missions_cancelled: number;
-  average_acknowledgement_seconds: number;
   average_completion_seconds: number;
   panic_events: number;
 }
@@ -136,7 +135,6 @@ export interface WeeklySummaryResponse {
   missions_by_priority: Record<string, number>;
   missions_by_category: Record<string, number>;
   missions_by_status: Record<string, number>;
-  average_acknowledgement_seconds: number;
   average_completion_seconds: number;
   top_officers: TopOfficer[];
   totals: RangeTotals;
@@ -155,7 +153,6 @@ export interface OfficerReportSummary {
 }
 
 export interface OfficerPerformance {
-  average_acknowledgement_seconds: number;
   average_completion_seconds: number;
 }
 
@@ -168,7 +165,6 @@ export interface OfficerMission {
   area: string | null;
   area_id: number | null;
   assigned_at: string | null;
-  acknowledged_at: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
 }

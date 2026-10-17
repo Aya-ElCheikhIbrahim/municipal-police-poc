@@ -103,10 +103,6 @@ def weekly_xlsx(report, filename):
     ws.append([])
 
     ws.append([
-        f'{LABELS["avg_ack"]} ({LABELS["seconds"]})',
-        report["average_acknowledgement_seconds"],
-    ])
-    ws.append([
         f'{LABELS["avg_completion"]} ({LABELS["seconds"]})',
         report["average_completion_seconds"],
     ])

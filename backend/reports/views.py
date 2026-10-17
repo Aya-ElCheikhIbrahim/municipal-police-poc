@@ -374,15 +374,6 @@ class WeeklySummaryPDFView(APIView):
         draw_line(
             pdf,
             y,
-            f'{LABELS["avg_ack"]}: '
-            f'{digits(report["average_acknowledgement_seconds"])} {LABELS["seconds"]}',
-        )
-        y -= 20
-        draw_line(
-            pdf,
-            y,
-            f'{LABELS["avg_completion"]}: '
-            f'{digits(report["average_completion_seconds"])} {LABELS["seconds"]}',
         )
         y -= 40
 

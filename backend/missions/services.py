@@ -19,7 +19,6 @@ from core.registry import get_setting
 from notifications.services import (
     notify_mission_assigned,
     notify_mission_cancelled,
-    notify_mission_unacknowledged,
 )
 from .models import Mission, MissionEvent, MissionPhoto, MissionWork 
  
@@ -37,10 +36,8 @@ class MissionPermissionError(Exception):
 ALLOWED_FROM = {
     "assign": {Mission.Status.NEW},
     "reassign": {Mission.Status.ASSIGNED},
-    "acknowledge": {Mission.Status.ASSIGNED},
     "start": {
         Mission.Status.ASSIGNED,
-        Mission.Status.ACKNOWLEDGED,
         Mission.Status.IN_PROGRESS,
         Mission.Status.PAUSED,
     },
@@ -48,7 +45,6 @@ ALLOWED_FROM = {
     "cancel": {
         Mission.Status.NEW,
         Mission.Status.ASSIGNED,
-        Mission.Status.ACKNOWLEDGED,
         Mission.Status.IN_PROGRESS,
         Mission.Status.PAUSED,
     },
@@ -246,8 +242,7 @@ def reassign_mission(mission: Mission, *, officers, actor) -> Mission:
 
     mission.assigned_to.set(officers)
     mission.assigned_at = timezone.now()
-    mission.ack_alert_sent_at = None  # the new officers get a fresh clock
-    mission.save(update_fields=["assigned_at", "ack_alert_sent_at"])
+    mission.save(update_fields=["assigned_at",])
 
     _log(
         mission,
@@ -261,22 +256,7 @@ def reassign_mission(mission: Mission, *, officers, actor) -> Mission:
     for officer in officers:
         if officer.id not in previous_ids:  # officers already on it were told before
             notify_mission_assigned(mission, officer)
-    return mission
- 
- 
-@transaction.atomic
-def acknowledge_mission(mission: Mission, *, officer) -> Mission:
-    """The officer confirms they have seen it. Stops the section 4.9 alert clock."""
-    _require_status(mission, "acknowledge")
-    _require_assignee(mission, officer)
- 
-    mission.acknowledged_at = timezone.now()
-    mission.status = Mission.Status.ACKNOWLEDGED
-    mission.save(update_fields=["acknowledged_at", "status"])
- 
-    _log(mission, MissionEvent.EventType.ACKNOWLEDGED, actor=officer)
-    return mission
- 
+    return mission 
  
 @transaction.atomic
 def start_mission(mission: Mission, *, officer, latitude=None, longitude=None) -> Mission:
@@ -477,41 +457,6 @@ def add_note(mission: Mission, *, actor, text: str) -> MissionEvent:
     if not text:
         raise MissionError("A note cannot be empty.")
     return _log(mission, MissionEvent.EventType.NOTE_ADDED, actor=actor, text=text)
- 
- 
-def flag_unacknowledged(now=None) -> list[Mission]:
-    """
-    section 4.9 — find missions an officer has not acknowledged in time.
- 
-    Marks each one so the dashboard alerts once rather than on every poll.
-    Returns the missions newly flagged. Run from the polling endpoint or a
-    scheduled command; it is safe to call repeatedly.
-    """
-    now = now or timezone.now()
-    timeout = get_setting("mission_ack_timeout_minutes")
-    cutoff = now - timezone.timedelta(minutes=timeout)
- 
-    stale = Mission.objects.filter(
-        status=Mission.Status.ASSIGNED,
-        assigned_at__lt=cutoff,
-        ack_alert_sent_at__isnull=True,
-    )
- 
-    flagged = []
-    for mission in stale:
-        with transaction.atomic():
-            mission.ack_alert_sent_at = now
-            mission.save(update_fields=["ack_alert_sent_at"])
-            _log(
-                mission,
-                MissionEvent.EventType.ACK_ALERT_SENT,
-                actor=None,  # the system raised this, not a person
-                timeout_minutes=timeout,
-            )
-            notify_mission_unacknowledged(mission)
-        flagged.append(mission)
-    return flagged
- 
  
 def _require_officer_role(user) -> None:
     if getattr(user, "role", None) != "officer":

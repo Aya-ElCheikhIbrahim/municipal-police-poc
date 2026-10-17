@@ -3,8 +3,6 @@
 Record of what has been built, the decisions behind it, and what comes next.
 Written during phase 5 (panic, reports, polish). Last reviewed 2026-10-13.
 
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only if the owner requires it again
-
 ## Current state
 
 - PostgreSQL in Docker: done
@@ -24,8 +22,8 @@ Written during phase 5 (panic, reports, polish). Last reviewed 2026-10-13.
 - Swagger at /api/docs/, CORS: done
 - Web dashboard: login, users, live map, missions, panic: wired to the API
 - Web reports: wired to the real API (`mockData.ts` is no longer used for reports)
-- Android app: FCM push and the panic button are wired to the backend; the only
-  remaining app work is removing the Acknowledge leftovers (see "Acknowledge removal")
+- Android app: FCM push and the panic button are wired to the backend; the
+  Acknowledge step has been fully removed
 - Reports backend: daily per officer and all-officers summary, weekly and custom
   range, activity feed, individual officer report, area filters, CSV and PDF
   export in Arabic: done
@@ -86,20 +84,16 @@ Any assigned officer can start, add photos and complete; all of them see the
 result. Per-officer status would need a through-table and a much larger change
 for a stretch goal.
 
-**Acknowledge is cancelled (scope change vs requirements §4.5).**
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only if the oqner requires it again later
+**Acknowledge removed (scope change vs requirements §4.5).**
 
-The Acknowledge step has been dropped from the mission flow. The flow is now
+The Acknowledge step has been removed from the mission flow. The flow is now
 Start -> Complete (`assigned -> in_progress -> completed`): `start` is allowed
-straight from `assigned`. The backend and docs treat Acknowledge as finished and
-obsolete, and the Android app no longer shows it (the former Acknowledge button
-is repurposed to Start, and the step rows are Start/Complete). The endpoint,
-`acknowledged` status, `acknowledged_at` field, the "unacknowledged for X
-minutes" sweep/notification, and the average-acknowledgement-time report metric
-all still exist and still work; they are scheduled for removal, not removed. This
-is a scope change against requirements §4.5 and is **pending Product Owner
-sign-off**. See "Acknowledge removal" below for the full list of places it still
-exists.
+straight from `assigned`. The endpoint, the `acknowledged` status, the
+`acknowledged_at` / `ack_alert_sent_at` columns, the "unacknowledged for X
+minutes" sweep and notification, and the average-acknowledgement-time report
+metric have all been removed across the backend, the web dashboard, and the
+Android app (where the former Acknowledge button is now the Start button). This
+is a scope change against requirements §4.5.
 
 **Nearby-officer alert on panic (backend built; decision to reconcile).**
 When a panic is triggered, `panic.services.trigger_panic` finds every on-duty
@@ -140,11 +134,6 @@ unaffected.
 
 ### Android
 
-- **Finish removing the Acknowledge leftovers.** The visible button and flow are
-  already gone; what remains is dead plumbing - the `acknowledgeMission` API call,
-  the `ACKNOWLEDGED` status value, the `acknowledgedAt` field, the `btnAcknowledge`
-  view id, the acknowledge string resources, and the `== ACKNOWLEDGED` branches.
-  See "Acknowledge removal".
 - **Officer's own location-history screen (unverified).** The backend endpoint
   exists and is self-scoped; whether the Android app has a screen that consumes it
   is not verified in this pass. Confirm and build if missing (§5).
@@ -155,8 +144,6 @@ unaffected.
   behaviour is built (see "Decisions and why"). Decide whether the remaining work
   is only the dispatcher-facing "who was notified" view and any single-nearest
   refinement, or whether the current behaviour needs re-opening.
-- **Finish the Acknowledge removal across backend and docs** once the Product
-  Owner signs off the scope change (§4.5).
 
 ### Documentation / delivery (re-checked against the requirements)
 
@@ -176,72 +163,7 @@ location-history endpoint (backend done), the reports screens on real data
 
 ## Acknowledge removal
 
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete.
-
-Checklist of every place Acknowledge still exists, so each can be ticked off as
-it is removed. File and line are as of 2026-10-13 (approximate - verify against
-the current file when removing). The source code itself was deliberately left
-untouched in this documentation pass; this list is the map for the future code
-cleanup. Migrations and the generated `schema.yml` are listed for completeness
-but must **not** be hand-edited (migrations are historical; `schema.yml`
-regenerates from the serializers).
-
-Backend - live code:
-
-- [ ] `backend/missions/models.py:23` : `Mission.Status.ACKNOWLEDGED` status value
-- [ ] `backend/missions/models.py:80` : `acknowledged_at` field
-- [ ] `backend/missions/models.py:180` : `MissionEvent.EventType.ACKNOWLEDGED`
-- [ ] `backend/missions/models.py:188` : `MissionEvent.EventType.ACK_ALERT_SENT`
-- [ ] `backend/missions/models.py:97` : `ack_alert_sent_at` field
-- [ ] `backend/missions/services.py:40` : `"acknowledge"` transition in `ALLOWED_FROM`
-- [ ] `backend/missions/services.py:268` : `acknowledge_mission()`
-- [ ] `backend/missions/services.py:482` : `flag_unacknowledged()`
-- [ ] `backend/missions/views.py:269` : `MissionAcknowledgeView` (endpoint)
-- [ ] `backend/missions/views.py:409` : `UnacknowledgedSweepView` (endpoint)
-- [ ] `backend/missions/urls.py:26` : `missions/<id>/acknowledge/` route
-- [ ] `backend/missions/urls.py:19` : `missions/sweep-unacknowledged/` route
-- [ ] `backend/missions/serializers.py:48,70,78` : `awaiting_acknowledgement`
-- [ ] `backend/missions/serializers.py:94` : `acknowledged_at`
-- [ ] `backend/missions/admin.py:42` : `acknowledged_at` admin column
-- [ ] `backend/core/registry.py:57` : `mission_ack_timeout_minutes` setting
-- [ ] `backend/notifications/models.py:26` : `MISSION_UNACKNOWLEDGED` type
-- [ ] `backend/notifications/services.py:160` : `notify_mission_unacknowledged()`
-- [ ] `backend/reports/services.py:164,495` : average-acknowledgement-time metric
-- [ ] `backend/reports/serializers.py:47,58,156,171` : ack metric / `acknowledged_at` fields
-- [ ] `backend/reports/views.py:378` : ack metric in PDF export
-- [ ] `backend/reports/xlsx.py:107` : ack metric in XLSX export
-
-Backend - do not hand-edit (listed only):
-
-- [ ] `backend/missions/migrations/0001_initial.py` and `0009_mission_paused_and_working_time.py` - historical
-- [ ] `backend/notifications/migrations/0001_initial.py` - historical
-- [ ] `backend/schema.yml` - regenerates from serializers
-- [ ] `backend/missions/tests.py`, `backend/notifications/tests.py`, `backend/shifts/tests.py` - update when behaviour is removed
-
-Android - leftover plumbing (visible button already removed):
-
-- [ ] `android/.../model/MissionStatus.java:14` - `ACKNOWLEDGED` enum value
-- [ ] `android/.../model/Mission.java:35` - `acknowledged_at` / `acknowledgedAt`
-- [ ] `android/.../data/MissionApiService.java:18` - `acknowledgeMission` endpoint call
-- [ ] `android/.../data/MissionRepository.java:16` and `RetrofitMissionRepository.java:110` - repository method
-- [ ] `android/.../data/FakeMissionRepository.java:87` - fake repository method
-- [ ] `android/.../ui/missiondetail/MissionDetailActivity.java:189,593` - `btnAcknowledge` view id (repurposed to Start)
-- [ ] `android/.../res/layout/activity_mission_detail.xml:220` - `btnAcknowledge` id
-- [ ] `android/.../ui/missions/MissionListActivity.java`, `MissionAdapter.java`, `ui/settings/SettingsActivity.java` - `== ACKNOWLEDGED` branches
-- [ ] `android/.../res/values/strings.xml:99,102,104,134,142,143` and `values-ar/strings.xml` - acknowledge strings
-- [ ] `android/.../res/layout/item_step_row.xml:28` - `tools:text="Acknowledge"`
-
-Web - leftover references:
-
-- [ ] `web/src/features/missions/types.ts`, `MissionTable.tsx`, `MissionBadges.tsx`, `api.ts` - acknowledge status/handling
-- [ ] `web/src/features/reports/types.ts` - ack metric type
-- [ ] `web/src/features/reports/mockData.ts` - unused mock file still contains ack fields
-
-Docs (markers added, text kept until removal):
-
-- [ ] `docs/SCHEMA.md`, `docs/api/CONTRACT-missions.md`, `docs/api/CONTRACT-shifts.md`,
-  `docs/api/CONTRACT-reports.md`, `docs/api/CONTRACT-core.md`,
-  `docs/api/CONTRACT-notifications.md`, `docs/README.md`, `README.md`,
-  `backend/README.md`, `docs/PROGRESS.md`
-
-Run `grep -rn "ACK-REMOVAL PENDING"` from the repo root to find every marker in one search.
+Done. The Acknowledge step has been fully removed across the backend (code,
+migrations, tests), the web dashboard, and the Android app, and every
+removal marker in the docs has been cleared. See the "Acknowledge
+removed" decision note above for what the change covered.

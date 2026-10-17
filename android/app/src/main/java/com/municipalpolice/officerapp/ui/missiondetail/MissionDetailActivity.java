@@ -186,7 +186,7 @@ public class MissionDetailActivity extends BaseActivity
                 R.string.mission_step_complete
         );
 
-        findViewById(R.id.btnAcknowledge)
+        findViewById(R.id.btnStart)
                 .setOnClickListener(v -> startMission());
 
         findViewById(R.id.btnNavigate)
@@ -590,7 +590,7 @@ public class MissionDetailActivity extends BaseActivity
         if (!inProgress) {
 
             TextView button =
-                    findViewById(R.id.btnAcknowledge);
+                    findViewById(R.id.btnStart);
 
             button.setText(
                     R.string.mission_step_start
@@ -613,7 +613,6 @@ public class MissionDetailActivity extends BaseActivity
         } else {
 
             // Only show the mission start time.
-            // "Acknowledged" has been removed from the UI.
             tvStartedAt.setText(
                     getString(
                             R.string.mission_started_at,

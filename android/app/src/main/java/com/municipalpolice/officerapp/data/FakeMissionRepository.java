@@ -84,17 +84,6 @@ public class FakeMissionRepository implements MissionRepository {
     }
 
     @Override
-    public void acknowledgeMission(String missionId, Callback<Mission> callback) {
-        Mission m = find(missionId);
-        if (m == null) { callback.onError(new IllegalStateException("not found")); return; }
-        handler.postDelayed(() -> {
-            m.setAcknowledgedAt(nowIso());
-            m.setStatus(MissionStatus.ACKNOWLEDGED);
-            callback.onSuccess(m);
-        }, 300);
-    }
-
-    @Override
     public void startMission(String missionId, Callback<Mission> callback) {
         Mission m = find(missionId);
         if (m == null) { callback.onError(new IllegalStateException("not found")); return; }

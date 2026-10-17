@@ -31,9 +31,7 @@ Query parameters: `unread` (pass `true` to exclude already-read notifications), 
 }
 ```
 
-`mission_id`, `mission_title`, and `mission_status` are `null` when the notification is not linked to a mission — for example, a `dispatcher_message` sent without a mission context. `notification_type` is one of `mission_assigned`, `mission_cancelled`, `mission_unacknowledged`, `dispatcher_message`, `panic_alert`. Notifications are ordered newest-first. Page size is 25.
-
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. This affects the `mission_unacknowledged` type and the unacknowledged-sweep trigger below.
+`mission_id`, `mission_title`, and `mission_status` are `null` when the notification is not linked to a mission, for example a `dispatcher_message` sent without a mission context. `notification_type` is one of `mission_assigned`, `mission_cancelled`, `dispatcher_message`, `panic_alert`. Notifications are ordered newest-first. Page size is 25.
 
 `GET /api/v1/notifications/unread-count/`
 
@@ -81,11 +79,9 @@ No request body.
 
 Notifications are created by `notifications/services.py` in response to domain events. Clients never POST a notification directly.
 
-`mission_assigned` — written by `notify_mission_assigned()` when a mission is assigned or reassigned before acknowledgement. Recipient is the assigned officer.
+`mission_assigned`: written by `notify_mission_assigned()` when a mission is assigned or reassigned. Recipient is the assigned officer.
 
 `mission_cancelled` — written by `notify_mission_cancelled()` when a mission is cancelled. Recipient is the officer who was assigned at the time of cancellation. If the mission was never assigned `officer` is `None` and the function returns `None` without writing a row — there is nobody to tell.
-
-`mission_unacknowledged` - written by `notify_mission_unacknowledged()` from inside the unacknowledged sweep. Fans out to every active dispatcher and supervisor. Officers are not notified - this alert belongs on the dashboard, not the officer's phone. `bulk_create` is used so one sweep that covers many overdue missions does not issue N×recipients individual inserts. Inactive users are excluded from the fan-out. **[ACK-REMOVAL PENDING]** - this type and its sweep are cancelled; kept until the Acknowledge step is removed.
 
 `dispatcher_message` — written by `notify_dispatcher_message()`. Recipient is a named officer. The related mission is optional.
 

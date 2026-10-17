@@ -3,7 +3,6 @@ import type { OfficerBrief } from '../officers/types';
 export type MissionStatus =
   | 'new'
   | 'assigned'
-  | 'acknowledged'
   | 'in_progress'
   | 'paused'
   | 'completed'
@@ -15,15 +14,13 @@ export type MissionEventType =
   | 'created'
   | 'assigned'
   | 'reassigned'
-  | 'acknowledged'
   | 'started'
   | 'paused'
   | 'resumed'
   | 'completed'
   | 'cancelled'
   | 'photo_added'
-  | 'note_added'
-  | 'ack_alert_sent';
+  | 'note_added';
 
 export interface MissionEvent {
   id: number;
@@ -59,14 +56,12 @@ export interface MissionListItem {
   /** Seconds since started_at, frozen at completion/cancellation. Null until work starts. */
   duration_seconds: number | null;
   is_overdue: boolean;
-  awaiting_acknowledgement: boolean;
 }
 
 export interface MissionDetail extends MissionListItem {
   description: string;
   category?: string;
   created_by: OfficerBrief | null;
-  acknowledged_at: string | null;
   started_at: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
@@ -76,7 +71,6 @@ export interface MissionDetail extends MissionListItem {
   completed_longitude: string | null;
   notes: string;
   cancellation_reason: string;
-  ack_alert_sent_at: string | null;
   events: MissionEvent[];
   photos: MissionPhoto[];
 }
@@ -109,7 +103,6 @@ export interface MissionFilters {
 export const MISSION_STATUSES: MissionStatus[] = [
   'new',
   'assigned',
-  'acknowledged',
   'in_progress',
   'paused',
   'completed',
@@ -133,7 +126,6 @@ export function eventLabel(type: MissionEventType): string {
     created: 'Created',
     assigned: 'Assigned',
     reassigned: 'Reassigned',
-    acknowledged: 'Acknowledged',
     started: 'Started',
     paused: 'Paused (urgent mission)',
     resumed: 'Resumed',
@@ -141,12 +133,11 @@ export function eventLabel(type: MissionEventType): string {
     cancelled: 'Cancelled',
     photo_added: 'Photo added',
     note_added: 'Note added',
-    ack_alert_sent: 'Acknowledgement alert sent',
   };
   return labels[type];
 }
 
-/** Reassignment is only allowed before the officer acknowledges. */
+/** Reassignment is only allowed while the mission is still assigned. */
 export function canReassign(mission: MissionListItem): boolean {
   return mission.status === 'assigned';
 }

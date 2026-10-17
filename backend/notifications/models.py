@@ -3,8 +3,7 @@ notifications/models.py
  
 The durable in-app notification feed (§4.9).
  
-Scope note: §4.9 names the triggers — mission assigned, mission cancelled,
-mission not acknowledged within X minutes, panic alert — but §7's data model
+Scope note: §4.9 names the triggers — mission assigned, mission cancelled, panic alert — but §7's data model
 does not define a Notification entity. This table is a design decision
 derived from those triggers, not something the requirements document
 mandates. See docs/decisions/.
@@ -23,7 +22,6 @@ from django.db import models
 class NotificationType(models.TextChoices):
     MISSION_ASSIGNED = "mission_assigned", "Mission Assigned"
     MISSION_CANCELLED = "mission_cancelled", "Mission Cancelled"
-    MISSION_UNACKNOWLEDGED = "mission_unacknowledged", "Mission Not Acknowledged"
     DISPATCHER_MESSAGE = "dispatcher_message", "Dispatcher Message"
     PANIC_ALERT = "panic_alert", "Panic Alert"
     DUTY_TARGET_REMINDER = "duty_target_reminder", "Duty Target Reminder"

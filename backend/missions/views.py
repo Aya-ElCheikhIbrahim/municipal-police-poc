@@ -111,7 +111,7 @@ class MissionListCreateView(APIView):
  
     @extend_schema(
         parameters=[
-            OpenApiParameter("status", description="new, assigned, acknowledged, in_progress, completed, cancelled"),
+            OpenApiParameter("status", description="new, assigned, in_progress, completed, cancelled"),
             OpenApiParameter("priority", description="low, medium, high, urgent"),
             OpenApiParameter("category", description="Municipal, Sanitation, Traffic, Infrastructure"),
             OpenApiParameter("officer_id", description="Filter by assigned officer.", type=int),
@@ -235,8 +235,8 @@ class MissionDetailView(APIView, MissionActionMixin):
  
 class MissionAssignView(APIView, MissionActionMixin):
     """
-    POST /api/v1/missions/{id}/assign/ - assign, or reassign before it has
-    been acknowledged (§4.4). Dispatcher and supervisor only.
+    POST /api/v1/missions/{id}/assign/ - assign, or reassign before an officer
+    starts it. Dispatcher and supervisor only.
     """
  
     permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
@@ -264,19 +264,6 @@ class MissionAssignView(APIView, MissionActionMixin):
             else services.assign_mission
         )
         return self.run(action, mission, officers=officers, actor=request.user)
- 
- 
-class MissionAcknowledgeView(APIView, MissionActionMixin):
-    """POST /api/v1/missions/{id}/acknowledge/ - officer confirms receipt (§4.9)."""
- 
-    permission_classes = [IsAuthenticated, IsOfficer]
- 
-    @extend_schema(request=None, responses=MissionDetailSerializer)
-    def post(self, request, mission_id: int):
-        return self.run(
-            services.acknowledge_mission, self.get_mission(mission_id), officer=request.user
-        )
- 
  
 class MissionStartView(APIView, MissionActionMixin):
     """POST /api/v1/missions/{id}/start/ - officer is on it."""
@@ -404,20 +391,4 @@ class MissionPhotoView(APIView, MissionActionMixin):
             MissionPhotoSerializer(photo).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
- 
- 
-class UnacknowledgedSweepView(APIView):
-    """
-    POST /api/v1/missions/sweep-unacknowledged/ - §4.9.
- 
-    Flags missions nobody has acknowledged within the configured timeout, once
-    each. The dashboard can call this on its poll; it is safe to repeat.
-    """
- 
-    permission_classes = [IsAuthenticated, IsDispatcherOrSupervisor]
- 
-    @extend_schema(request=None, responses=MissionListSerializer(many=True))
-    def post(self, request):
-        flagged = services.flag_unacknowledged()
-        return Response(MissionListSerializer(flagged, many=True).data)
  

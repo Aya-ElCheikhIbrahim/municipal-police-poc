@@ -145,9 +145,7 @@ public class MissionAdapter
 
                 boolean running =
                         mission.getStatus() ==
-                                MissionStatus.IN_PROGRESS ||
-                                mission.getStatus() ==
-                                        MissionStatus.ACKNOWLEDGED;
+                                MissionStatus.IN_PROGRESS;
 
 
                 if (running) {
@@ -302,8 +300,6 @@ public class MissionAdapter
 
             if (mission.getPriority() == Priority.URGENT &&
                     (mission.getStatus() ==
-                            MissionStatus.ACKNOWLEDGED ||
-                            mission.getStatus() ==
                                     MissionStatus.IN_PROGRESS)) {
 
                 return true;
@@ -319,8 +315,6 @@ public class MissionAdapter
 
             if (mission.getPriority() != Priority.URGENT &&
                     (mission.getStatus() ==
-                            MissionStatus.ACKNOWLEDGED ||
-                            mission.getStatus() ==
                                     MissionStatus.IN_PROGRESS)) {
 
                 return true;
@@ -511,8 +505,6 @@ public class MissionAdapter
 
 
         boolean isRunning =
-                mission.getStatus() ==
-                        MissionStatus.ACKNOWLEDGED ||
                         mission.getStatus() ==
                                 MissionStatus.IN_PROGRESS;
 

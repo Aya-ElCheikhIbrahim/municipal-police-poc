@@ -107,48 +107,6 @@ public class RetrofitMissionRepository implements MissionRepository {
     }
 
     @Override
-    public void acknowledgeMission(
-            String missionId,
-            Callback<Mission> callback
-    ) {
-
-        apiService.acknowledgeMission(
-                Integer.parseInt(missionId)
-        ).enqueue(new retrofit2.Callback<Mission>() {
-
-            @Override
-            public void onResponse(
-                    Call<Mission> call,
-                    Response<Mission> response
-            ) {
-
-                if (response.isSuccessful()
-                        && response.body() != null) {
-
-                    callback.onSuccess(response.body());
-
-                } else {
-
-                    callback.onError(
-                            new Exception(
-                                    "Acknowledge mission failed: "
-                                            + response.code()
-                            )
-                    );
-                }
-            }
-
-            @Override
-            public void onFailure(
-                    Call<Mission> call,
-                    Throwable t
-            ) {
-                callback.onError(t);
-            }
-        });
-    }
-
-    @Override
     public void startMission(
             String missionId,
             Callback<Mission> callback

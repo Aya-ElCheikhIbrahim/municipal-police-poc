@@ -231,7 +231,7 @@ export function MissionsReport({ onMissionSelect }: MissionsReportProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4">
           <Filter label={language === 'ar' ? 'الحالة' : 'Status'} value={status} onChange={(value) => setStatus(value as StatusFilter)}>
             <option value="ALL">{language === 'ar' ? 'كل الحالات' : 'All Statuses'}</option>
-            <option value="new">{language === 'ar' ? 'جديدة' : 'New'}</option><option value="assigned">{language === 'ar' ? 'مُسندة' : 'Assigned'}</option><option value="acknowledged">{language === 'ar' ? 'تم الاستلام' : 'Acknowledged'}</option><option value="in_progress">{language === 'ar' ? 'قيد التنفيذ' : 'In progress'}</option><option value="paused">{language === 'ar' ? 'متوقفة مؤقتًا' : 'Paused'}</option><option value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</option><option value="cancelled">{language === 'ar' ? 'ملغاة' : 'Cancelled'}</option>
+            <option value="new">{language === 'ar' ? 'جديدة' : 'New'}</option><option value="assigned">{language === 'ar' ? 'مُسندة' : 'Assigned'}</option><option value="in_progress">{language === 'ar' ? 'قيد التنفيذ' : 'In progress'}</option><option value="paused">{language === 'ar' ? 'متوقفة مؤقتًا' : 'Paused'}</option><option value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</option><option value="cancelled">{language === 'ar' ? 'ملغاة' : 'Cancelled'}</option>
           </Filter>
 
           <Filter label={language === 'ar' ? 'الأولوية' : 'Priority'} value={priority} onChange={(value) => setPriority(value as PriorityFilter)}>

@@ -53,14 +53,6 @@ DEFINITIONS: dict[str, Definition] = {
         minimum=10,
         maximum=120,
     ),
-    # §4.9 — dashboard warns when a mission is not acknowledged in time.
-    "mission_ack_timeout_minutes": Definition(
-        default=5,
-        description="Minutes before an unacknowledged mission is flagged.",
-        coerce=int,
-        minimum=1,
-        maximum=60,
-    ),
     # §5 — location data retention: 90 days rolling.
     "location_retention_days": Definition(
         default=90,

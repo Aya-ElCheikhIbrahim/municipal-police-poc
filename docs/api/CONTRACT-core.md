@@ -23,7 +23,7 @@ Returns all system settings as a flat object. A missing row in the database is n
 
 The Android app reads `location_ping_interval_seconds` when the shift starts and should re-read it periodically so a change from the dashboard takes effect without an app update.
 
-> ⚠ As of 2026-10-13 the web dashboard does **not** read `map_refresh_seconds`; it polls the live map every 5s with a value hardcoded in `web/src/features/officers/useOfficers.ts`. `mission_ack_timeout_minutes` governs the unacknowledged-mission sweep (**[ACK-REMOVAL PENDING]** - cancelled, kept until the Acknowledge step is removed).
+> ⚠ As of 2026-10-13 the web dashboard does **not** read `map_refresh_seconds`; it polls the live map every 5s with a value hardcoded in `web/src/features/officers/useOfficers.ts`.
 
 Settings are cached server-side for 60 seconds. A change from the dashboard reaches every client within one cache cycle.
 
@@ -64,13 +64,6 @@ Returns the definition for each setting — its description, default, and bounds
     "default": 30,
     "minimum": 10,
     "maximum": 120
-  },
-  {
-    "key": "mission_ack_timeout_minutes",
-    "description": "Minutes before an unacknowledged mission is flagged.",
-    "default": 5,
-    "minimum": 1,
-    "maximum": 60
   },
   {
     "key": "location_retention_days",
@@ -129,15 +122,13 @@ Any signed-in user. The city's districts, for the dashboard's area filters and f
 
 All role checks are defined in `core/permissions.py` and used across every app. They are enforced server-side — a client that omits a restricted field does not get a silent pass, the endpoint returns 403.
 
-`IsOfficer` - the user must have `role: officer`. Applied to shift start/end, location ping upload, mission acknowledge/start/complete, photo upload, and panic trigger. <!-- ACK-REMOVAL PENDING: acknowledge is cancelled; see docs/PROGRESS.md -->
-
-`IsDispatcherOrSupervisor` below also covers the unacknowledged sweep (**[ACK-REMOVAL PENDING]**).
+`IsOfficer` - the user must have `role: officer`. Applied to shift start/end, location ping upload, mission start/complete, photo upload, and panic trigger.
 
 `IsDispatcher` — the user must have `role: dispatcher`.
 
 `IsSupervisor` — the user must have `role: supervisor`. Applied to user management writes, settings PATCH, and report export.
 
-`IsDispatcherOrSupervisor` — either role passes. Applied to mission creation, assignment, cancellation, the active shifts map feed, and the unacknowledged sweep.
+`IsDispatcherOrSupervisor`: either role passes. Applied to mission creation, assignment, cancellation, and the active shifts map feed.
 
 `IsSupervisorOrReadOnly` — supervisors can write, any authenticated user can read. Used on settings.
 

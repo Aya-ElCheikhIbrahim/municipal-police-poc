@@ -3,6 +3,27 @@ info:
   title: Municipal Police Field Operations API
   version: 1.0.0
 paths:
+  /api/v1/areas/:
+    get:
+      operationId: v1_areas_list
+      description: |-
+        GET /api/v1/areas/ - the districts, for the dashboard's area filters.
+
+        Any signed-in user: the officer app shows the same names on a mission, and
+        there is nothing sensitive in a list of neighbourhoods.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Area'
+          description: ''
   /api/v1/device-tokens/:
     post:
       operationId: v1_device_tokens_create
@@ -55,11 +76,39 @@ paths:
         landed so it can clear those rows from Room.
       tags:
       - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkLocationPing'
+            examples:
+              OneFix:
+                value:
+                  pings:
+                  - client_uuid: 3f8a1c92-7d64-4e11-b0a5-9c2d81e4f7a3
+                    latitude: 34.451028
+                    longitude: 35.810472
+                    accuracy_m: 12.5
+                    battery_level: 78
+                    network_type: mobile
+                    recorded_at: '2026-09-10T17:30:00+03:00'
+                summary: One fix
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkLocationPing'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkLocationPing'
+        required: true
       security:
       - jwtAuth: []
       responses:
-        '200':
-          description: No response body
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResult'
+          description: ''
   /api/v1/login/:
     post:
       operationId: v1_login_create
@@ -124,6 +173,16 @@ paths:
         POST /api/v1/missions/  - create (§4.4). Dispatcher and supervisor only.
       parameters:
       - in: query
+        name: area_id
+        schema:
+          type: integer
+        description: Filter by the district the mission is in.
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: Municipal, Sanitation, Traffic, Infrastructure
+      - in: query
         name: date
         schema:
           type: string
@@ -147,7 +206,7 @@ paths:
         name: status
         schema:
           type: string
-        description: new, assigned, acknowledged, in_progress, completed, cancelled
+        description: new, assigned, in_progress, completed, cancelled
       tags:
       - v1
       security:
@@ -182,7 +241,9 @@ paths:
                   longitude: 35.8497
                   address: Al-Mina, Tripoli
                   priority: high
-                  assigned_to_id: 4
+                  assigned_to_ids:
+                  - 4
+                  - 7
                 summary: Create and assign in one step
           application/x-www-form-urlencoded:
             schema:
@@ -222,34 +283,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/MissionDetail'
           description: ''
-  /api/v1/missions/{mission_id}/acknowledge/:
-    post:
-      operationId: v1_missions_acknowledge_create
-      description: POST /api/v1/missions/{id}/acknowledge/ - officer confirms receipt
-        (§4.9).
-      parameters:
-      - in: path
-        name: mission_id
-        schema:
-          type: integer
-        required: true
-      tags:
-      - v1
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MissionDetail'
-          description: ''
   /api/v1/missions/{mission_id}/assign/:
     post:
       operationId: v1_missions_assign_create
       description: |-
-        POST /api/v1/missions/{id}/assign/ - assign, or reassign before it has
-        been acknowledged (§4.4). Dispatcher and supervisor only.
+        POST /api/v1/missions/{id}/assign/ - assign, or reassign before an officer
+        starts it. Dispatcher and supervisor only.
       parameters:
       - in: path
         name: mission_id
@@ -454,27 +493,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/MissionDetail'
           description: ''
-  /api/v1/missions/sweep-unacknowledged/:
-    post:
-      operationId: v1_missions_sweep_unacknowledged_create
-      description: |-
-        POST /api/v1/missions/sweep-unacknowledged/ - §4.9.
-
-        Flags missions nobody has acknowledged within the configured timeout, once
-        each. The dashboard can call this on its poll; it is safe to repeat.
-      tags:
-      - v1
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MissionList'
-          description: ''
   /api/v1/notifications/:
     get:
       operationId: v1_notifications_list
@@ -670,6 +688,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/PanicEvent'
           description: ''
+  /api/v1/panic/{event_id}/location/:
+    get:
+      operationId: v1_panic_location_retrieve
+      description: |-
+        GET /api/v1/panic/{id}/location/; where a colleague in panic is now.
+
+        For the officers notified of a nearby alert. Only while the alert is
+        active: a 404 tells the phone the incident is over and it can stop
+        following. Officers only; dispatchers already have the map.
+      parameters:
+      - in: path
+        name: event_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanicLocation'
+          description: ''
   /api/v1/panic/{event_id}/resolve/:
     post:
       operationId: v1_panic_resolve_create
@@ -781,6 +825,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/PasswordResetConfirm'
           description: ''
+  /api/v1/reports/activity/:
+    get:
+      operationId: v1_reports_activity_list
+      description: |-
+        GET /api/v1/reports/activity/ - what happened on one day, in order.
+
+        Backs the Time Snapshot screen ("what went on in this area between these
+        hours") and the officer report's timeline ("what did this officer do
+        today"). Same question, different filters.
+      parameters:
+      - in: query
+        name: area_id
+        schema:
+          type: integer
+        description: Only what happened in this area.
+      - in: query
+        name: date
+        schema:
+          type: string
+        description: Day to look at, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: from_time
+        schema:
+          type: string
+        description: Start of the window, HH:MM. Defaults to the start of the day.
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: Only what this officer took part in.
+      - in: query
+        name: to_time
+        schema:
+          type: string
+        description: End of the window, HH:MM. Defaults to the end of the day.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityRow'
+          description: ''
   /api/v1/reports/daily/:
     get:
       operationId: v1_reports_daily_retrieve
@@ -816,43 +909,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DailyOfficerReport'
-          description: ''
-  /api/v1/reports/daily/export/csv/:
-    get:
-      operationId: v1_reports_daily_export_csv_retrieve
-      description: |-
-        GET /api/v1/reports/daily/export/csv/
-
-        Export a daily activity report as CSV.
-      parameters:
-      - in: query
-        name: date
-        schema:
-          type: string
-        description: Report date, YYYY-MM-DD.
-        required: true
-      - in: query
-        name: officer_id
-        schema:
-          type: integer
-        description: Officer to generate the report for.
-        required: true
-      - in: query
-        name: status
-        schema:
-          type: string
-        description: Filter missions by status.
-      tags:
-      - v1
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: string
-                format: binary
           description: ''
   /api/v1/reports/daily/export/pdf/:
     get:
@@ -891,9 +947,86 @@ paths:
                 type: string
                 format: binary
           description: ''
-  /api/v1/reports/weekly/:
+  /api/v1/reports/daily/export/xlsx/:
     get:
-      operationId: v1_reports_weekly_retrieve
+      operationId: v1_reports_daily_export_xlsx_retrieve
+      description: |-
+        GET /api/v1/reports/daily/export/xlsx/
+
+        Export a daily activity report as a right-to-left Excel workbook.
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+        description: Report date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: Officer to generate the report for.
+        required: true
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter missions by status.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/reports/daily/summary/:
+    get:
+      operationId: v1_reports_daily_summary_retrieve
+      description: |-
+        GET /api/v1/reports/daily/summary/ - section 4.8, the whole shift for one day.
+
+        The per-officer report answers for one person and backs the exports; this
+        one backs the dashboard table listing everyone who was on duty.
+      parameters:
+      - in: query
+        name: area_id
+        schema:
+          type: integer
+        description: Only officers who worked in this area.
+      - in: query
+        name: date
+        schema:
+          type: string
+        description: Report date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter missions by status.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySummary'
+          description: ''
+  /api/v1/reports/officer/:
+    get:
+      operationId: v1_reports_officer_retrieve
+      description: |-
+        GET /api/v1/reports/officer/ - the page behind an officer's name.
+
+        Day, week or custom range: the screen picks the span, this answers for it.
       parameters:
       - in: query
         name: end_date
@@ -901,6 +1034,54 @@ paths:
           type: string
         description: End date, YYYY-MM-DD.
         required: true
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: The officer to report on.
+        required: true
+      - in: query
+        name: start_date
+        schema:
+          type: string
+        description: Start date, YYYY-MM-DD. Use the same day twice for a single day.
+        required: true
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Only missions with this status, in the history and the counts.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfficerReport'
+          description: ''
+  /api/v1/reports/weekly/:
+    get:
+      operationId: v1_reports_weekly_retrieve
+      parameters:
+      - in: query
+        name: area_id
+        schema:
+          type: integer
+        description: Narrow the whole report to one area.
+      - in: query
+        name: end_date
+        schema:
+          type: string
+        description: End date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: officer_id
+        schema:
+          type: integer
+        description: Narrow the whole report to one officer.
       - in: query
         name: start_date
         schema:
@@ -917,6 +1098,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WeeklySummary'
+          description: ''
+  /api/v1/reports/weekly/export/pdf/:
+    get:
+      operationId: v1_reports_weekly_export_pdf_retrieve
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+          format: date
+        description: End date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: start_date
+        schema:
+          type: string
+          format: date
+        description: Start date, YYYY-MM-DD.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/reports/weekly/export/xlsx/:
+    get:
+      operationId: v1_reports_weekly_export_xlsx_retrieve
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+          format: date
+        description: End date, YYYY-MM-DD.
+        required: true
+      - in: query
+        name: start_date
+        schema:
+          type: string
+          format: date
+        description: Start date, YYYY-MM-DD.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
           description: ''
   /api/v1/settings/:
     get:
@@ -996,7 +1237,7 @@ paths:
           description: ''
   /api/v1/shifts/active/:
     get:
-      operationId: v1_shifts_active_retrieve
+      operationId: v1_shifts_active_list
       description: |-
         GET /api/v1/shifts/active/ — §4.6, the dashboard map.
 
@@ -1008,7 +1249,13 @@ paths:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveOfficer'
+          description: ''
   /api/v1/shifts/end/:
     post:
       operationId: v1_shifts_end_create
@@ -1094,6 +1341,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Shift'
+          description: ''
+  /api/v1/shifts/today/:
+    get:
+      operationId: v1_shifts_today_retrieve
+      description: |-
+        GET /api/v1/shifts/today/ — the officer's own duty total for today.
+
+        Duty is a daily target worked in as many stints as needed, so the app's
+        counter has to come from here: counting from the active shift's start
+        resets to zero on every split. Always the caller's own totals; there is
+        no way to ask about another officer.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyDuty'
+              examples:
+                OnShift,SecondStint:
+                  value:
+                    date: '2026-09-10'
+                    duty_seconds_today: 14400
+                    target_seconds: 28800
+                    active_shift_started_at: '2026-09-10T13:00:00+03:00'
+                    active_shift_seconds: 7200
+                  summary: On shift, second stint
+                OffShift:
+                  value:
+                    date: '2026-09-10'
+                    duty_seconds_today: 7200
+                    target_seconds: 28800
+                    active_shift_started_at: null
+                    active_shift_seconds: 0
+                  summary: Off shift
           description: ''
   /api/v1/token/refresh/:
     post:
@@ -1326,6 +1611,55 @@ paths:
           description: ''
 components:
   schemas:
+    ActiveOfficer:
+      type: object
+      description: |-
+        The contract for GET /shifts/active/ — the shape web builds against.
+        Agreed before either side codes; see docs/CONTRACT-shifts-active.md.
+      properties:
+        officer:
+          $ref: '#/components/schemas/OfficerBrief'
+        status:
+          type: string
+        shift_started_at:
+          type: string
+          format: date-time
+        shift_duration_seconds:
+          type: integer
+          description: Length of the current shift (stint) so far, not clipped to
+            today.
+        duty_seconds_today:
+          type: integer
+          description: Every stint today, the current one included, clipped to local
+            midnight.
+        target_seconds:
+          type: integer
+          description: The daily duty target (daily_duty_target_hours). A target,
+            not a cap.
+        distance_covered_m:
+          type: integer
+        latest_ping:
+          allOf:
+          - $ref: '#/components/schemas/LocationPing'
+          nullable: true
+        position_source:
+          type: string
+          nullable: true
+        current_mission:
+          allOf:
+          - $ref: '#/components/schemas/CurrentMission'
+          nullable: true
+      required:
+      - current_mission
+      - distance_covered_m
+      - duty_seconds_today
+      - latest_ping
+      - officer
+      - position_source
+      - shift_duration_seconds
+      - shift_started_at
+      - status
+      - target_seconds
     ActivePanic:
       type: object
       description: |-
@@ -1374,13 +1708,97 @@ components:
       - officer
       - shift
       - triggered_at
+    ActivityRow:
+      type: object
+      description: |-
+        One line of the activity feed: who did what, when and where.
+
+        `officer` is who acted, and is null for the things the system did by
+        itself. `area` is null when the
+        position falls outside every district.
+      properties:
+        at:
+          type: string
+          format: date-time
+        activity:
+          type: string
+        activity_label:
+          type: string
+        officer:
+          allOf:
+          - $ref: '#/components/schemas/OfficerBrief'
+          nullable: true
+        area:
+          type: string
+          nullable: true
+        area_id:
+          type: integer
+          nullable: true
+        details:
+          type: string
+        mission_id:
+          type: integer
+          nullable: true
+        panic_id:
+          type: integer
+          nullable: true
+      required:
+      - activity
+      - activity_label
+      - area
+      - area_id
+      - at
+      - details
+      - mission_id
+      - officer
+      - panic_id
+    Area:
+      type: object
+      description: The district list behind every "area" dropdown.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        radius_m:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: How far from the centre still counts as this area, in metres.
+      required:
+      - id
+      - latitude
+      - longitude
+      - name
     Assign:
       type: object
       properties:
-        officer_id:
-          type: integer
+        officer_ids:
+          type: array
+          items:
+            type: integer
       required:
-      - officer_id
+      - officer_ids
+    BulkLocationPing:
+      type: object
+      properties:
+        pings:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationPingUpload'
+          maxItems: 500
+      required:
+      - pings
     Cancel:
       type: object
       properties:
@@ -1389,6 +1807,18 @@ components:
           description: Required. Stored on the mission and in the timeline.
       required:
       - reason
+    CategoryEnum:
+      enum:
+      - Municipal
+      - Sanitation
+      - Traffic
+      - Infrastructure
+      type: string
+      description: |-
+        * `Municipal` - Municipal
+        * `Sanitation` - Sanitation
+        * `Traffic` - Traffic
+        * `Infrastructure` - Infrastructure
     Complete:
       type: object
       description: Where the officer was when they started or completed.
@@ -1406,6 +1836,55 @@ components:
         notes:
           type: string
           default: ''
+    CurrentMission:
+      type: object
+      description: |-
+        The mission an officer is on, as the map row carries it.
+
+        Four fields on purpose: the drawer calls GET /missions/{id}/ for the full
+        record and its timeline, so widening this would ship the same data twice.
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+      required:
+      - id
+      - priority
+      - status
+      - title
+    DailyDuty:
+      type: object
+      description: What GET /shifts/today/ returns.
+      properties:
+        date:
+          type: string
+          format: date
+        duty_seconds_today:
+          type: integer
+          description: Duty on this local day across every shift, the active one included.
+            A shift that started yesterday counts only from midnight.
+        target_seconds:
+          type: integer
+          description: The daily duty target. A target, not a cap.
+        active_shift_started_at:
+          type: string
+          format: date-time
+          nullable: true
+        active_shift_seconds:
+          type: integer
+          description: Length of the current shift so far, not clipped to today. 0
+            when off shift.
+      required:
+      - active_shift_seconds
+      - active_shift_started_at
+      - date
+      - duty_seconds_today
+      - target_seconds
     DailyOfficerReport:
       type: object
       properties:
@@ -1439,6 +1918,108 @@ components:
       - officer_id
       - officer_name
       - panic_events
+    DailySummary:
+      type: object
+      description: GET /api/v1/reports/daily/summary/ - every officer on duty that
+        day.
+      properties:
+        date:
+          type: string
+          format: date
+        totals:
+          $ref: '#/components/schemas/DailySummaryTotals'
+        officers:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailySummaryOfficer'
+      required:
+      - date
+      - officers
+      - totals
+    DailySummaryOfficer:
+      type: object
+      description: One row of the Daily Summary table.
+      properties:
+        officer_id:
+          type: integer
+        officer_name:
+          type: string
+        badge_number:
+          type: string
+        shift_start:
+          type: string
+          format: date-time
+          nullable: true
+        shift_end:
+          type: string
+          format: date-time
+          nullable: true
+        still_on_duty:
+          type: boolean
+        hours_on_duty:
+          type: number
+          format: double
+        distance_covered_m:
+          type: integer
+        missions_assigned:
+          type: integer
+        missions_completed:
+          type: integer
+        missions_cancelled:
+          type: integer
+        missions_in_progress:
+          type: integer
+        panic_events:
+          type: integer
+        areas:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfficerArea'
+      required:
+      - areas
+      - badge_number
+      - distance_covered_m
+      - hours_on_duty
+      - missions_assigned
+      - missions_cancelled
+      - missions_completed
+      - missions_in_progress
+      - officer_id
+      - officer_name
+      - panic_events
+      - shift_end
+      - shift_start
+      - still_on_duty
+    DailySummaryTotals:
+      type: object
+      description: The cards above the Daily Summary table.
+      properties:
+        officers_on_duty:
+          type: integer
+        hours_on_duty:
+          type: number
+          format: double
+        distance_covered_m:
+          type: integer
+        missions_assigned:
+          type: integer
+        missions_completed:
+          type: integer
+        missions_cancelled:
+          type: integer
+        missions_in_progress:
+          type: integer
+        panic_events:
+          type: integer
+      required:
+      - distance_covered_m
+      - hours_on_duty
+      - missions_assigned
+      - missions_cancelled
+      - missions_completed
+      - missions_in_progress
+      - officers_on_duty
+      - panic_events
     DeviceToken:
       type: object
       properties:
@@ -1465,25 +2046,119 @@ components:
       - created
       - assigned
       - reassigned
-      - acknowledged
       - started
+      - paused
+      - resumed
       - completed
       - cancelled
       - photo_added
       - note_added
-      - ack_alert_sent
       type: string
       description: |-
         * `created` - Created
         * `assigned` - Assigned
         * `reassigned` - Reassigned
-        * `acknowledged` - Acknowledged
         * `started` - Started
+        * `paused` - Paused
+        * `resumed` - Resumed
         * `completed` - Completed
         * `cancelled` - Cancelled
         * `photo_added` - Photo added
         * `note_added` - Note added
-        * `ack_alert_sent` - Acknowledgement alert sent
+    IngestResult:
+      type: object
+      description: What POST /location-pings/bulk/ returns.
+      properties:
+        accepted:
+          type: integer
+        duplicates:
+          type: integer
+        rejected:
+          type: integer
+      required:
+      - accepted
+      - duplicates
+      - rejected
+    LocationPing:
+      type: object
+      properties:
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        accuracy_m:
+          type: number
+          format: double
+          nullable: true
+        battery_level:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        network_type:
+          $ref: '#/components/schemas/NetworkTypeEnum'
+        recorded_at:
+          type: string
+          format: date-time
+          description: When the phone captured it.
+        received_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the server stored it.
+        is_offline_sync:
+          type: boolean
+      required:
+      - latitude
+      - longitude
+      - received_at
+      - recorded_at
+    LocationPingUpload:
+      type: object
+      description: |-
+        One ping in a batch upload. Deliberately not a ModelSerializer: the
+        unique constraint on client_uuid must be resolved by the database during
+        bulk_create, not by a per-row uniqueness query.
+      properties:
+        client_uuid:
+          type: string
+          format: uuid
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        accuracy_m:
+          type: number
+          format: double
+          nullable: true
+        recorded_at:
+          type: string
+          format: date-time
+        battery_level:
+          type: integer
+          maximum: 100
+          minimum: 0
+          nullable: true
+        network_type:
+          allOf:
+          - $ref: '#/components/schemas/NetworkTypeEnum'
+          default: unknown
+        is_offline_sync:
+          type: boolean
+          default: false
+      required:
+      - client_uuid
+      - latitude
+      - longitude
+      - recorded_at
     Login:
       type: object
       properties:
@@ -1501,6 +2176,10 @@ components:
       properties:
         refresh:
           type: string
+        device_token:
+          type: string
+          description: This phone's FCM token. Sent at logout so the device stops
+            receiving push notifications.
       required:
       - refresh
     MissionCreate:
@@ -1529,14 +2208,26 @@ components:
           allOf:
           - $ref: '#/components/schemas/PriorityEnum'
           default: medium
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          default: Municipal
+          description: |-
+            Municipal, Sanitation, Traffic, or Infrastructure. Optional.
+
+            * `Municipal` - Municipal
+            * `Sanitation` - Sanitation
+            * `Traffic` - Traffic
+            * `Infrastructure` - Infrastructure
         deadline:
           type: string
           format: date-time
           nullable: true
-        assigned_to_id:
-          type: integer
-          nullable: true
-          description: Officer to assign immediately. Optional.
+        assigned_to_ids:
+          type: array
+          items:
+            type: integer
+          description: Officers to assign immediately. Optional.
       required:
       - latitude
       - longitude
@@ -1553,8 +2244,10 @@ components:
           maxLength: 255
         priority:
           $ref: '#/components/schemas/PriorityEnum'
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
         status:
-          $ref: '#/components/schemas/Status0aaEnum'
+          $ref: '#/components/schemas/Status369Enum'
         latitude:
           type: string
           format: decimal
@@ -1566,9 +2259,17 @@ components:
         address:
           type: string
           maxLength: 255
+        area:
+          type: string
+          readOnly: true
+        area_id:
+          type: integer
+          readOnly: true
+          nullable: true
         assigned_to:
-          allOf:
-          - $ref: '#/components/schemas/OfficerBrief'
+          type: array
+          items:
+            $ref: '#/components/schemas/OfficerBrief'
           readOnly: true
         deadline:
           type: string
@@ -1582,12 +2283,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        duration_seconds:
+          type: integer
+          readOnly: true
+          nullable: true
         is_overdue:
           type: boolean
-          readOnly: true
-        awaiting_acknowledgement:
-          type: boolean
-          description: The dashboard highlights these. Set by the sweep, not here.
           readOnly: true
         description:
           type: string
@@ -1595,10 +2296,6 @@ components:
           allOf:
           - $ref: '#/components/schemas/OfficerBrief'
           readOnly: true
-        acknowledged_at:
-          type: string
-          format: date-time
-          nullable: true
         started_at:
           type: string
           format: date-time
@@ -1635,10 +2332,6 @@ components:
           type: string
         cancellation_reason:
           type: string
-        ack_alert_sent_at:
-          type: string
-          format: date-time
-          nullable: true
         events:
           type: array
           items:
@@ -1650,10 +2343,12 @@ components:
             $ref: '#/components/schemas/MissionPhoto'
           readOnly: true
       required:
+      - area
+      - area_id
       - assigned_to
-      - awaiting_acknowledgement
       - created_at
       - created_by
+      - duration_seconds
       - events
       - id
       - is_overdue
@@ -1698,8 +2393,10 @@ components:
           maxLength: 255
         priority:
           $ref: '#/components/schemas/PriorityEnum'
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
         status:
-          $ref: '#/components/schemas/Status0aaEnum'
+          $ref: '#/components/schemas/Status369Enum'
         latitude:
           type: string
           format: decimal
@@ -1711,9 +2408,17 @@ components:
         address:
           type: string
           maxLength: 255
+        area:
+          type: string
+          readOnly: true
+        area_id:
+          type: integer
+          readOnly: true
+          nullable: true
         assigned_to:
-          allOf:
-          - $ref: '#/components/schemas/OfficerBrief'
+          type: array
+          items:
+            $ref: '#/components/schemas/OfficerBrief'
           readOnly: true
         deadline:
           type: string
@@ -1727,17 +2432,19 @@ components:
           type: string
           format: date-time
           nullable: true
+        duration_seconds:
+          type: integer
+          readOnly: true
+          nullable: true
         is_overdue:
           type: boolean
           readOnly: true
-        awaiting_acknowledgement:
-          type: boolean
-          description: The dashboard highlights these. Set by the sweep, not here.
-          readOnly: true
       required:
+      - area
+      - area_id
       - assigned_to
-      - awaiting_acknowledgement
       - created_at
+      - duration_seconds
       - id
       - is_overdue
       - latitude
@@ -1778,6 +2485,18 @@ components:
       - id
       - image
       - uploaded_at
+    NetworkTypeEnum:
+      enum:
+      - wifi
+      - mobile
+      - none
+      - unknown
+      type: string
+      description: |-
+        * `wifi` - Wi-Fi
+        * `mobile` - Mobile data
+        * `none` - No connection
+        * `unknown` - Unknown
     Note:
       type: object
       properties:
@@ -1841,16 +2560,35 @@ components:
       enum:
       - mission_assigned
       - mission_cancelled
-      - mission_unacknowledged
       - dispatcher_message
       - panic_alert
+      - duty_target_reminder
       type: string
       description: |-
         * `mission_assigned` - Mission Assigned
         * `mission_cancelled` - Mission Cancelled
-        * `mission_unacknowledged` - Mission Not Acknowledged
         * `dispatcher_message` - Dispatcher Message
         * `panic_alert` - Panic Alert
+        * `duty_target_reminder` - Duty Target Reminder
+    OfficerArea:
+      type: object
+      description: |-
+        One district an officer worked in, and how many of their missions were
+        there. `area_id` and `name` are null for a mission that fell outside every
+        district.
+      properties:
+        area_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        missions:
+          type: integer
+      required:
+      - area_id
+      - missions
+      - name
     OfficerBrief:
       type: object
       description: |-
@@ -1869,6 +2607,147 @@ components:
       - badge_number
       - full_name
       - id
+    OfficerCurrentMission:
+      type: object
+      description: What the officer is on right now, when they are on something.
+      properties:
+        mission_id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+      required:
+      - mission_id
+      - status
+      - title
+    OfficerMission:
+      type: object
+      description: One line of the mission history, with the timestamps the screen
+        shows.
+      properties:
+        mission_id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        category:
+          type: string
+        area:
+          type: string
+          nullable: true
+        area_id:
+          type: integer
+          nullable: true
+        assigned_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - area
+      - area_id
+      - assigned_at
+      - cancelled_at
+      - category
+      - completed_at
+      - mission_id
+      - priority
+      - status
+      - title
+    OfficerPerformance:
+      type: object
+      description: This officer's own averages, not the period's.
+      properties:
+        average_completion_seconds:
+          type: number
+          format: double
+      required:
+      - average_completion_seconds
+    OfficerReport:
+      type: object
+      description: |-
+        GET /api/v1/reports/officer/ - one officer over a day or a range.
+
+        `timeline` is only filled for a single day; over a longer range it is empty
+        and the client asks /reports/activity/ for whatever slice it needs.
+
+        `current_status` is where the officer stands now, not during the range:
+        available, on_mission, panic or off_duty.
+      properties:
+        officer:
+          $ref: '#/components/schemas/OfficerBrief'
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        current_status:
+          type: string
+        current_mission:
+          allOf:
+          - $ref: '#/components/schemas/OfficerCurrentMission'
+          nullable: true
+        summary:
+          $ref: '#/components/schemas/OfficerReportSummary'
+        performance:
+          $ref: '#/components/schemas/OfficerPerformance'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityRow'
+        missions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfficerMission'
+      required:
+      - current_mission
+      - current_status
+      - end_date
+      - missions
+      - officer
+      - performance
+      - start_date
+      - summary
+      - timeline
+    OfficerReportSummary:
+      type: object
+      description: The cards at the top of the officer page.
+      properties:
+        hours_on_duty:
+          type: number
+          format: double
+        distance_covered_m:
+          type: integer
+        missions_assigned:
+          type: integer
+        missions_completed:
+          type: integer
+        missions_cancelled:
+          type: integer
+        missions_in_progress:
+          type: integer
+        panic_events:
+          type: integer
+      required:
+      - distance_covered_m
+      - hours_on_duty
+      - missions_assigned
+      - missions_cancelled
+      - missions_completed
+      - missions_in_progress
+      - panic_events
     PaginatedNotificationList:
       type: object
       required:
@@ -1984,6 +2863,40 @@ components:
         * `active` - Active
         * `cancelled` - Cancelled
         * `resolved` - Resolved
+    PanicLocation:
+      type: object
+      description: |-
+        GET /api/v1/panic/{id}/location/ — for an officer on their way to help.
+
+        Narrow on purpose: who it is and where they are now. The outcome columns
+        and the battery belong to the dispatcher feed, not to a colleague en route.
+      properties:
+        id:
+          type: integer
+        officer:
+          $ref: '#/components/schemas/OfficerBrief'
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        accuracy_m:
+          type: number
+          format: double
+          nullable: true
+        recorded_at:
+          type: string
+          format: date-time
+      required:
+      - accuracy_m
+      - id
+      - latitude
+      - longitude
+      - officer
+      - recorded_at
     PanicResolve:
       type: object
       description: POST /api/v1/panic/{id}/resolve/ body. What happened, in the closer's
@@ -2062,11 +2975,6 @@ components:
           maximum: 120
           minimum: 10
           description: How often the officer app records a location, in seconds.
-        mission_ack_timeout_minutes:
-          type: integer
-          maximum: 60
-          minimum: 1
-          description: Minutes before an unacknowledged mission is flagged.
         location_retention_days:
           type: integer
           maximum: 365
@@ -2087,11 +2995,34 @@ components:
           maximum: 10
           minimum: 1
           description: Photos allowed on one mission.
+        panic_nearby_radius_m:
+          type: integer
+          maximum: 20000
+          minimum: 100
+          description: Officers on duty within this many metres of a panic alert are
+            notified.
         map_refresh_seconds:
           type: integer
           maximum: 60
           minimum: 10
           description: How often the dispatcher dashboard reloads the map, in seconds.
+        daily_duty_target_hours:
+          type: integer
+          maximum: 16
+          minimum: 1
+          description: Hours of duty an officer is expected to work per day, across
+            all shifts.
+        max_shift_hours:
+          type: integer
+          maximum: 24
+          minimum: 4
+          description: A single shift still active after this many hours is ended
+            automatically.
+        duty_reminder_lead_minutes:
+          type: integer
+          maximum: 120
+          minimum: 0
+          description: Minutes before the daily duty target that the officer is reminded.
     PatchedUser:
       type: object
       properties:
@@ -2137,6 +3068,9 @@ components:
         full_name:
           type: string
           maxLength: 150
+        badge_number:
+          type: string
+          maxLength: 20
         phone:
           type: string
           maxLength: 20
@@ -2220,6 +3154,70 @@ components:
         * `medium` - Medium
         * `high` - High
         * `urgent` - Urgent
+    RangeOfficer:
+      type: object
+      description: One row of the officer activity table.
+      properties:
+        officer_id:
+          type: integer
+        officer_name:
+          type: string
+        badge_number:
+          type: string
+        hours_on_duty:
+          type: number
+          format: double
+        distance_covered_m:
+          type: integer
+        missions_assigned:
+          type: integer
+        missions_completed:
+          type: integer
+        missions_cancelled:
+          type: integer
+        average_completion_seconds:
+          type: number
+          format: double
+        panic_events:
+          type: integer
+      required:
+      - average_completion_seconds
+      - badge_number
+      - distance_covered_m
+      - hours_on_duty
+      - missions_assigned
+      - missions_cancelled
+      - missions_completed
+      - officer_id
+      - officer_name
+      - panic_events
+    RangeTotals:
+      type: object
+      description: The cards above the weekly and custom range tables.
+      properties:
+        officers:
+          type: integer
+        hours_on_duty:
+          type: number
+          format: double
+        distance_covered_m:
+          type: integer
+        missions_assigned:
+          type: integer
+        missions_completed:
+          type: integer
+        missions_cancelled:
+          type: integer
+        panic_events:
+          type: integer
+      required:
+      - distance_covered_m
+      - hours_on_duty
+      - missions_assigned
+      - missions_cancelled
+      - missions_completed
+      - officers
+      - panic_events
     RoleEnum:
       enum:
       - officer
@@ -2267,6 +3265,9 @@ components:
           type: string
           format: date-time
           nullable: true
+        ended_automatically:
+          type: boolean
+          readOnly: true
         duration_seconds:
           type: integer
           readOnly: true
@@ -2292,6 +3293,7 @@ components:
           nullable: true
       required:
       - duration_seconds
+      - ended_automatically
       - id
     ShiftBoundary:
       type: object
@@ -2315,20 +3317,20 @@ components:
       description: |-
         * `active` - Active
         * `ended` - Ended
-    Status0aaEnum:
+    Status369Enum:
       enum:
       - new
       - assigned
-      - acknowledged
       - in_progress
+      - paused
       - completed
       - cancelled
       type: string
       description: |-
         * `new` - New
         * `assigned` - Assigned
-        * `acknowledged` - Acknowledged
         * `in_progress` - In progress
+        * `paused` - Paused
         * `completed` - Completed
         * `cancelled` - Cancelled
     SystemSetting:
@@ -2349,11 +3351,6 @@ components:
           maximum: 120
           minimum: 10
           description: How often the officer app records a location, in seconds.
-        mission_ack_timeout_minutes:
-          type: integer
-          maximum: 60
-          minimum: 1
-          description: Minutes before an unacknowledged mission is flagged.
         location_retention_days:
           type: integer
           maximum: 365
@@ -2374,11 +3371,34 @@ components:
           maximum: 10
           minimum: 1
           description: Photos allowed on one mission.
+        panic_nearby_radius_m:
+          type: integer
+          maximum: 20000
+          minimum: 100
+          description: Officers on duty within this many metres of a panic alert are
+            notified.
         map_refresh_seconds:
           type: integer
           maximum: 60
           minimum: 10
           description: How often the dispatcher dashboard reloads the map, in seconds.
+        daily_duty_target_hours:
+          type: integer
+          maximum: 16
+          minimum: 1
+          description: Hours of duty an officer is expected to work per day, across
+            all shifts.
+        max_shift_hours:
+          type: integer
+          maximum: 24
+          minimum: 4
+          description: A single shift still active after this many hours is ended
+            automatically.
+        duty_reminder_lead_minutes:
+          type: integer
+          maximum: 120
+          minimum: 0
+          description: Minutes before the daily duty target that the officer is reminded.
     TokenRefresh:
       type: object
       properties:
@@ -2493,6 +3513,9 @@ components:
         full_name:
           type: string
           maxLength: 150
+        badge_number:
+          type: string
+          maxLength: 20
         phone:
           type: string
           maxLength: 20
@@ -2506,6 +3529,7 @@ components:
           description: Designates whether this user should be treated as active. Unselect
             this instead of deleting accounts.
       required:
+      - badge_number
       - full_name
       - role
     WeeklySummary:
@@ -2520,9 +3544,12 @@ components:
         missions_by_priority:
           type: object
           additionalProperties: {}
-        average_acknowledgement_seconds:
-          type: number
-          format: double
+        missions_by_category:
+          type: object
+          additionalProperties: {}
+        missions_by_status:
+          type: object
+          additionalProperties: {}
         average_completion_seconds:
           type: number
           format: double
@@ -2530,13 +3557,22 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TopOfficer'
+        totals:
+          $ref: '#/components/schemas/RangeTotals'
+        officers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RangeOfficer'
       required:
-      - average_acknowledgement_seconds
       - average_completion_seconds
       - end_date
+      - missions_by_category
       - missions_by_priority
+      - missions_by_status
+      - officers
       - start_date
       - top_officers
+      - totals
   securitySchemes:
     jwtAuth:
       type: http

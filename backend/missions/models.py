@@ -20,7 +20,6 @@ class Mission(models.Model):
     class Status(models.TextChoices):
         NEW = "new", "New"  # created, nobody assigned yet
         ASSIGNED = "assigned", "Assigned"  # sent to an officer, not yet seen
-        ACKNOWLEDGED = "acknowledged", "Acknowledged"  # officer confirmed receipt
         IN_PROGRESS = "in_progress", "In progress"  # officer is on it
         PAUSED = "paused", "Paused"  # interrupted by an urgent mission, resumable
         COMPLETED = "completed", "Completed"
@@ -77,7 +76,6 @@ class Mission(models.Model):
     # One timestamp per transition. Null means it has not happened.
     created_at = models.DateTimeField(auto_now_add=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
-    acknowledged_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
@@ -91,10 +89,6 @@ class Mission(models.Model):
 
     notes = models.TextField(blank=True)
     cancellation_reason = models.TextField(blank=True)
-
-    # Set when the dashboard has warned about a missed acknowledgement, so the
-    # sweep does not alert on the same mission every time it runs.
-    ack_alert_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "missions_mission"
@@ -125,7 +119,7 @@ class Mission(models.Model):
         """
         Time actively worked on this mission, pauses excluded: the finished
         periods (`worked_seconds`) plus the one running now, if any. None
-        before work has started — new/assigned/acknowledged missions have no
+        before work has started ; new/assigned missions have no
         duration yet.
         """
         if self.started_at is None:
@@ -177,7 +171,6 @@ class MissionEvent(models.Model):
         CREATED = "created", "Created"
         ASSIGNED = "assigned", "Assigned"
         REASSIGNED = "reassigned", "Reassigned"
-        ACKNOWLEDGED = "acknowledged", "Acknowledged"
         STARTED = "started", "Started"
         PAUSED = "paused", "Paused"
         RESUMED = "resumed", "Resumed"
@@ -185,13 +178,11 @@ class MissionEvent(models.Model):
         CANCELLED = "cancelled", "Cancelled"
         PHOTO_ADDED = "photo_added", "Photo added"
         NOTE_ADDED = "note_added", "Note added"
-        ACK_ALERT_SENT = "ack_alert_sent", "Acknowledgement alert sent"
 
     mission = models.ForeignKey(Mission, on_delete=models.CASCADE, related_name="events")
     event_type = models.CharField(max_length=16, choices=EventType.choices)
 
     # Null for events the system raised rather than a person, such as the
-    # unacknowledged-mission alert.
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

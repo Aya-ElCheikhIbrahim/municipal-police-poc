@@ -39,13 +39,11 @@ class MissionAdmin(admin.ModelAdmin):
         "status",
         "created_at",
         "assigned_at",
-        "acknowledged_at",
         "started_at",
         "completed_at",
         "cancelled_at",
         "worked_seconds",
         "resumed_at",
-        "ack_alert_sent_at",
     ]
  
  

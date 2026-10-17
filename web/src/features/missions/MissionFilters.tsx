@@ -117,7 +117,7 @@ export function MissionFilters({
                 }
                 options={MISSION_STATUSES.map((s) => ({
                   value: s,
-                  label: s === 'in_progress' ? 'قيد التنفيذ' : s === 'new' ? 'جديدة' : s === 'assigned' ? 'معينة' : s === 'acknowledged' ? 'تم الاستلام' : s === 'paused' ? 'متوقفة' : s === 'completed' ? 'مكتملة' : 'ملغاة',
+                  label: s === 'paused' ? 'متوقفة' : s === 'completed' ? 'مكتملة' : 'ملغاة',
                 }))}
               />
 

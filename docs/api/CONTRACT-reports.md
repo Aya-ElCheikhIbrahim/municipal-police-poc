@@ -78,7 +78,7 @@ Query parameters: `date` (required), `from_time` and `to_time` (HH:MM, optional)
 ]
 ```
 
-`officer` is who acted, and is null for what the system did by itself, such as the unacknowledged-mission alert. `officer_id` keeps the rows an officer took part in, **including the ones done to them**: a mission created and assigned by a dispatcher belongs on that officer's timeline, with the dispatcher shown as the actor. Without that the timeline would start mid-story.
+`officer` is who acted, and is null for what the system did by itself. `officer_id` keeps the rows an officer took part in, **including the ones done to them**: a mission created and assigned by a dispatcher belongs on that officer's timeline, with the dispatcher shown as the actor. Without that the timeline would start mid-story.
 
 Missions carry their area, so that filter is a plain lookup. Panic alerts and shifts carry a position instead, so they are matched against the area's circle. `area` is null when a position falls outside every district.
 
@@ -100,7 +100,7 @@ Query parameters: `officer_id`, `start_date` and `end_date` (all required; pass 
     "missions_assigned": 3, "missions_completed": 1, "missions_cancelled": 1,
     "missions_in_progress": 1, "panic_events": 1
   },
-  "performance": {"average_acknowledgement_seconds": 45.0, "average_completion_seconds": 600.0},
+  "performance": {"average_completion_seconds": 600.0},
   "timeline": [],
   "missions": [
     {
@@ -108,7 +108,6 @@ Query parameters: `officer_id`, `start_date` and `end_date` (all required; pass 
       "priority": "urgent", "category": "Traffic",
       "area": "Al Tall, Tripoli, Lebanon", "area_id": 6,
       "assigned_at": "2026-09-22T10:31:00+03:00",
-      "acknowledged_at": "2026-09-22T10:31:45+03:00",
       "completed_at": "2026-09-22T11:02:14+03:00",
       "cancelled_at": null
     }
@@ -117,8 +116,6 @@ Query parameters: `officer_id`, `start_date` and `end_date` (all required; pass 
 ```
 
 A **paused** mission counts as in progress: it is still work in hand, not a finished one. `performance` is this officer's own averages, not the period's.
-
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. The `average_acknowledgement_seconds` metric (here and in the weekly report) and the per-mission `acknowledged_at` depend on Acknowledge and are scheduled for removal; once Acknowledge is gone they will read 0 / null.
 
 `timeline` is filled only when `start_date` equals `end_date`, which is what the screen asks for. Over a longer range it is an empty array and the client asks `/reports/activity/` for whatever slice it needs, rather than the server building a month of rows nobody asked to see.
 
@@ -136,8 +133,7 @@ Query parameters: `start_date` and `end_date` (required), `officer_id` (optional
   "end_date": "2026-09-22",
   "missions_by_priority": {"low": 3, "medium": 7, "high": 5, "urgent": 3},
   "missions_by_category": {"Municipal": 6, "Sanitation": 4, "Traffic": 7, "Infrastructure": 1},
-  "missions_by_status": {"new": 0, "assigned": 2, "acknowledged": 1, "in_progress": 3, "paused": 0, "completed": 11, "cancelled": 1},
-  "average_acknowledgement_seconds": 134.0,
+  "missions_by_status": {"new": 0, "assigned": 2, "in_progress": 3, "paused": 0, "completed": 11, "cancelled": 1},
   "average_completion_seconds": 2466.0,
   "top_officers": [{"officer_id": 3, "officer_name": "مصطفى زاهر (TP-29189)", "completed_missions": 7}],
   "totals": {
@@ -149,7 +145,7 @@ Query parameters: `start_date` and `end_date` (required), `officer_id` (optional
       "officer_id": 3, "officer_name": "مصطفى زاهر (TP-29189)", "badge_number": "TP-29189",
       "hours_on_duty": 38.5, "distance_covered_m": 21400,
       "missions_assigned": 7, "missions_completed": 7, "missions_cancelled": 0,
-      "average_acknowledgement_seconds": 98.5, "average_completion_seconds": 2100.0,
+      "average_completion_seconds": 2100.0,
       "panic_events": 1
     }
   ]

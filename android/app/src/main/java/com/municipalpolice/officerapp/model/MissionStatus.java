@@ -11,9 +11,6 @@ public enum MissionStatus {
     @SerializedName("assigned")
     ASSIGNED,
 
-    @SerializedName("acknowledged")
-    ACKNOWLEDGED,
-
     @SerializedName("in_progress")
     IN_PROGRESS,
 

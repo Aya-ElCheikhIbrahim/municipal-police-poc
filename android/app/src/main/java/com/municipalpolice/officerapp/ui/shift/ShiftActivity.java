@@ -219,7 +219,6 @@ public class ShiftActivity extends BaseActivity implements EndShiftDialogFragmen
         switch (status) {
             case PAUSED:
             case IN_PROGRESS:
-            case ACKNOWLEDGED:
                 return 2;
             case NEW:
             case ASSIGNED:

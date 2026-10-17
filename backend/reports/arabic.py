@@ -60,7 +60,6 @@ LABELS = {
     "count": "العدد",
     "missions_by_category": "المهام حسب النوع",
     "category": "النوع",
-    "avg_ack": "متوسط وقت تأكيد الاستلام",
     "avg_completion": "متوسط وقت الإنجاز",
     "seconds": "ثانية",
     "top_officers": "العناصر الأكثر إنجازا",
