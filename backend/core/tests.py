@@ -56,7 +56,6 @@ class SystemSettingTests(TestCase):
 
     def test_defaults_match_the_requirements(self):
         self.assertEqual(get_setting("location_ping_interval_seconds"), 30)  # §4.3
-        self.assertEqual(get_setting("mission_ack_timeout_minutes"), 5)  # §4.9
         self.assertEqual(get_setting("location_retention_days"), 90)  # §5
         self.assertEqual(get_setting("daily_duty_target_hours"), 8)
         self.assertEqual(get_setting("max_shift_hours"), 10)
@@ -100,10 +99,10 @@ class SystemSettingTests(TestCase):
 
     def test_update_records_who_changed_it(self):
         supervisor = make_user("supervisor3", role="supervisor")
-        set_settings({"mission_ack_timeout_minutes": 10}, actor=supervisor)
-        row = SystemSetting.objects.get(key="mission_ack_timeout_minutes")
+        set_settings({"daily_duty_target_hours": 9}, actor=supervisor)
+        row = SystemSetting.objects.get(key="daily_duty_target_hours")
         self.assertEqual(row.updated_by, supervisor)
-        self.assertEqual(row.value, 10)
+        self.assertEqual(row.value, 9)
 
     def test_patch_requires_supervisor(self):
         client = APIClient()

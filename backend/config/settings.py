@@ -78,6 +78,19 @@ REST_FRAMEWORK={
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "PAGE_SIZE":25,
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+
+     # ... existing keys ...
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",          # unauthenticated callers, keyed by IP
+        "user": "1000/hour",       # authenticated, keyed by user id
+        "login": "5/min",          # brute-force protection
+        "password_reset": "5/hour",
+    },
     }
 
 SPECTACULAR_SETTINGS = {
@@ -127,6 +140,13 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST"),
         "PORT": config("DB_PORT"),
+    }
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": config("REDIS_URL", default="redis://localhost:6379/1"),
     }
 }
 
