@@ -38,7 +38,7 @@ Officer only. Stops tracking and marks the officer offline. Position is optional
 { "latitude": 34.446700, "longitude": 35.849700 }
 ```
 
-Returns 200 with the ended shift. No active shift returns 400. An officer who is actively on a mission (an open mission work period) also returns 400 — `Finish mission #{id} before ending your shift.` — and must complete the mission, or have it cancelled, first. A mission that is only assigned or acknowledged (not started), or one that is paused, does not block ending the shift. Ending a shift does not revoke the JWT — the client must also call `POST /api/v1/logout/` with the refresh token. The two are separate because a failed blacklist would otherwise leave a phone believing its session was revoked when it was not.
+Returns 200 with the ended shift. No active shift returns 400. An officer who is actively on a mission (an open mission work period) also returns 400 (`Finish mission #{id} before ending your shift.`) and must complete the mission, or have it cancelled, first. A mission that is only assigned (not started), or one that is paused, does not block ending the shift. Ending a shift does not revoke the JWT; the client must also call `POST /api/v1/logout/` with the refresh token. The two are separate because a failed blacklist would otherwise leave a phone believing its session was revoked when it was not.
 
 ```json
 {
@@ -139,8 +139,6 @@ Dispatcher and Supervisor only. Returns every officer currently on duty, with th
 ```
 
 `status` is `in_mission` only when the officer has an `in_progress` mission, and `available` otherwise (a `panic` status outranks both when the officer has an open alert). An officer who has been assigned a mission but has not yet started it is still `available` - showing them as busy would hide a free officer from the dispatcher. This is the same rule that controls map marker colour: blue means "working", not "notified".
-
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only until it is removed from the Android app; the flow is Start -> Complete. An `acknowledged` officer (while that status still exists) counts as `available`, the same as an `assigned` one - only `in_progress` is `in_mission`.
 
 `current_mission` carries exactly four fields: `id`, `title`, `priority`, and `status`. The dispatcher drawer calls `GET /api/v1/missions/{id}/` for the full record; sending more here would duplicate data that is already one request away.
 

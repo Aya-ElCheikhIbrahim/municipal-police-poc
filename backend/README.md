@@ -37,13 +37,11 @@ Implemented:
 - Areas: GET /areas/ (Tripoli districts)
 - Shifts: start, end, active officers, officer trail
 - Location: batch ping ingest with offline dedupe
-- Missions: create, assign, acknowledge, start, complete, cancel, notes, photos, unacknowledged sweep  <!-- ACK-REMOVAL PENDING: acknowledge + unacknowledged sweep are cancelled; see docs/PROGRESS.md -->
+- Missions: create, assign, start, complete, cancel, notes, photos
 - Panic (Alerts): trigger, active feed, cancel (grace window), resolve, location; nearby on-duty officers within `panic_nearby_radius_m` are alerted
 - Notifications: in-app feed, unread count, mark read / mark all read
 - Reports: daily (per-officer + all-officer summary), weekly/custom range, activity feed, officer report; CSV + Arabic PDF export
 - Push (FCM): backend delivery on mission assigned / cancelled / dispatcher message / panic alert. Off while FCM_CREDENTIALS_FILE is empty; on once it points at the Firebase service-account key. Now also integrated in the Android officer app (messaging SDK + device-token registration via POST /device-tokens/).
-
-> **[ACK-REMOVAL PENDING]** The Acknowledge step is cancelled. It is kept here only the owner requires it again
 
 Not started / out of scope:
 - WebSocket / SSE push: the dashboard polls the REST API instead (the live map and panic feed every 5s). A deliberate decision - polling meets the refresh requirement without a socket layer. See docs/PROGRESS.md.
