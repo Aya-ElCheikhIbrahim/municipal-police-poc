@@ -449,8 +449,6 @@ public class MissionListActivity extends BaseActivity
          * Complete this mission.
          */
         if (mission.getStatus() ==
-                MissionStatus.ACKNOWLEDGED ||
-                mission.getStatus() ==
                         MissionStatus.IN_PROGRESS) {
 
             completeMission(
@@ -607,8 +605,7 @@ public class MissionListActivity extends BaseActivity
 
     private boolean hasActiveOrAssignedMissions() {
         for (Mission mission : allMissions) {
-            if (mission.getStatus() == MissionStatus.ACKNOWLEDGED ||
-                mission.getStatus() == MissionStatus.IN_PROGRESS ||
+            if (mission.getStatus() == MissionStatus.IN_PROGRESS ||
                 mission.getStatus() == MissionStatus.PAUSED) {
                 return true;
             }
@@ -1166,9 +1163,6 @@ public class MissionListActivity extends BaseActivity
                         MissionStatus.ASSIGNED ||
 
                 mission.getStatus() ==
-                        MissionStatus.ACKNOWLEDGED ||
-
-                mission.getStatus() ==
                         MissionStatus.IN_PROGRESS ||
 
                 mission.getStatus() ==
@@ -1181,7 +1175,6 @@ public class MissionListActivity extends BaseActivity
         switch (status) {
             case PAUSED:
             case IN_PROGRESS:
-            case ACKNOWLEDGED:
                 return 2;
             case NEW:
             case ASSIGNED:
@@ -1356,8 +1349,7 @@ public class MissionListActivity extends BaseActivity
     private boolean hasActiveUrgentMission() {
         for (Mission m : allMissions) {
             if (m.getPriority() == Priority.URGENT &&
-                    (m.getStatus() == MissionStatus.ACKNOWLEDGED ||
-                     m.getStatus() == MissionStatus.IN_PROGRESS)) {
+                    (m.getStatus() == MissionStatus.IN_PROGRESS)) {
                 return true;
             }
         }

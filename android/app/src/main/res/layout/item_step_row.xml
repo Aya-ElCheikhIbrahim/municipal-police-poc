@@ -25,5 +25,5 @@
         android:layout_marginStart="@dimen/space_s"
         android:textColor="@color/text_primary"
         android:textSize="@dimen/text_body"
-        tools:text="Acknowledge" />
+        tools:text="Start work" />
 </LinearLayout>

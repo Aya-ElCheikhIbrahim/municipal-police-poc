@@ -15,9 +15,6 @@ public interface MissionApiService {
     @GET("missions/{id}/")
     Call<Mission> getMissionDetail(@Path("id") int id);
 
-    @POST("missions/{id}/acknowledge/")
-    Call<Mission> acknowledgeMission(@Path("id") int id);
-
     @POST("missions/{id}/start/")
     Call<Mission> startMission(@Path("id") int id, @Body PositionRequest request);
 

@@ -217,7 +217,7 @@
                     </LinearLayout>
 
                     <Button
-                        android:id="@+id/btnAcknowledge"
+                        android:id="@+id/btnStart"
                         style="@style/Button.Primary"
                         android:layout_width="match_parent"
                         android:layout_height="72dp"
@@ -250,8 +250,6 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-
-                        <!-- ACKNOWLEDGED REMOVED -->
 
                         <TextView
                             android:id="@+id/tvStartedAt"

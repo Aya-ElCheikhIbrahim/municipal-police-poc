@@ -32,9 +32,6 @@ public class Mission implements Serializable {
     @SerializedName("assigned_at")
     private String assignedAt;
 
-    @SerializedName("acknowledged_at")
-    private String acknowledgedAt;
-
     @SerializedName("started_at")
     private String startedAt;
 
@@ -219,18 +216,6 @@ public class Mission implements Serializable {
 
     public String getAssignedAt() {
         return assignedAt;
-    }
-
-
-    public String getAcknowledgedAt() {
-        return acknowledgedAt;
-    }
-
-
-    public void setAcknowledgedAt(
-            String acknowledgedAt
-    ) {
-        this.acknowledgedAt = acknowledgedAt;
     }
 
 

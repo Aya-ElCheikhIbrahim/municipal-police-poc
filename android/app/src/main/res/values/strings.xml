@@ -102,12 +102,9 @@
     <string name="mission_title">Mission</string>
     <string name="mission_assigned_by">%1$s · assigned by %2$s</string>
     <string name="mission_map_distance">%1$s away</string>
-    <string name="mission_step_acknowledge">Acknowledge</string>
     <string name="mission_step_start">Start work</string>
     <string name="mission_step_complete">Complete with photo</string>
-    <string name="mission_acknowledge_button">Acknowledge</string>
     <string name="mission_navigate_button">Navigate</string>
-    <string name="mission_acknowledged_at">Acknowledged %1$s</string>
     <string name="mission_started_at">Started %1$s</string>
     <string name="mission_photo_progress">%1$d of %2$d photos. Taken in app, logged with time and location.</string>
     <string name="mission_take_photo">Take photo</string>
@@ -137,7 +134,6 @@
     <string name="lang_arabic">العربية</string>
 
     <string name="mission_completed_toast">Mission marked complete</string>
-    <string name="mission_toast_acknowledged">Mission acknowledged</string>
     <string name="mission_location_permission_denied">Location tracking is required for missions.</string>
     <string name="generic_back">Back</string>
     <string name="generic_apply">Apply</string>
@@ -145,8 +141,6 @@
     <string name="logout_error_pending_missions">You have active missions. Please complete them before logging out.</string>
     <string name="logout_validation_loading">Verifying duty status...</string>
     <string name="end_shift_error_active_missions">You cannot end your shift while you have active missions. Please complete them first.</string>
-    <string name="mission_acknowledge_warning_title">Acknowledge Mission</string>
-    <string name="mission_acknowledge_warning_body">Are you sure you want to start this mission?</string>
     <string name="generic_proceed">Proceed</string>
     <string name="generic_cancel">Cancel</string>
     <string name="generic_ok">OK</string>

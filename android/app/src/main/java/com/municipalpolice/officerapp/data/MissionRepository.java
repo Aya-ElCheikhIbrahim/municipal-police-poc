@@ -13,7 +13,6 @@ import java.util.List;
 public interface MissionRepository {
     void fetchMissions(Callback<List<Mission>> callback);
     void getMissionById(String missionId, Callback<Mission> callback);
-    void acknowledgeMission(String missionId, Callback<Mission> callback);
     void startMission(String missionId, Callback<Mission> callback);
     void completeMission(String missionId, Callback<Mission> callback);
     void cancelMission(String missionId, String reason, Callback<Void> callback);

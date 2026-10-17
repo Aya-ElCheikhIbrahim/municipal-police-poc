@@ -102,12 +102,9 @@
     <string name="mission_title">المهمة</string>
     <string name="mission_assigned_by">%1$s · أسندها %2$s</string>
     <string name="mission_map_distance">يبعد %1$s</string>
-    <string name="mission_step_acknowledge">استلام</string>
     <string name="mission_step_start">بدء التنفيذ</string>
     <string name="mission_step_complete">إنجاز مع صورة</string>
-    <string name="mission_acknowledge_button">تأكيد الاستلام</string>
     <string name="mission_navigate_button">الاتجاهات</string>
-    <string name="mission_acknowledged_at">تم الاستلام %1$s</string>
     <string name="mission_started_at">بدأ التنفيذ %1$s</string>
     <string name="mission_photo_progress">%1$d من %2$d صور. تُلتقط داخل التطبيق مع الوقت والموقع.</string>
     <string name="mission_take_photo">التقاط صورة</string>
@@ -137,7 +134,6 @@
     <string name="lang_arabic">العربية</string>
 
     <string name="mission_completed_toast">تم تسجيل المهمة كمنجزة</string>
-    <string name="mission_toast_acknowledged">تم استلام المهمة</string>
     <string name="mission_location_permission_denied">تتبع الموقع مطلوب للمهام.</string>
     <string name="generic_back">رجوع</string>
     <string name="generic_apply">تطبيق</string>
