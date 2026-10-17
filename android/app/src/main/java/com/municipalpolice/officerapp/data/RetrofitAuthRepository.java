@@ -12,7 +12,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitAuthRepository implements AuthRepository {
 
-    private static final String BASE_URL = "http://10.0.2.2:8000/api/v1/";
+    private static final String BASE_URL = "https://municipal-police-poc.onrender.com/api/v1/";
     private static RetrofitAuthRepository instance;
 
     private final AuthApiService apiService;

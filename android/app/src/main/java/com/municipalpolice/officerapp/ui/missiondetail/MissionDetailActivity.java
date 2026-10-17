@@ -711,9 +711,9 @@ public class MissionDetailActivity extends BaseActivity
                     String imageUrl = photo.getImage().trim();
 
                     if (imageUrl.startsWith("/")) {
-                        imageUrl = "http://10.0.2.2:8000" + imageUrl;
+                        imageUrl = "https://municipal-police-poc.onrender.com" + imageUrl;
                     } else if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
-                        imageUrl = "http://10.0.2.2:8000/" + imageUrl;
+                        imageUrl = "https://municipal-police-poc.onrender.com/" + imageUrl;
                     }
 
                     Glide.with(this)

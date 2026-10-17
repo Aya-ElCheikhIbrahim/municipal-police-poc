@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 public class NetworkMonitor {
 
     private static final String BACKEND_HEALTH_URL =
-            "http://10.0.2.2:8000/api/v1/";
+            "https://municipal-police-poc.onrender.com/api/v1/";
 
     private static final int CONNECT_TIMEOUT_MS = 2500;
     private static final int READ_TIMEOUT_MS = 2500;
