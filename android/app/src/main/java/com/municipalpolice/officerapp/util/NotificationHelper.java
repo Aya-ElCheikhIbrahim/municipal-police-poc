@@ -27,6 +27,7 @@ public class NotificationHelper {
      */
     public static final int REQUEST_CODE_MISSION_LOCAL = 1;
     public static final int REQUEST_CODE_MISSION_PUSH = 2;
+    public static final int REQUEST_CODE_PANIC_PUSH = 3;
 
     public static void createNotificationChannels(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
