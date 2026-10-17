@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 from decouple import config
-
+from decouple import Csv
 SECRET_KEY = config("SECRET_KEY")
 DEBUG = config("DEBUG", default=False, cast=bool)
 
@@ -61,12 +61,14 @@ PASSWORD_HASHERS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
 ]
 REST_FRAMEWORK={
     'DEFAULT_AUTHENTICATION_CLASSES':(
@@ -140,7 +142,14 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST"),
         "PORT": config("DB_PORT"),
+        "OPTIONS": {"sslmode": config("DB_SSLMODE", default="prefer")},
     }
+}
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
 }
 
 CACHES = {
@@ -188,7 +197,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
 
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
