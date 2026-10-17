@@ -163,8 +163,23 @@ class PhotoUploadSerializer(serializers.Serializer):
     enters the upload queue, so a retry is a no-op rather than a second copy.
     """
 
+    MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
     client_uuid = serializers.UUIDField()
-    image = serializers.FileField()
+    image = serializers.ImageField()
     captured_latitude = CoordinateField(required=False, allow_null=True)
     captured_longitude = CoordinateField(required=False, allow_null=True)
     captured_at = serializers.DateTimeField(required=False, allow_null=True)
+
+    def validate_image(self, value):
+        if value.size > self.MAX_IMAGE_BYTES:
+            raise serializers.ValidationError(
+                f"Image must be {self.MAX_IMAGE_BYTES // (1024 * 1024)} MB or smaller."
+            )
+        content_type = getattr(value, "content_type", None)
+        if content_type not in self.ALLOWED_CONTENT_TYPES:
+            raise serializers.ValidationError(
+                "Only JPEG, PNG, or WebP images are allowed."
+            )
+        return value
