@@ -43,7 +43,7 @@ macOS/Linux: `cp .env.example .env`
 
 ### 5.Fill in your .enc
 
-opne .env file and set two values:
+open .env file and set two values:
 
 Generate a secret key: 
 python -c "import secrets,string; print(''.join(secrets.choice(string.ascii_letters+string.digits) for _ in range(50)))"
@@ -51,14 +51,15 @@ python -c "import secrets,string; print(''.join(secrets.choice(string.ascii_lett
 paste the output as SECRET_KEY= .. (with no quotes)
 
 Then set DB_PASSWORD= ..()
+`REDIS_URL` is already filled in by the template (`redis://localhost:6379/1`) and matches the redis container, so leave it as-is
 
 ### 6.Start teh database:
 
 docker compose up -d
 
 You should see two containers, both running in green, with postgres marked healthy
-If postgres says Restarting, see Troubleshooting
-
+The two containers are **postgres** (the database) and **redis**.
+Redis is now required: the backend uses it for API rate limiting, so if it is not running, login and a few other endpoints return a 500. `docker compose up -d` starts both.
 
 ### 7.Build the tables:
 
@@ -206,6 +207,7 @@ npm install
 | `ModuleNotFoundError: No module named 'django'` | The venv is not active. Run `venv\Scripts\activate`. |
 | `password authentication failed` | `DB_PASSWORD` in `.env` does not match what the container was created with. Run `docker compose down -v`, then `docker compose up -d`, then `migrate`. |
 | `port is already allocated` | Something else is using port 5433 or 6379 — often a local PostgreSQL install. Stop it, or ask the backend lead. |
+| Login returns 500 or a Redis `ConnectionError` | The `redis` container is not running. Run `docker compose ps` and confirm `redis` is up; `docker compose up -d` starts it. |
 | `variable is not set` warnings from Docker | Your `.env` contains a `$`. Change that value to letters and numbers only. |
 | CORS error in the browser console | The dashboard is on a port the backend does not allow. Check Vite is on 5173. |
 | Login "works" with any username | `web/.env` is missing, so the API call never happens. See Part 2 step 2. |
