@@ -21,4 +21,10 @@
     <dimen name="text_button">15sp</dimen>
     <dimen name="panic_button_text_size">20sp</dimen>
     <dimen name="end_shift_button_text_size">24sp</dimen>
+
+    <!-- Panic detail screen: older officers, outdoors, in a hurry. The
+         officer's name and the call button are the largest things on it. -->
+    <dimen name="text_headline">24sp</dimen>
+    <dimen name="text_action">20sp</dimen>
+    <dimen name="action_button_min_height">64dp</dimen>
 </resources>

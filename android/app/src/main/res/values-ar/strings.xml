@@ -161,4 +161,6 @@
     <string name="panic_ongoing_title_unknown">أحد الزملاء بحاجة إلى مساعدة</string>
     <string name="panic_ongoing_body">إنذار طوارئ قائم. اضغط لعرض الموقع المباشر.</string>
     <string name="panic_login_to_view">سجّل الدخول لفتح إنذار الطوارئ.</string>
+    <string name="panic_detail_title">إنذار طوارئ</string>
+    <string name="panic_detail_needs_help">بحاجة إلى مساعدة الآن</string>
 </resources>

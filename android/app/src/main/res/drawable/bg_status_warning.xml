@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The missions screen's offline notice as one drawable: a card with a 4dp
+     amber stripe on the start edge. One drawable rather than a stripe view
+     beside the text, so hiding the TextView hides the stripe with it.
+     gravity="start" follows the layout direction, so the stripe moves to the
+     right edge in Arabic. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/bg_card" />
+        </shape>
+    </item>
+    <item
+        android:width="4dp"
+        android:gravity="start|fill_vertical">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/pending" />
+        </shape>
+    </item>
+</layer-list>
