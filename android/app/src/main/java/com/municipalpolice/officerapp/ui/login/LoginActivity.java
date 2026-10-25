@@ -40,6 +40,12 @@ public class LoginActivity extends BaseActivity {
     private Button btnLogin;
     private Button btnForgotPassword;
 
+    // A cached session means this screen should forward straight on. Set in
+    // onCreate / onNewIntent, acted on (once) in onResume.
+    private boolean redirectOnResume = false;
+    // The permission prompt that onCreate defers when it is redirecting.
+    private boolean permissionsAfterRedirect = false;
+
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 // Permissions handled. We could check if location was denied and show a warning.
@@ -85,10 +91,12 @@ public class LoginActivity extends BaseActivity {
         // once the backend has confirmed it, never from these extras.
         PanicAlert panic = PanicAlert.fromExtras(getIntent().getExtras());
 
-        // Skip straight to the shift screen if a session is already cached
+        // Skip straight to the shift screen if a session is already cached.
+        // Decided here, done in onResume: see redirectOnResume.
         if (hasCachedSession()) {
             DeviceTokenManager.registerCurrentToken(this);
-            goToShift();
+            redirectOnResume = true;
+            permissionsAfterRedirect = true;
         } else if (panic != null && savedInstanceState == null) {
             Toast.makeText(this, R.string.panic_login_to_view, Toast.LENGTH_LONG).show();
         }
@@ -100,7 +108,35 @@ public class LoginActivity extends BaseActivity {
             Toast.makeText(this, R.string.session_expired_message, Toast.LENGTH_LONG).show();
         }
 
-        checkAndRequestPermissions();
+        // When redirecting, onResume asks after the redirect instead, the same
+        // order as before: asked here, the dialog would cover the login screen
+        // and hold up the redirect (and a panic screen) until answered.
+        if (!permissionsAfterRedirect) {
+            checkAndRequestPermissions();
+        }
+    }
+
+    /**
+     * The cached-session redirect runs here, not in onCreate. Finishing during
+     * onCreate could crash on a cold start: Android was still making this
+     * activity the top resumed one when the app had already destroyed it
+     * ("Activity client record must not be null to execute transaction item:
+     * TopResumedActivityChangeItem"). By onResume it is fully up.
+     *
+     * The flag is cleared before redirecting, so a second resume (a dialog,
+     * returning from the permission prompt) never redirects twice.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!redirectOnResume || isFinishing()) return;
+        redirectOnResume = false;
+
+        goToShift();
+        if (permissionsAfterRedirect) {
+            permissionsAfterRedirect = false;
+            checkAndRequestPermissions();
+        }
     }
 
     /**
@@ -117,8 +153,10 @@ public class LoginActivity extends BaseActivity {
         // panic, so an unrelated tap can't drop one that is waiting.
         setIntent(intent);
 
+        // onResume follows onNewIntent and does the redirect, the same way as
+        // for a fresh launch.
         if (hasCachedSession()) {
-            goToShift();
+            redirectOnResume = true;
         } else {
             Toast.makeText(this, R.string.panic_login_to_view, Toast.LENGTH_LONG).show();
         }
