@@ -6,11 +6,13 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.service.notification.StatusBarNotification;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 import com.municipalpolice.officerapp.R;
+import com.municipalpolice.officerapp.notifications.PanicAlert;
 import com.municipalpolice.officerapp.ui.missions.MissionListActivity;
 
 public class NotificationHelper {
@@ -28,6 +30,14 @@ public class NotificationHelper {
     public static final int REQUEST_CODE_MISSION_LOCAL = 1;
     public static final int REQUEST_CODE_MISSION_PUSH = 2;
     public static final int REQUEST_CODE_PANIC_PUSH = 3;
+
+    /*
+     * The active-panic notification has one fixed slot (see ActivePanic), so a
+     * newer alert replaces it and cancelling needs no bookkeeping. The tag
+     * keeps it apart from the time-based ids the other notifications use.
+     */
+    private static final String TAG_ACTIVE_PANIC = "active_panic";
+    private static final int NOTIFICATION_ID_ACTIVE_PANIC = 1;
 
     public static void createNotificationChannels(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -66,6 +76,57 @@ public class NotificationHelper {
             // installs. No-op when absent. Never reuse this id.
             manager.deleteNotificationChannel("missions_channel");
         }
+    }
+
+    /**
+     * Ongoing, so it stays in the shade as the way back to the panic screen
+     * for as long as the alert is live. Not auto-cancel: opening the screen
+     * once must not remove the only route back to it. ActivePanic cancels it.
+     */
+    public static void showActivePanicNotification(Context context, PanicAlert alert, boolean makeNoise) {
+        Intent intent = alert.detailIntent(context);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, REQUEST_CODE_PANIC_PUSH, intent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        String title = alert.officerName != null
+                ? context.getString(R.string.panic_ongoing_title, alert.officerName)
+                : context.getString(R.string.panic_ongoing_title_unknown);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID_PANIC)
+                .setSmallIcon(R.drawable.ic_shield)
+                .setContentTitle(title)
+                .setContentText(context.getString(R.string.panic_ongoing_body))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .setSilent(!makeNoise)
+                .setContentIntent(pendingIntent);
+
+        try {
+            NotificationManagerCompat.from(context)
+                    .notify(TAG_ACTIVE_PANIC, NOTIFICATION_ID_ACTIVE_PANIC, builder.build());
+        } catch (SecurityException e) {
+            // POST_NOTIFICATIONS denied on Android 13+; nothing to show it with.
+        }
+    }
+
+    /** Whether the active-panic notification is in the shade right now. */
+    public static boolean isActivePanicNotificationShowing(Context context) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        // Can't tell: report it missing. Re-posting the same tag and id is harmless.
+        if (manager == null) return false;
+        for (StatusBarNotification shown : manager.getActiveNotifications()) {
+            if (shown.getId() == NOTIFICATION_ID_ACTIVE_PANIC && TAG_ACTIVE_PANIC.equals(shown.getTag())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void cancelActivePanicNotification(Context context) {
+        NotificationManagerCompat.from(context).cancel(TAG_ACTIVE_PANIC, NOTIFICATION_ID_ACTIVE_PANIC);
     }
 
     public static void showNewMissionNotification(Context context, String title, String body) {

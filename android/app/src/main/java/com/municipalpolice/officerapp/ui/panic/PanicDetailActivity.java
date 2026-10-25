@@ -23,7 +23,10 @@ import com.municipalpolice.officerapp.data.PanicEndedException;
 import com.municipalpolice.officerapp.data.PanicLocationResponse;
 import com.municipalpolice.officerapp.data.PanicRepository;
 import com.municipalpolice.officerapp.data.RetrofitPanicRepository;
+import com.municipalpolice.officerapp.notifications.ActivePanic;
+import com.municipalpolice.officerapp.notifications.PanicAlert;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
+import com.municipalpolice.officerapp.util.PrefsManager;
 
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
@@ -73,6 +76,7 @@ public class PanicDetailActivity extends BaseActivity {
     private int pollGeneration = 0;
     private boolean polling = false;
     private boolean alertEnded = false;
+    private boolean confirmedByBackend = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -228,6 +232,14 @@ public class PanicDetailActivity extends BaseActivity {
         updateMapLocation(lat, lon);
         tvLocationStatus.setVisibility(View.GONE);
 
+        // The backend has now confirmed this alert is real and active, so it
+        // is safe to hold it and keep its ongoing notification. Done here and
+        // not from the launch intent, whose extras any app could have sent.
+        if (!confirmedByBackend) {
+            confirmedByBackend = true;
+            ActivePanic.remember(this, new PanicAlert(panicId, userName, userPhone, lat, lon), false);
+        }
+
         // recorded_at, not "now": when the colleague's phone stops reporting,
         // the server keeps answering with the same old ping, and the label
         // must show that age rather than tick forward.
@@ -238,6 +250,8 @@ public class PanicDetailActivity extends BaseActivity {
     private void onAlertEnded() {
         alertEnded = true;
         stopLocationPolling();
+        // Its ongoing notification would otherwise keep pointing here.
+        ActivePanic.forget(this, panicId);
 
         new AlertDialog.Builder(this)
                 .setTitle(R.string.panic_detail_ended_title)
@@ -325,10 +339,27 @@ public class PanicDetailActivity extends BaseActivity {
     // LIFECYCLE
     // =========================================================
 
+    /** Login is handled in onResume instead, so the alert survives it. */
+    @Override
+    protected boolean requiresLogin() {
+        return false;
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
         if (mapView != null) mapView.onResume();
+
+        // Reached from the ongoing notification after the session died.
+        // BaseActivity's redirect would drop the alert; this one carries it
+        // through login, and LoginActivity reopens this screen afterwards.
+        if (!new PrefsManager(this).isLoggedIn()) {
+            startActivity(new PanicAlert(panicId, userName, userPhone, currentLat, currentLon)
+                    .loginIntent(this));
+            finish();
+            return;
+        }
+
         startLocationPolling();
     }
 

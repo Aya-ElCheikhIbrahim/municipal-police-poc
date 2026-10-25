@@ -159,4 +159,8 @@
     <string name="panic_detail_tracking_unavailable">Live tracking is unavailable for this alert.</string>
     <string name="panic_detail_ended_title">Alert ended</string>
     <string name="panic_detail_ended_message">This panic alert is no longer active. It was cancelled or resolved, and live tracking has stopped.</string>
+    <string name="panic_ongoing_title">%1$s needs help</string>
+    <string name="panic_ongoing_title_unknown">A colleague needs help</string>
+    <string name="panic_ongoing_body">Panic alert in progress. Tap to see their live location.</string>
+    <string name="panic_login_to_view">Log in to open the panic alert.</string>
 </resources>

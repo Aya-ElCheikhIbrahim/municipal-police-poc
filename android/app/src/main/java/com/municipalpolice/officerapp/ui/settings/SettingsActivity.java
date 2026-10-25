@@ -15,6 +15,7 @@ import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.data.RetrofitMissionRepository;
 import com.municipalpolice.officerapp.model.Mission;
 import com.municipalpolice.officerapp.model.MissionStatus;
+import com.municipalpolice.officerapp.notifications.ActivePanic;
 import com.municipalpolice.officerapp.service.LocationService;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.login.LoginActivity;
@@ -429,6 +430,10 @@ public class SettingsActivity extends BaseActivity {
         RetrofitAuthRepository
                 .getInstance(prefs)
                 .logout();
+
+        // A logged-out officer is not following anyone's panic: drop the
+        // remembered alert, its ongoing notification and its background check.
+        ActivePanic.forgetAll(this);
 
         stopService(
                 new Intent(
