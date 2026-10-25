@@ -17,6 +17,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework.test import APIClient
 
 from core.registry import get_setting, invalidate_cache, set_settings
+from notifications.models import Notification, NotificationType
 from shifts import services as shift_services
 
 from . import services
@@ -356,6 +357,18 @@ class ActiveFeedTests(PanicTestCase):
 class LocationTests(PanicTestCase):
     """GET /api/v1/panic/{id}/location/ — what a colleague en route follows."""
 
+    # Where trigger() raises alerts by default (Tripoli), and somewhere well
+    # outside the nearby radius of it (Beirut, about 70 km away).
+    ALERT_POSITION = (34.436700, 35.849700)
+    FAR_AWAY = (33.888600, 35.495500)
+
+    def setUp(self):
+        super().setUp()
+        # other_officer is on duty at the alert's position before it is
+        # raised, so trigger() notifies them through the real nearby path:
+        # the endpoint only answers officers notified about the alert.
+        shift_services.start_shift(self.other_officer, *self.ALERT_POSITION)
+
     def location(self, event, as_user=None):
         self.client.force_authenticate(as_user or self.other_officer)
         return self.client.get(f"/api/v1/panic/{event.pk}/location/")
@@ -437,7 +450,6 @@ class LocationTests(PanicTestCase):
         as their colleague's would send them nowhere.
         """
         event = self.trigger(self.officer, latitude=34.436700, longitude=35.849700, accuracy_m=12.5)
-        self.on_duty(self.other_officer)
         self.ping(
             self.other_officer, 34.450000, 35.860000,
             event.triggered_at + timezone.timedelta(seconds=30), accuracy_m=5.0,
@@ -450,9 +462,81 @@ class LocationTests(PanicTestCase):
         self.assertEqual(body["accuracy_m"], 12.5)
         self.assertEqual(parse_datetime(body["recorded_at"]), event.triggered_at)
 
-    def test_404_once_the_alert_is_resolved(self):
+    def test_404_once_the_alert_is_resolved_even_for_those_allowed_to_follow_it(self):
         """The phone treats this 404 as "the incident is over, stop following"."""
         event = self.trigger(self.officer)
         services.resolve_panic(event, self.dispatcher)
 
-        self.assertEqual(self.location(event).status_code, 404)
+        self.assertEqual(self.location(event, as_user=self.other_officer).status_code, 404)
+        self.assertEqual(self.location(event, as_user=self.officer).status_code, 404)
+
+    # -- who may follow an alert -------------------------------------------
+
+    def test_every_panic_notification_points_at_its_alert(self):
+        """The link is the access rule, so both notify paths must set it."""
+        event = self.trigger(self.officer)
+
+        rows = Notification.objects.filter(notification_type=NotificationType.PANIC_ALERT)
+
+        # Dispatcher and supervisor (notify_panic_triggered) and the nearby
+        # officer (notify_nearby_officers_of_panic).
+        self.assertEqual(
+            {row.recipient for row in rows},
+            {self.dispatcher, self.supervisor, self.other_officer},
+        )
+        self.assertTrue(all(row.related_panic_event_id == event.pk for row in rows))
+
+    def test_a_notified_officer_can_follow_the_alert(self):
+        event = self.trigger(self.officer)
+
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.other_officer, related_panic_event=event
+            ).exists()
+        )
+        self.assertEqual(self.location(event, as_user=self.other_officer).status_code, 200)
+
+    def test_an_officer_who_was_not_notified_gets_404(self):
+        """
+        On duty but out of range, so never notified. 404, not 403: a 403
+        would confirm the alert exists, which is what walking ids looks for.
+        """
+        bystander = make_user("panic-off5")
+        shift_services.start_shift(bystander, *self.FAR_AWAY)
+        event = self.trigger(self.officer)
+
+        self.assertEqual(self.location(event, as_user=bystander).status_code, 404)
+
+    def test_a_notification_for_another_alert_does_not_count(self):
+        """The check is per alert, not "has ever been sent a panic"."""
+        self.trigger(self.officer)  # other_officer is notified about this one
+        far_officer = make_user("panic-off6")
+        elsewhere = self.trigger(far_officer, latitude=self.FAR_AWAY[0], longitude=self.FAR_AWAY[1])
+
+        self.assertEqual(self.location(elsewhere, as_user=self.other_officer).status_code, 404)
+
+    def test_the_phone_is_not_exposed_to_an_officer_who_was_not_notified(self):
+        self.officer.phone = "+961 3 123 456"
+        self.officer.save(update_fields=["phone"])
+        bystander = make_user("panic-off5")
+        shift_services.start_shift(bystander, *self.FAR_AWAY)
+        event = self.trigger(self.officer)
+
+        response = self.location(event, as_user=bystander)
+
+        self.assertEqual(response.status_code, 404)
+        body = response.content.decode()
+        self.assertNotIn("123 456", body)
+        self.assertNotIn("latitude", body)
+
+    def test_the_officer_who_raised_it_can_follow_their_own_alert(self):
+        """
+        They have no notification for it, but the position and phone are
+        their own, so refusing them would protect nothing.
+        """
+        event = self.trigger(self.officer)
+
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.officer, related_panic_event=event).exists()
+        )
+        self.assertEqual(self.location(event, as_user=self.officer).status_code, 200)
