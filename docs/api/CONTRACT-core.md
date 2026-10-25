@@ -16,7 +16,7 @@ Returns all system settings as a flat object. A missing row in the database is n
   "panic_cancel_grace_seconds": 10,
   "mission_photo_min": 1,
   "mission_photo_max": 5,
-  "panic_nearby_radius_m": 2000,
+  "panic_nearby_radius_m": 5000,
   "map_refresh_seconds": 20
 }
 ```
@@ -43,7 +43,7 @@ Supervisor only. Partial update — send only the keys you want to change. Retur
   "panic_cancel_grace_seconds": 10,
   "mission_photo_min": 1,
   "mission_photo_max": 5,
-  "panic_nearby_radius_m": 2000,
+  "panic_nearby_radius_m": 5000,
   "map_refresh_seconds": 20
 }
 ```
@@ -96,7 +96,7 @@ Returns the definition for each setting — its description, default, and bounds
   {
     "key": "panic_nearby_radius_m",
     "description": "Officers on duty within this many metres of a panic alert are notified.",
-    "default": 2000,
+    "default": 5000,
     "minimum": 100,
     "maximum": 20000
   },

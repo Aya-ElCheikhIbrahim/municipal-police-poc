@@ -85,7 +85,7 @@ Notifications are created by `notifications/services.py` in response to domain e
 
 `dispatcher_message` — written by `notify_dispatcher_message()`. Recipient is a named officer. The related mission is optional.
 
-`panic_alert` - now wired. The panic app has a model (`alerts_panicevent`) and a working trigger. `notify_panic_triggered()` fans a `panic_alert` out to every active dispatcher and supervisor when `panic.services.trigger_panic` creates an alert (created branch only, so a repeated tap does not re-alert). In addition, `notify_nearby_officers_of_panic()` sends a `panic_alert` to every on-duty officer within `panic_nearby_radius_m` of the alert (default 2000m), each carrying their distance from it, and pushes it. `Notification` has no FK to `PanicEvent` yet (`related_panic_event` is still commented out, pending a migration), so the officer, position and distance are written into the notification body.
+`panic_alert` - now wired. The panic app has a model (`alerts_panicevent`) and a working trigger. `notify_panic_triggered()` fans a `panic_alert` out to every active dispatcher and supervisor when `panic.services.trigger_panic` creates an alert (created branch only, so a repeated tap does not re-alert). In addition, `notify_nearby_officers_of_panic()` sends a `panic_alert` to every on-duty officer within `panic_nearby_radius_m` of the alert (default 5000m), each carrying their distance from it, and pushes it. `Notification` has no FK to `PanicEvent` yet (`related_panic_event` is still commented out, pending a migration), so the officer, position and distance are written into the notification body.
 
 `Scoping`
 

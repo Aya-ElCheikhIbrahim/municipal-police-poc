@@ -194,7 +194,7 @@ location_retention_days - 90
 panic_cancel_grace_seconds - 10
 mission_photo_min - 1
 mission_photo_max - 5
-panic_nearby_radius_m - 2000, clamp 100 to 20000  (officers on duty within this radius of a panic are alerted)
+panic_nearby_radius_m - 5000, clamp 100 to 20000  (officers on duty within this radius of a panic are alerted)
 map_refresh_seconds - 20
 
 Supervisor edits; the app fetches on login and at shift start. Changes take effect on the officer's next shift.

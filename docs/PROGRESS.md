@@ -97,7 +97,7 @@ is a scope change against requirements §4.5.
 
 **Nearby-officer alert on panic (backend built; decision to reconcile).**
 When a panic is triggered, `panic.services.trigger_panic` finds every on-duty
-officer within `panic_nearby_radius_m` (a registered setting, default 2000m) via
+officer within `panic_nearby_radius_m` (a registered setting, default 5000m) via
 `shifts.services.officers_near`, and `notifications.services.notify_nearby_officers_of_panic`
 creates and pushes a `panic_alert` notification to each of them with their
 distance from the alert. Dispatchers and supervisors are also notified
