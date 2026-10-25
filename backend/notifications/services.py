@@ -232,9 +232,14 @@ def notify_nearby_officers_of_panic(event, nearby):
     ])
 
     for notification in notifications:
+        # officer_phone travels in the push so the call button works the moment
+        # the screen opens, before the first location poll. Sent as "" when the
+        # officer has no number rather than left out: the app falls back to a
+        # placeholder for a missing key, and "" is unambiguous.
         _push_after_commit(notification, {
             "panic_id": event.id,
             "officer_name": event.officer.full_name,
+            "officer_phone": event.officer.phone,
             "latitude": event.latitude,
             "longitude": event.longitude,
         })

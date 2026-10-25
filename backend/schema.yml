@@ -2868,13 +2868,14 @@ components:
       description: |-
         GET /api/v1/panic/{id}/location/ — for an officer on their way to help.
 
-        Narrow on purpose: who it is and where they are now. The outcome columns
-        and the battery belong to the dispatcher feed, not to a colleague en route.
+        Narrow on purpose: who it is, how to reach them, and where they are now.
+        The outcome columns and the battery belong to the dispatcher feed, not to
+        a colleague en route.
       properties:
         id:
           type: integer
         officer:
-          $ref: '#/components/schemas/OfficerBrief'
+          $ref: '#/components/schemas/PanicOfficer'
         latitude:
           type: string
           format: decimal
@@ -2897,6 +2898,33 @@ components:
       - longitude
       - officer
       - recorded_at
+    PanicOfficer:
+      type: object
+      description: |-
+        OfficerBrief plus a phone number, for the location endpoint only.
+
+        A colleague on the way needs to be able to call. OfficerBrief itself must
+        not grow a phone: it labels mission events, assignment lists, shift rows
+        and report exports, and none of those should start handing out numbers.
+        A subclass under its own name, so the schema gets a separate component
+        instead of a second, different `OfficerBrief`.
+
+        `phone` is an empty string when the officer has none (the column is
+        blank=True); the app hides the call button in that case.
+      properties:
+        id:
+          type: integer
+        full_name:
+          type: string
+        badge_number:
+          type: string
+        phone:
+          type: string
+      required:
+      - badge_number
+      - full_name
+      - id
+      - phone
     PanicResolve:
       type: object
       description: POST /api/v1/panic/{id}/resolve/ body. What happened, in the closer's

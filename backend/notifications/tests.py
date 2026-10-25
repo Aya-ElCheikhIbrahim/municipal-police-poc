@@ -310,6 +310,44 @@ class PushOnNotifyTests(NotificationTestCase):
         send_push.assert_not_called()
 
 
+class NearbyPanicPushTests(NotificationTestCase):
+    """Officers near a panic get a push that opens the panic screen."""
+
+    def make_event(self, panicking):
+        # Only the attributes notify_nearby_officers_of_panic reads; a real
+        # PanicEvent needs a shift, which is panic/'s business, not this suite's.
+        return SimpleNamespace(
+            id=42, officer=panicking, latitude="34.436700", longitude="35.849700"
+        )
+
+    def notify(self, event):
+        with self.captureOnCommitCallbacks(execute=True):
+            services.notify_nearby_officers_of_panic(event, [(self.other_officer, 850.0)])
+
+    @mock.patch("notifications.push.send_push")
+    def test_push_carries_the_panicking_officers_phone(self, send_push):
+        self.officer.phone = "+961 3 123 456"
+        self.officer.save(update_fields=["phone"])
+
+        self.notify(self.make_event(self.officer))
+
+        send_push.assert_called_once()
+        user, _title, _body, data = send_push.call_args.args
+        self.assertEqual(user, self.other_officer)
+        self.assertEqual(data["officer_phone"], "+961 3 123 456")
+        self.assertEqual(data["panic_id"], 42)
+        self.assertEqual(data["officer_name"], self.officer.full_name)
+
+    @mock.patch("notifications.push.send_push")
+    def test_phone_is_sent_empty_when_the_officer_has_none(self, send_push):
+        """Sent as "", not omitted: the app substitutes a placeholder for a missing key."""
+        self.notify(self.make_event(self.officer))
+
+        data = send_push.call_args.args[3]
+        self.assertIn("officer_phone", data)
+        self.assertEqual(data["officer_phone"], "")
+
+
 @override_settings(FCM_CREDENTIALS_FILE="secrets/test-key.json")
 @mock.patch("notifications.push._get_app")
 @mock.patch("firebase_admin.messaging.send_each_for_multicast")

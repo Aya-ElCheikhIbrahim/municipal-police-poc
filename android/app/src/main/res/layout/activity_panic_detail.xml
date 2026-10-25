@@ -92,6 +92,16 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
+            <!-- Hidden until there is a dialable number. -->
+            <Button
+                android:id="@+id/btnCallOfficer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="8dp"
+                android:text="@string/panic_detail_call"
+                android:visibility="gone" />
+
         </LinearLayout>
 
         <TextView
@@ -102,6 +112,17 @@
             android:text="Live location updating..."
             android:textColor="#616161"
             android:textSize="12sp" />
+
+        <!-- Shown while polls are failing, or once the alert has ended. -->
+        <TextView
+            android:id="@+id/tvLocationStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#D32F2F"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
 
     </LinearLayout>
 

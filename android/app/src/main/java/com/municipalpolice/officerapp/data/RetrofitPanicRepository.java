@@ -96,4 +96,30 @@ public class RetrofitPanicRepository implements PanicRepository {
             }
         });
     }
+
+    @Override
+    public void getPanicLocation(int panicId, Callback<PanicLocationResponse> callback) {
+        // Polled every few seconds, so failures log as warnings, not errors.
+        apiService.getPanicLocation(panicId).enqueue(new retrofit2.Callback<PanicLocationResponse>() {
+            @Override
+            public void onResponse(Call<PanicLocationResponse> call, Response<PanicLocationResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else if (response.code() == 404) {
+                    // The backend's "alert no longer active" signal, not a failure.
+                    Log.d(TAG, "Panic ID=" + panicId + " is no longer active");
+                    callback.onError(new PanicEndedException(panicId));
+                } else {
+                    Log.w(TAG, "Panic location poll failed: HTTP " + response.code());
+                    callback.onError(new Exception("HTTP " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<PanicLocationResponse> call, Throwable t) {
+                Log.w(TAG, "Panic location poll network failure", t);
+                callback.onError(t);
+            }
+        });
+    }
 }

@@ -149,4 +149,14 @@
     <string name="mission_photo_required_title">Photo required</string>
     <string name="mission_photo_required_stop_message">You need to add an image to stop this mission.</string>
     <string name="panic_button_text">Emergency</string>
+    <string name="panic_detail_phone">Phone: %1$s</string>
+    <string name="panic_detail_no_phone">No phone number on file</string>
+    <string name="panic_detail_call">Call</string>
+    <string name="panic_detail_no_dialer">No phone app is available to place the call.</string>
+    <string name="panic_detail_location_from_alert">Showing the position from the alert. Connecting to live location…</string>
+    <string name="panic_detail_location_as_of">Last location recorded at %1$s</string>
+    <string name="panic_detail_connection_lost">Cannot reach the server. Retrying. The location shown may be out of date.</string>
+    <string name="panic_detail_tracking_unavailable">Live tracking is unavailable for this alert.</string>
+    <string name="panic_detail_ended_title">Alert ended</string>
+    <string name="panic_detail_ended_message">This panic alert is no longer active. It was cancelled or resolved, and live tracking has stopped.</string>
 </resources>
