@@ -1,6 +1,6 @@
 # API contract - panic
 
-panic/tests.py::TriggerTests, CancelTests, GraceWindowSettingTests, ResolveTests, ConstraintTests, ActiveFeedTests
+panic/tests.py::TriggerTests, CancelTests, GraceWindowSettingTests, ResolveTests, ConstraintTests, ActiveFeedTests, LocationTests
 
 `POST /api/v1/panic/`
 
@@ -60,6 +60,32 @@ Dispatcher and Supervisor only. Returns every alert still in `active` status. Ca
 ```
 
 This is the feed that drives the red pulsing marker on the map (§4.6). The response is deliberately narrow — outcome columns are all null on an active alert and are omitted here. `officer` is expanded with name and badge so the dashboard can render the marker label without a second request.
+
+`GET /api/v1/panic/{id}/location/`
+
+Officer only. Where a colleague in panic is now, for an officer on their way to help. The Android app polls it every 10 seconds while the panic screen is open.
+
+Only two kinds of officer may call it for a given alert: those notified about it (they hold a `panic_alert` notification linked to it, which `notify_nearby_officers_of_panic()` sends to on-duty officers within `panic_nearby_radius_m`), and the officer who raised it. Everyone else gets 404, not 403: panic ids are sequential, and a 403 would confirm to anyone walking them that an alert exists. Every caller also gets 404 once the alert is cancelled or resolved, and the app reads that as "the incident is over, stop following". Dispatchers and supervisors get 403 for the role; they have `/panic/active/`.
+
+```json
+{
+  "id": 7,
+  "officer": {
+    "id": 4,
+    "full_name": "سامر عبد الله",
+    "badge_number": "TP-1001",
+    "phone": "+961 3 123 456"
+  },
+  "latitude": "34.437100",
+  "longitude": "35.850200",
+  "accuracy_m": 8.0,
+  "recorded_at": "2026-09-07T10:15:30Z"
+}
+```
+
+The position is the newest location ping on the alert's shift if it was recorded after the alert was raised, otherwise the alert's own position. `recorded_at` says which: the ping's time (phone time), or the alert's `triggered_at`. Pings from any other shift never count, including the calling officer's own. `accuracy_m` may be null.
+
+`officer` is the usual brief officer object plus `phone` (schema component `PanicOfficer`), which is `""` when the officer has no number on file. The phone is on this endpoint only; the brief officer object used elsewhere does not carry it.
 
 `POST /api/v1/panic/{id}/cancel/`
 
