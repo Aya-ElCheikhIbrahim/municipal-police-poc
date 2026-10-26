@@ -6,15 +6,18 @@ test cases as a minimum. These cover the behaviours where a silent failure
 either loses an audit record or puts a wrong marker on the dispatcher map.
 """
 
+import uuid
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework.test import APIClient
 
 from core.registry import get_setting, invalidate_cache, set_settings
+from notifications.models import Notification, NotificationType
 from shifts import services as shift_services
 
 from . import services
@@ -349,3 +352,191 @@ class ActiveFeedTests(PanicTestCase):
     def test_an_officer_cannot_read_the_feed(self):
         self.client.force_authenticate(self.officer)
         self.assertEqual(self.client.get("/api/v1/panic/active/").status_code, 403)
+
+
+class LocationTests(PanicTestCase):
+    """GET /api/v1/panic/{id}/location/ — what a colleague en route follows."""
+
+    # Where trigger() raises alerts by default (Tripoli), and somewhere well
+    # outside the nearby radius of it (Beirut, about 70 km away).
+    ALERT_POSITION = (34.436700, 35.849700)
+    FAR_AWAY = (33.888600, 35.495500)
+
+    def setUp(self):
+        super().setUp()
+        # other_officer is on duty at the alert's position before it is
+        # raised, so trigger() notifies them through the real nearby path:
+        # the endpoint only answers officers notified about the alert.
+        shift_services.start_shift(self.other_officer, *self.ALERT_POSITION)
+
+    def location(self, event, as_user=None):
+        self.client.force_authenticate(as_user or self.other_officer)
+        return self.client.get(f"/api/v1/panic/{event.pk}/location/")
+
+    def test_carries_the_officers_phone(self):
+        """The responding officer's call button reads this."""
+        self.officer.phone = "+961 3 123 456"
+        self.officer.save(update_fields=["phone"])
+        event = self.trigger(self.officer)
+
+        response = self.location(event)
+
+        self.assertEqual(response.status_code, 200)
+        officer = response.json()["officer"]
+        self.assertEqual(officer["phone"], "+961 3 123 456")
+        self.assertEqual(officer["full_name"], self.officer.full_name)
+        self.assertEqual(officer["badge_number"], self.officer.badge_number)
+
+    def test_phone_is_an_empty_string_when_the_officer_has_none(self):
+        """Present but empty, never missing or null: the app hides the button on ""."""
+        event = self.trigger(self.officer)
+
+        officer = self.location(event).json()["officer"]
+
+        self.assertIn("phone", officer)
+        self.assertEqual(officer["phone"], "")
+
+    def ping(self, officer, latitude, longitude, recorded_at, **extra):
+        """Through ingest_pings, the same path the phone's uploads take."""
+        shift_services.ingest_pings(officer, [{
+            "client_uuid": uuid.uuid4(),
+            "latitude": latitude,
+            "longitude": longitude,
+            "recorded_at": recorded_at,
+            **extra,
+        }])
+
+    def test_alert_position_when_no_ping_is_newer_than_the_alert(self):
+        """A ping from before the alert must not displace where it was raised."""
+        shift = self.on_duty(self.officer)
+        self.ping(self.officer, 34.400000, 35.800000, shift.started_at + timezone.timedelta(seconds=1))
+        event = self.trigger(self.officer, latitude=34.436700, longitude=35.849700, accuracy_m=12.5)
+        # Pin the alert clearly after that ping. On a coarse clock the two could
+        # share a timestamp, and the test would no longer say which one won.
+        PanicEvent.objects.filter(pk=event.pk).update(
+            triggered_at=shift.started_at + timezone.timedelta(minutes=1)
+        )
+        event.refresh_from_db()
+
+        body = self.location(event).json()
+
+        self.assertEqual(Decimal(body["latitude"]), event.latitude)
+        self.assertEqual(Decimal(body["longitude"]), event.longitude)
+        self.assertEqual(body["accuracy_m"], 12.5)
+        self.assertEqual(parse_datetime(body["recorded_at"]), event.triggered_at)
+
+    def test_a_newer_ping_on_the_shift_replaces_the_alert_position(self):
+        """The live-tracking contract: once the officer moves, so does the answer."""
+        event = self.trigger(self.officer, latitude=34.436700, longitude=35.849700)
+        before = self.location(event).json()
+        self.assertEqual(Decimal(before["latitude"]), event.latitude)
+        self.assertEqual(Decimal(before["longitude"]), event.longitude)
+
+        moved_at = event.triggered_at + timezone.timedelta(seconds=30)
+        self.ping(self.officer, 34.440000, 35.855000, moved_at, accuracy_m=8.0)
+
+        after = self.location(event).json()
+
+        self.assertEqual(Decimal(after["latitude"]), Decimal("34.440000"))
+        self.assertEqual(Decimal(after["longitude"]), Decimal("35.855000"))
+        self.assertEqual(after["accuracy_m"], 8.0)
+        self.assertEqual(parse_datetime(after["recorded_at"]), moved_at)
+
+    def test_a_newer_ping_from_another_officers_shift_is_never_returned(self):
+        """
+        Only the panicking officer's own shift counts. The likeliest stray ping
+        is the responder's own: they are on duty, moving toward the alert and
+        uploading newer positions than it, and showing them their own location
+        as their colleague's would send them nowhere.
+        """
+        event = self.trigger(self.officer, latitude=34.436700, longitude=35.849700, accuracy_m=12.5)
+        self.ping(
+            self.other_officer, 34.450000, 35.860000,
+            event.triggered_at + timezone.timedelta(seconds=30), accuracy_m=5.0,
+        )
+
+        body = self.location(event, as_user=self.other_officer).json()
+
+        self.assertEqual(Decimal(body["latitude"]), event.latitude)
+        self.assertEqual(Decimal(body["longitude"]), event.longitude)
+        self.assertEqual(body["accuracy_m"], 12.5)
+        self.assertEqual(parse_datetime(body["recorded_at"]), event.triggered_at)
+
+    def test_404_once_the_alert_is_resolved_even_for_those_allowed_to_follow_it(self):
+        """The phone treats this 404 as "the incident is over, stop following"."""
+        event = self.trigger(self.officer)
+        services.resolve_panic(event, self.dispatcher)
+
+        self.assertEqual(self.location(event, as_user=self.other_officer).status_code, 404)
+        self.assertEqual(self.location(event, as_user=self.officer).status_code, 404)
+
+    # -- who may follow an alert -------------------------------------------
+
+    def test_every_panic_notification_points_at_its_alert(self):
+        """The link is the access rule, so both notify paths must set it."""
+        event = self.trigger(self.officer)
+
+        rows = Notification.objects.filter(notification_type=NotificationType.PANIC_ALERT)
+
+        # Dispatcher and supervisor (notify_panic_triggered) and the nearby
+        # officer (notify_nearby_officers_of_panic).
+        self.assertEqual(
+            {row.recipient for row in rows},
+            {self.dispatcher, self.supervisor, self.other_officer},
+        )
+        self.assertTrue(all(row.related_panic_event_id == event.pk for row in rows))
+
+    def test_a_notified_officer_can_follow_the_alert(self):
+        event = self.trigger(self.officer)
+
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.other_officer, related_panic_event=event
+            ).exists()
+        )
+        self.assertEqual(self.location(event, as_user=self.other_officer).status_code, 200)
+
+    def test_an_officer_who_was_not_notified_gets_404(self):
+        """
+        On duty but out of range, so never notified. 404, not 403: a 403
+        would confirm the alert exists, which is what walking ids looks for.
+        """
+        bystander = make_user("panic-off5")
+        shift_services.start_shift(bystander, *self.FAR_AWAY)
+        event = self.trigger(self.officer)
+
+        self.assertEqual(self.location(event, as_user=bystander).status_code, 404)
+
+    def test_a_notification_for_another_alert_does_not_count(self):
+        """The check is per alert, not "has ever been sent a panic"."""
+        self.trigger(self.officer)  # other_officer is notified about this one
+        far_officer = make_user("panic-off6")
+        elsewhere = self.trigger(far_officer, latitude=self.FAR_AWAY[0], longitude=self.FAR_AWAY[1])
+
+        self.assertEqual(self.location(elsewhere, as_user=self.other_officer).status_code, 404)
+
+    def test_the_phone_is_not_exposed_to_an_officer_who_was_not_notified(self):
+        self.officer.phone = "+961 3 123 456"
+        self.officer.save(update_fields=["phone"])
+        bystander = make_user("panic-off5")
+        shift_services.start_shift(bystander, *self.FAR_AWAY)
+        event = self.trigger(self.officer)
+
+        response = self.location(event, as_user=bystander)
+
+        self.assertEqual(response.status_code, 404)
+        body = response.content.decode()
+        self.assertNotIn("123 456", body)
+        self.assertNotIn("latitude", body)
+
+    def test_the_officer_who_raised_it_can_follow_their_own_alert(self):
+        """
+        They have no notification for it, but the position and phone are
+        their own, so refusing them would protect nothing.
+        """
+        event = self.trigger(self.officer)
+
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.officer, related_panic_event=event).exists()
+        )
+        self.assertEqual(self.location(event, as_user=self.officer).status_code, 200)

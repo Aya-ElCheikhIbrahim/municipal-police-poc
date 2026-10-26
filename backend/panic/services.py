@@ -13,9 +13,11 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from core.registry import get_setting
+from notifications.models import Notification
 from notifications.services import (
     notify_nearby_officers_of_panic,
     notify_panic_triggered,
@@ -174,6 +176,26 @@ def _require_active(event: PanicEvent, action: str) -> None:
             f"{event.get_status_display().lower()}."
         )
 
+
+
+def followable_panics(user):
+    """
+    The active alerts `user` may follow on GET /panic/{id}/location/.
+
+    Only officers who were notified about the alert: ids are sequential, so
+    "any officer" would let any account walk them and read a colleague's live
+    position and phone. Plus the officer who raised it, whose own position
+    and number it is, so there is nothing to protect from them.
+
+    One queryset rather than a lookup then a check, so "over", "never
+    existed" and "not yours" are the same 404 and cannot be told apart.
+    """
+    notified = Notification.objects.filter(
+        related_panic_event=OuterRef("pk"), recipient=user
+    )
+    return PanicEvent.objects.filter(status=PanicEvent.Status.ACTIVE).filter(
+        Q(officer=user) | Q(Exists(notified))
+    )
 
 
 def current_position(event: PanicEvent) -> dict:

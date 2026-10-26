@@ -60,16 +60,20 @@ class Notification(models.Model):
         related_name="notifications",
     )
  
-    # Uncomment once panic/models.py defines PanicEvent. Verify the app label
-    # is `panic` — the table is alerts_panicevent, so it may be overridden
-    # the same way accounts_user is.
-    # related_panic_event = models.ForeignKey(
-    #     "panic.PanicEvent",
-    #     null=True,
-    #     blank=True,
-    #     on_delete=models.CASCADE,
-    #     related_name="notifications",
-    # )
+    # Which panic alert a PANIC_ALERT notification is about. The app label
+    # is `panic`; only the table name is overridden (alerts_panicevent), the
+    # same way users/ keeps accounts_user. Nullable: rows created before this
+    # column existed have no link, and other types never do.
+    #
+    # Also the access rule for GET /panic/{id}/location/: an officer may
+    # follow an alert only if they have a notification pointing at it.
+    related_panic_event = models.ForeignKey(
+        "panic.PanicEvent",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
  
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)

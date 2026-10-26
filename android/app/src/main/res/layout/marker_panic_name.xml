@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The red name bubble shown on the panic pin (see PanicNameInfoWindow): a
+     rounded red label with a small tail pointing down at the marker. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:gravity="center_horizontal"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/tvMarkerName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_panic_name_bubble"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:maxWidth="220dp"
+        android:paddingStart="@dimen/space_m"
+        android:paddingTop="@dimen/space_s"
+        android:paddingEnd="@dimen/space_m"
+        android:paddingBottom="@dimen/space_s"
+        android:textColor="@color/text_on_brand"
+        android:textSize="@dimen/text_body"
+        android:textStyle="bold"
+        tools:text="Samer Abdallah" />
+
+    <ImageView
+        android:layout_width="14dp"
+        android:layout_height="8dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_bubble_pointer" />
+
+</LinearLayout>

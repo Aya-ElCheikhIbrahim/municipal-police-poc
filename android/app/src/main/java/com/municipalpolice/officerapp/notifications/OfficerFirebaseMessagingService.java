@@ -34,8 +34,17 @@ public class OfficerFirebaseMessagingService extends FirebaseMessagingService {
         Log.d(TAG, "FCM message received");
 
         String title = "New Mission Assigned";
-        String body =
-                "You have been assigned a new mission.";
+        String body = "You have been assigned a new mission.";
+
+        // A nearby-panic alert. Only reached with the app in the foreground:
+        // otherwise the FCM SDK shows the notification itself and LoginActivity
+        // picks the same data up from the launch intent. Both parse it with
+        // PanicAlert, so the two paths cannot drift apart.
+        PanicAlert panic = PanicAlert.fromPushData(remoteMessage.getData());
+        if (panic != null) {
+            ActivePanic.remember(this, panic, true);
+            return;
+        }
 
         // -----------------------------------------------------
         // READ NOTIFICATION TITLE / BODY
@@ -88,12 +97,6 @@ public class OfficerFirebaseMessagingService extends FirebaseMessagingService {
                 "New FCM token generated"
         );
 
-        /*
-         * Send the new token to the Django backend.
-         *
-         * DeviceTokenManager uses our authenticated
-         * RetrofitClient.
-         */
         DeviceTokenManager.registerToken(
                 getApplicationContext(),
                 token
@@ -108,12 +111,6 @@ public class OfficerFirebaseMessagingService extends FirebaseMessagingService {
             String title,
             String body
     ) {
-
-        // The channel is created at app start by
-        // NotificationHelper.createNotificationChannels().
-
-        // When the officer taps the notification,
-        // open the mission list.
         Intent intent =
                 new Intent(
                         this,

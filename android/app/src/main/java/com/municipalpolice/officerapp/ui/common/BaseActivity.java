@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.municipalpolice.officerapp.R;
+import com.municipalpolice.officerapp.notifications.ActivePanic;
 import com.municipalpolice.officerapp.ui.dialogs.PanicAlertDialogFragment;
 import com.municipalpolice.officerapp.util.LocaleHelper;
 import com.municipalpolice.officerapp.util.PrefsManager;
@@ -33,10 +34,15 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (requiresLogin() && !new PrefsManager(this).isLoggedIn()) {
+        boolean loggedIn = new PrefsManager(this).isLoggedIn();
+        if (requiresLogin() && !loggedIn) {
             startActivity(SessionExpiry.loginIntent(this));
             finish();
+            return;
         }
+        // Clears a remembered panic alert (and its ongoing notification) once
+        // the backend says it is over. Throttled inside; no-op if none is held.
+        if (loggedIn) ActivePanic.checkOnResume(this);
     }
 
     /**

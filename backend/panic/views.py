@@ -164,9 +164,13 @@ class PanicLocationView(APIView):
     """
     GET /api/v1/panic/{id}/location/; where a colleague in panic is now.
 
-    For the officers notified of a nearby alert. Only while the alert is
-    active: a 404 tells the phone the incident is over and it can stop
-    following. Officers only; dispatchers already have the map.
+    For the officers notified of a nearby alert, and the officer who raised
+    it; see services.followable_panics. Only while the alert is active: a 404
+    tells the phone the incident is over and it can stop following.
+    Officers only; dispatchers already have the map.
+
+    Anyone else also gets 404, never 403: a 403 would confirm the alert
+    exists, which is exactly what walking the ids would be looking for.
     """
 
     permission_classes = [IsAuthenticated, IsOfficer]
@@ -175,9 +179,8 @@ class PanicLocationView(APIView):
     @extend_schema(responses=PanicLocationSerializer)
     def get(self, request, event_id: int):
         event = get_object_or_404(
-            PanicEvent.objects.select_related("officer"),
+            services.followable_panics(request.user).select_related("officer"),
             pk=event_id,
-            status=PanicEvent.Status.ACTIVE,
         )
         return Response(
             PanicLocationSerializer({

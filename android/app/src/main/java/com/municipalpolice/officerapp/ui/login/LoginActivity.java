@@ -22,6 +22,7 @@ import com.municipalpolice.officerapp.data.Callback;
 import com.municipalpolice.officerapp.data.DeviceTokenManager;
 import com.municipalpolice.officerapp.data.RetrofitAuthRepository;
 import com.municipalpolice.officerapp.model.Officer;
+import com.municipalpolice.officerapp.notifications.PanicAlert;
 import com.municipalpolice.officerapp.ui.common.BaseActivity;
 import com.municipalpolice.officerapp.ui.shift.ShiftActivity;
 import com.municipalpolice.officerapp.util.PrefsManager;
@@ -38,6 +39,12 @@ public class LoginActivity extends BaseActivity {
     private TextView tvPasswordError;
     private Button btnLogin;
     private Button btnForgotPassword;
+
+    // A cached session means this screen should forward straight on. Set in
+    // onCreate / onNewIntent, acted on (once) in onResume.
+    private boolean redirectOnResume = false;
+    // The permission prompt that onCreate defers when it is redirecting.
+    private boolean permissionsAfterRedirect = false;
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -76,11 +83,22 @@ public class LoginActivity extends BaseActivity {
         btnLogin.setOnClickListener(v -> attemptLogin());
         btnForgotPassword.setOnClickListener(v -> startForgotPasswordActivity());
 
-        // Skip straight to the shift screen if a session is already cached
-        PrefsManager prefs = new PrefsManager(this);
-        if (prefs.isLoggedIn() && RetrofitAuthRepository.getInstance(prefs).getCachedOfficer() != null) {
+        // This is the launcher, so a tapped panic notification that Android's
+        // FCM SDK displayed (app backgrounded or killed) lands here with the
+        // push data as extras. The activity is exported, so any app could
+        // send the same extras: they only choose which screen opens. The
+        // alert is remembered (ongoing notification) by PanicDetailActivity
+        // once the backend has confirmed it, never from these extras.
+        PanicAlert panic = PanicAlert.fromExtras(getIntent().getExtras());
+
+        // Skip straight to the shift screen if a session is already cached.
+        // Decided here, done in onResume: see redirectOnResume.
+        if (hasCachedSession()) {
             DeviceTokenManager.registerCurrentToken(this);
-            goToShift();
+            redirectOnResume = true;
+            permissionsAfterRedirect = true;
+        } else if (panic != null && savedInstanceState == null) {
+            Toast.makeText(this, R.string.panic_login_to_view, Toast.LENGTH_LONG).show();
         }
 
         // Sent here because the session could no longer be refreshed.
@@ -90,12 +108,68 @@ public class LoginActivity extends BaseActivity {
             Toast.makeText(this, R.string.session_expired_message, Toast.LENGTH_LONG).show();
         }
 
-        checkAndRequestPermissions();
+        // When redirecting, onResume asks after the redirect instead, the same
+        // order as before: asked here, the dialog would cover the login screen
+        // and hold up the redirect (and a panic screen) until answered.
+        if (!permissionsAfterRedirect) {
+            checkAndRequestPermissions();
+        }
+    }
+
+    /**
+     * The cached-session redirect runs here, not in onCreate. Finishing during
+     * onCreate could crash on a cold start: Android was still making this
+     * activity the top resumed one when the app had already destroyed it
+     * ("Activity client record must not be null to execute transaction item:
+     * TopResumedActivityChangeItem"). By onResume it is fully up.
+     *
+     * The flag is cleared before redirecting, so a second resume (a dialog,
+     * returning from the permission prompt) never redirects twice.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!redirectOnResume || isFinishing()) return;
+        redirectOnResume = false;
+
+        goToShift();
+        if (permissionsAfterRedirect) {
+            permissionsAfterRedirect = false;
+            checkAndRequestPermissions();
+        }
+    }
+
+    /**
+     * launchMode is singleTop, so a panic notification tapped while this
+     * screen is already on top arrives here instead of in onCreate.
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        PanicAlert panic = PanicAlert.fromExtras(intent.getExtras());
+        if (panic == null) return;
+
+        // goToShift() reads getIntent() after login. Replaced only for a
+        // panic, so an unrelated tap can't drop one that is waiting.
+        setIntent(intent);
+
+        // onResume follows onNewIntent and does the redirect, the same way as
+        // for a fresh launch.
+        if (hasCachedSession()) {
+            redirectOnResume = true;
+        } else {
+            Toast.makeText(this, R.string.panic_login_to_view, Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
     protected boolean requiresLogin() {
         return false;
+    }
+
+    private boolean hasCachedSession() {
+        PrefsManager prefs = new PrefsManager(this);
+        return prefs.isLoggedIn() && RetrofitAuthRepository.getInstance(prefs).getCachedOfficer() != null;
     }
 
     private void checkAndRequestPermissions() {
@@ -154,8 +228,23 @@ public class LoginActivity extends BaseActivity {
         });
     }
 
+    /**
+     * Leaves the login screen, after a login or with a cached session. A panic
+     * that brought the officer here (held on this activity's intent while
+     * they logged in) opens now, on top of the shift screen so Back still
+     * leads somewhere. If the app was already running underneath, the panic
+     * screen goes on top of where they were instead of a second shift screen.
+     */
     private void goToShift() {
-        startActivity(new Intent(this, ShiftActivity.class));
+        Intent shift = new Intent(this, ShiftActivity.class);
+        PanicAlert panic = PanicAlert.fromExtras(getIntent().getExtras());
+        if (panic == null) {
+            startActivity(shift);
+        } else if (isTaskRoot()) {
+            startActivities(new Intent[]{shift, panic.detailIntent(this)});
+        } else {
+            startActivity(panic.detailIntent(this));
+        }
         finish();
     }
 }

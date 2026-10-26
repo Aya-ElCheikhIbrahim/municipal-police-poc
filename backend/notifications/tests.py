@@ -16,6 +16,7 @@ up the project-wide PageNumberPagination (PAGE_SIZE 25). Responses are
 plain APIViews and return bare arrays. Hence .json()["results"] below.
 """
 
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest import mock
 
@@ -28,6 +29,8 @@ from rest_framework.test import APIClient
 from missions.models import Mission
 from notifications import push, services
 from notifications.models import Notification, NotificationType
+from panic.models import PanicEvent
+from shifts import services as shift_services
 from users.models import DeviceToken, Role, User
 
 
@@ -308,6 +311,59 @@ class PushOnNotifyTests(NotificationTestCase):
                 pass
 
         send_push.assert_not_called()
+
+
+class NearbyPanicPushTests(NotificationTestCase):
+    """Officers near a panic get a push that opens the panic screen."""
+
+    def make_event(self, panicking):
+        # A real row, since each notification now links to it. Created
+        # directly rather than through panic.services.trigger_panic, which
+        # would send its own notifications and muddy what this suite counts.
+        shift, _ = shift_services.start_shift(panicking)
+        return PanicEvent.objects.create(
+            officer=panicking,
+            shift=shift,
+            latitude=Decimal("34.436700"),
+            longitude=Decimal("35.849700"),
+        )
+
+    def notify(self, event):
+        with self.captureOnCommitCallbacks(execute=True):
+            services.notify_nearby_officers_of_panic(event, [(self.other_officer, 850.0)])
+
+    @mock.patch("notifications.push.send_push")
+    def test_push_carries_the_panicking_officers_phone(self, send_push):
+        self.officer.phone = "+961 3 123 456"
+        self.officer.save(update_fields=["phone"])
+
+        event = self.make_event(self.officer)
+        self.notify(event)
+
+        send_push.assert_called_once()
+        user, _title, _body, data = send_push.call_args.args
+        self.assertEqual(user, self.other_officer)
+        self.assertEqual(data["officer_phone"], "+961 3 123 456")
+        self.assertEqual(data["panic_id"], event.id)
+        self.assertEqual(data["officer_name"], self.officer.full_name)
+
+    @mock.patch("notifications.push.send_push")
+    def test_phone_is_sent_empty_when_the_officer_has_none(self, send_push):
+        """Sent as "", not omitted: an empty number is unambiguous to the app."""
+        self.notify(self.make_event(self.officer))
+
+        data = send_push.call_args.args[3]
+        self.assertIn("officer_phone", data)
+        self.assertEqual(data["officer_phone"], "")
+
+    @mock.patch("notifications.push.send_push")
+    def test_the_notification_links_to_its_alert(self, send_push):
+        """That link is what lets the officer follow the alert's location."""
+        event = self.make_event(self.officer)
+        self.notify(event)
+
+        notification = Notification.objects.get(recipient=self.other_officer)
+        self.assertEqual(notification.related_panic_event, event)
 
 
 @override_settings(FCM_CREDENTIALS_FILE="secrets/test-key.json")

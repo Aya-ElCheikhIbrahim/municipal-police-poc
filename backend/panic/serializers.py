@@ -88,16 +88,34 @@ class ActivePanicSerializer(serializers.ModelSerializer):
         ]
 
 
+class PanicOfficerSerializer(OfficerBriefSerializer):
+    """
+    OfficerBrief plus a phone number, for the location endpoint only.
+
+    A colleague on the way needs to be able to call. OfficerBrief itself must
+    not grow a phone: it labels mission events, assignment lists, shift rows
+    and report exports, and none of those should start handing out numbers.
+    A subclass under its own name, so the schema gets a separate component
+    instead of a second, different `OfficerBrief`.
+
+    `phone` is an empty string when the officer has none (the column is
+    blank=True); the app hides the call button in that case.
+    """
+
+    phone = serializers.CharField(allow_blank=True)
+
+
 class PanicLocationSerializer(serializers.Serializer):
     """
     GET /api/v1/panic/{id}/location/ — for an officer on their way to help.
 
-    Narrow on purpose: who it is and where they are now. The outcome columns
-    and the battery belong to the dispatcher feed, not to a colleague en route.
+    Narrow on purpose: who it is, how to reach them, and where they are now.
+    The outcome columns and the battery belong to the dispatcher feed, not to
+    a colleague en route.
     """
 
     id = serializers.IntegerField()
-    officer = OfficerBriefSerializer()
+    officer = PanicOfficerSerializer()
     latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
     longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
     accuracy_m = serializers.FloatField(allow_null=True)

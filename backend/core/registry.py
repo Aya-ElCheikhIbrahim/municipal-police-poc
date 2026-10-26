@@ -94,7 +94,7 @@ DEFINITIONS: dict[str, Definition] = {
     ),
     
     "panic_nearby_radius_m": Definition(
-        default=2000,
+        default=5000,
         description="Officers on duty within this many metres of a panic alert are notified.",
         coerce=int,
         minimum=100,

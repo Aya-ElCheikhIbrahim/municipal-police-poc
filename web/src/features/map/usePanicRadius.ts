@@ -11,7 +11,7 @@ import type { ActiveOfficer } from '../officers/types';
  */
 
 /** Used until the server's value arrives, and if the request fails. */
-const FALLBACK_RADIUS_M = 2000;
+const FALLBACK_RADIUS_M = 5000;
 
 interface SystemSettings {
   panic_nearby_radius_m?: number;
@@ -27,7 +27,7 @@ export function usePanicRadius({ mapRef, officers }: UsePanicRadiusOptions) {
   const circlesRef = useRef<Map<number, L.Circle>>(new Map());
 
   // The radius is a system setting a supervisor can change, so read it rather
-  // than hard-coding 2 km twice. Read once: it changes about never, and the
+  // than hard-coding 5 km twice. Read once: it changes about never, and the
   // map already polls enough.
   useEffect(() => {
     let cancelled = false;

@@ -194,9 +194,8 @@ def notify_panic_triggered(event):
     every dispatcher for one emergency is exactly what the idempotent trigger
     exists to prevent.
 
-    The officer and the position are written into the body because
-    Notification has no FK to PanicEvent yet, the related_panic_event field
-    in models.py is still commented out, and wiring it needs a migration.
+    The officer and the position are also written into the body so the
+    dashboard's feed reads on its own; related_panic_event is the link.
     """
     recipients = User.objects.filter(
         role__in=[Role.DISPATCHER, Role.SUPERVISOR],
@@ -206,6 +205,7 @@ def notify_panic_triggered(event):
         Notification(
             recipient=user,
             notification_type=NotificationType.PANIC_ALERT,
+            related_panic_event=event,
             title="Panic alert",
             body=(
                 f"{event.officer.full_name} ({event.officer.badge_number}) "
@@ -218,10 +218,16 @@ def notify_panic_triggered(event):
 
 @transaction.atomic
 def notify_nearby_officers_of_panic(event, nearby):
+    """
+    The officers near a new panic alert. related_panic_event is not just a
+    label here: it is what lets each of them follow the alert on
+    GET /panic/{id}/location/, which refuses officers without one.
+    """
     notifications = Notification.objects.bulk_create([
         Notification(
             recipient=officer,
             notification_type=NotificationType.PANIC_ALERT,
+            related_panic_event=event,
             title=f"{event.officer.full_name} has hit the panic button",
             body=(
                 f"{distance / 1000:.1f} km from you, "
@@ -232,9 +238,14 @@ def notify_nearby_officers_of_panic(event, nearby):
     ])
 
     for notification in notifications:
+        # officer_phone travels in the push so the call button works the moment
+        # the screen opens, before the first location poll. Sent as "" when the
+        # officer has no number rather than left out, so "no number" and "an
+        # older backend that never sent one" read differently.
         _push_after_commit(notification, {
             "panic_id": event.id,
             "officer_name": event.officer.full_name,
+            "officer_phone": event.officer.phone,
             "latitude": event.latitude,
             "longitude": event.longitude,
         })
