@@ -147,8 +147,6 @@
     <string name="mission_photo_required_title">صورة مطلوبة</string>
     <string name="mission_photo_required_stop_message">يجب عليك إضافة صورة لإيقاف هذه المهمة.</string>
     <string name="panic_button_text">للطوارئ</string>
-    <string name="panic_detail_phone">الهاتف: %1$s</string>
-    <string name="panic_detail_no_phone">لا يوجد رقم هاتف مسجّل</string>
     <string name="panic_detail_call">اتصال</string>
     <string name="panic_detail_no_dialer">لا يوجد تطبيق هاتف لإجراء المكالمة.</string>
     <string name="panic_detail_location_from_alert">يُعرض الموقع وقت إطلاق الإنذار. جارٍ جلب الموقع المباشر…</string>
@@ -162,5 +160,4 @@
     <string name="panic_ongoing_body">إنذار طوارئ قائم. اضغط لعرض الموقع المباشر.</string>
     <string name="panic_login_to_view">سجّل الدخول لفتح إنذار الطوارئ.</string>
     <string name="panic_detail_title">إنذار طوارئ</string>
-    <string name="panic_detail_needs_help">بحاجة إلى مساعدة الآن</string>
 </resources>

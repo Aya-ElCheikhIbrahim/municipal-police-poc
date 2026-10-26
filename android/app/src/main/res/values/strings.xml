@@ -149,8 +149,6 @@
     <string name="mission_photo_required_title">Photo required</string>
     <string name="mission_photo_required_stop_message">You need to add an image to stop this mission.</string>
     <string name="panic_button_text">Emergency</string>
-    <string name="panic_detail_phone">Phone: %1$s</string>
-    <string name="panic_detail_no_phone">No phone number on file</string>
     <string name="panic_detail_call">Call</string>
     <string name="panic_detail_no_dialer">No phone app is available to place the call.</string>
     <string name="panic_detail_location_from_alert">Showing the position from the alert. Connecting to live location…</string>
@@ -164,5 +162,4 @@
     <string name="panic_ongoing_body">Panic alert in progress. Tap to see their live location.</string>
     <string name="panic_login_to_view">Log in to open the panic alert.</string>
     <string name="panic_detail_title">Panic alert</string>
-    <string name="panic_detail_needs_help">Needs help now</string>
 </resources>
