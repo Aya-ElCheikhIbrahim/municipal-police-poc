@@ -8,7 +8,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -16,6 +15,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.text.BidiFormatter;
 import androidx.core.text.TextDirectionHeuristicsCompat;
+
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 
 import com.municipalpolice.officerapp.R;
 import com.municipalpolice.officerapp.data.Callback;
@@ -49,12 +50,10 @@ public class PanicDetailActivity extends BaseActivity {
     public static final String EXTRA_LON = "extra_lon";
 
     private MapView mapView;
-    private TextView tvUserName;
-    private TextView tvUserPhone;
     private TextView tvLastUpdated;
     private TextView tvLocationStatus;
     private ImageButton btnBack;
-    private Button btnCallOfficer;
+    private ExtendedFloatingActionButton btnCallOfficer;
 
     private PanicRepository panicRepository;
 
@@ -66,6 +65,7 @@ public class PanicDetailActivity extends BaseActivity {
     private double currentLon = 0.0;
 
     private Marker panicMarker;
+    private PanicNameInfoWindow nameInfoWindow;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable locationPollRunnable = this::pollLocation;
     private static final long POLL_INTERVAL_MS = 10000; // Poll every 10 seconds
@@ -100,15 +100,12 @@ public class PanicDetailActivity extends BaseActivity {
             currentLon = getIntent().getDoubleExtra(EXTRA_LON, 0.0);
         }
 
-        tvUserName = findViewById(R.id.tvUserName);
-        tvUserPhone = findViewById(R.id.tvUserPhone);
         tvLastUpdated = findViewById(R.id.tvLastUpdated);
         tvLocationStatus = findViewById(R.id.tvLocationStatus);
         btnBack = findViewById(R.id.btnBack);
         btnCallOfficer = findViewById(R.id.btnCallOfficer);
         mapView = findViewById(R.id.mapView);
 
-        tvUserName.setText(userName);
         renderPhone();
 
         btnBack.setOnClickListener(v -> finish());
@@ -146,11 +143,21 @@ public class PanicDetailActivity extends BaseActivity {
         if (panicMarker == null) {
             panicMarker = new Marker(mapView);
             panicMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+            nameInfoWindow = new PanicNameInfoWindow(mapView);
+            panicMarker.setInfoWindow(nameInfoWindow);
+            // The name bubble is meant to stay up; a tap re-shows it rather
+            // than toggling it off the way a default marker would.
+            panicMarker.setOnMarkerClickListener((m, mv) -> {
+                m.showInfoWindow();
+                return true;
+            });
             mapView.getOverlays().add(panicMarker);
         }
-        panicMarker.setTitle(userName + " (IN PANIC)");
 
+        nameInfoWindow.setName(userName);
         panicMarker.setPosition(point);
+        // Re-anchor the bubble over the pin's new position.
+        panicMarker.showInfoWindow();
         mapView.invalidate();
     }
 
@@ -222,8 +229,8 @@ public class PanicDetailActivity extends BaseActivity {
         PanicLocationResponse.Officer officer = result.getOfficer();
         if (officer != null) {
             if (officer.getFullName() != null && !officer.getFullName().trim().isEmpty()) {
+                // The map bubble is refreshed with this name by updateMapLocation below.
                 userName = officer.getFullName();
-                tvUserName.setText(userName);
             }
             userPhone = dialableOrNull(officer.getPhone());
             renderPhone();
@@ -307,13 +314,16 @@ public class PanicDetailActivity extends BaseActivity {
 
     private void renderPhone() {
         if (userPhone == null) {
-            tvUserPhone.setText(R.string.panic_detail_no_phone);
+            // The number now lives only on the Call button, so with nothing to
+            // dial there is nothing to show: hide it.
             btnCallOfficer.setVisibility(View.GONE);
         } else {
             // Forced LTR so "+961 3 ..." does not get reordered inside Arabic text.
             String wrapped = BidiFormatter.getInstance()
                     .unicodeWrap(userPhone, TextDirectionHeuristicsCompat.LTR);
-            tvUserPhone.setText(getString(R.string.panic_detail_phone, wrapped));
+            btnCallOfficer.setText(wrapped);
+            btnCallOfficer.setContentDescription(
+                    getString(R.string.panic_detail_call) + " " + userPhone);
             btnCallOfficer.setVisibility(View.VISIBLE);
         }
     }
