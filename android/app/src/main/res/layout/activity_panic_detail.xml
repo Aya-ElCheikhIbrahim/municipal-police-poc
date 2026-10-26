@@ -111,6 +111,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="@dimen/space_l"
         android:contentDescription="@string/panic_detail_call"
+        android:text="@string/panic_detail_call"
         android:textColor="@color/text_on_brand"
         android:textSize="@dimen/text_title"
         android:textStyle="bold"

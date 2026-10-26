@@ -325,6 +325,10 @@ public class PanicDetailActivity extends BaseActivity {
             btnCallOfficer.setContentDescription(
                     getString(R.string.panic_detail_call) + " " + userPhone);
             btnCallOfficer.setVisibility(View.VISIBLE);
+            // Show the label (the number), not just the icon: an ExtendedFAB
+            // whose text is set after it was laid out empty stays collapsed
+            // until it is told to extend.
+            btnCallOfficer.extend();
         }
     }
 
